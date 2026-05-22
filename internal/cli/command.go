@@ -18,6 +18,11 @@ var implementedCommands = map[string]func(commandSpec) *cobra.Command{
 	"show-work":          newShowWorkCommand,
 	"polish-work":        newPolishWorkCommand,
 	"actualize-work":     newActualizeWorkCommand,
+	"deliver-work":       newDeliverWorkCommand,
+	"obtain-work":        newObtainWorkCommand,
+	"accept-work":        newAcceptWorkCommand,
+	"release-work":       newReleaseWorkCommand,
+	"show-release-notes": newShowReleaseNotesCommand,
 }
 
 func newCommand(spec commandSpec) *cobra.Command {
