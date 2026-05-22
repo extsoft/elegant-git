@@ -1,0 +1,33 @@
+---
+description: Use mise run fix and build only for agent work
+alwaysApply: true
+---
+
+# mise
+
+Repo root: `.config/mise/config.toml`. Run **`mise tasks`** when you need to
+see what is available.
+
+For **agent work**, use only:
+
+| Task | Use |
+| --- | --- |
+| `fix` | Lint/format/autofix via hk — run after code changes |
+| `build` | Produce `dist/git-elegant` |
+
+```bash
+# ✅ Agent work
+mise run fix
+mise run build
+
+# ❌ Never for agents (CI/humans only)
+mise run check
+mise run test
+```
+
+Do not run `go test`, `go build`, or hk check directly unless the user
+explicitly asks. Prefer `mise run fix` then `mise run build` when verification
+is needed.
+
+**New tasks:** executable `*.bash` under `.config/mise/tasks/` with
+`#MISE description="..."`, or `[tasks.*]` in `config.toml`.
