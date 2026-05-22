@@ -1,5 +1,7 @@
 # Execute loop checklist
 
+**Scope:** one task per agent run unless the user asked to continue through multiple tasks.
+
 Copy into your working notes; check before marking `done`.
 
 ## Per task
@@ -14,6 +16,12 @@ Copy into your working notes; check before marking `done`.
 
 ## Verification
 
+- [ ] **`mise run fix`** (and **`mise run test`** when applicable) from repo root — not `mise run check` unless verifying CI parity explicitly
 - [ ] Commands from `plan.md` or task **Steps** run successfully (record command + outcome)
 - [ ] Project CI or test suite green per DoD
 - [ ] User-visible docs updated when behavior changed
+
+## After this task
+
+- [ ] Stopped after one task (did not start the next `pending` task unless user requested multi-task run)
+- [ ] Handoff names next task id or states the folder is complete

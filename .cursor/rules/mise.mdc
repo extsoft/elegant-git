@@ -1,0 +1,14 @@
+---
+description: Use mise tasks for format, test, and repo commands
+alwaysApply: true
+---
+
+# mise
+
+Applies at the repo root when `.config/mise/config.toml` is present.
+
+- **Format / verify:** `mise run fix` from the repo root. Fix runs linters and autofix via hk—**do not** run `mise run check` during local/agent work. CI uses `mise run check` in GitHub Actions only.
+- **Tests / build:** `mise run test`, `mise run build` — prefer these over raw `go test` / `go build` unless the user specifies otherwise.
+- **Discover commands:** `mise tasks` — prefer `mise run <task>` over ad-hoc shell unless the user specifies otherwise.
+- **Setup:** `mise run init` once after clone (installs tools, optional hk hook, `init-ci`).
+- **New automation:** add bash tasks under `.config/mise/tasks/` or entries in `.config/mise/config.toml`, unless the user specifies otherwise.

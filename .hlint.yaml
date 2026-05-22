@@ -1033,4 +1033,3 @@
         , note: "If you import 'die' from Universum, it's already lifted" }
 - warn: { name: "liftIO is not needed", lhs: liftIO (stToIO x), rhs: Universum.stToIO x
         , note: "If you import 'stToIO' from Universum, it's already lifted" }
-

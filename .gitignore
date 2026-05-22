@@ -6,3 +6,12 @@ version
 dist-newstyle/
 out/
 .DS_Store
+.tasks/**/*.md
+
+# Go
+/dist/
+*.exe
+*.test
+
+# mise
+.config/mise/mise.lock

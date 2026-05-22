@@ -35,7 +35,7 @@ Concise reminders for plan and execute skills. Load on demand; do not restate in
 ## Delivery
 
 - **Docs-as-code:** Update README, man pages, or `docs/` in the same change as behavior.
-- **Lint + format:** Run project formatters and linters before marking a task done.
+- **Lint + format:** From repo root, run **`mise run fix`** before marking a task done (not `mise run check`—that is for CI). Use **`mise run test`** for Go tests when applicable. See [`.cursor/rules/mise.mdc`](../../.cursor/rules/mise.mdc).
 - **CI green:** Do not merge on red; document flake retries if known.
 - **Code-review self-check:** Diff sanity, error paths, naming, tests cover acceptance criteria.
 - **Git hygiene:** Atomic commits per task; clean history (rebase when appropriate); signed commits when project requires.

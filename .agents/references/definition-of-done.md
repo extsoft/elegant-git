@@ -6,7 +6,7 @@ Apply to every task unless `plan.md` explicitly narrows the list.
 
 - [ ] All `acceptance` criteria in the task frontmatter are verified (test, manual check, or command output captured in task notes).
 - [ ] Tests added or updated for behavior changes; existing tests still pass.
-- [ ] Lint and format checks pass using the project's documented commands (named in `plan.md` or README).
+- [ ] Lint and format pass via **`mise run fix`** (and **`mise run test`** when Go behavior changed); do not use `mise run check` for local/agent verification—CI uses `check` in GitHub Actions.
 - [ ] Docs updated when user-visible behavior changes.
 - [ ] Deprecation or contract log updated in the same change if the project maintains one and this task changes a public contract.
 - [ ] No secrets, tokens, or PII added to source or logs.

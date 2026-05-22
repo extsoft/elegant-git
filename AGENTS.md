@@ -7,9 +7,13 @@ Discover layout from the repo root (README, CONTRIBUTING, package manifests). Do
 | Path | Role |
 | --- | --- |
 | `.agents/` | Agent skills and shared references ([agentskills.io](https://agentskills.io/)) |
+| `.config/mise/` | Dev tools, `mise run fix` / `test` / `build` tasks ([mise](https://mise.jdx.dev/)) |
+| `.cursor/rules/mise.mdc` | Agents: use `mise run fix` for lint/format (not `check`) |
 | `.tasks/` | Request plans and executable task files |
 
 Record discovered paths (source, tests, CI, docs) in `plan.md` when planning a rewrite or greenfield work.
+
+Run `mise run init` once after clone. For lint/format during agent work, use **`mise run fix`** (not `mise run check`; CI runs `check` in Actions).
 
 ## Workflow
 

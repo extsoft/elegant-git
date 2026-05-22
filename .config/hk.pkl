@@ -1,0 +1,97 @@
+amends "package://github.com/jdx/hk/releases/download/v1.40.0/hk@1.40.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.40.0/hk@1.40.0#/Builtins.pkl"
+
+fail_fast = false
+
+hooks {
+  ["pre-commit"] {
+    stage = true
+    stash = true
+    fix = true
+    steps = linters
+  }
+  ["fix"] {
+    stage = false
+    stash = false
+    fix = true
+    steps = linters
+  }
+  ["check"] {
+    steps = linters
+  }
+}
+
+local linters = new Mapping<String, Step> {
+  ...pkl
+  ...go
+  ...generic
+  ...shell
+}
+
+local pkl = new Mapping<String, Step> {
+  ["pkl-eval"] {
+    glob = "**/*.pkl"
+    check = "pkl eval {{files}} >/dev/null"
+  }
+  ["pkl-format"] {
+    glob = "**/*.pkl"
+    check = "pkl format --diff-name-only {{files}}"
+    fix = "pkl format --write {{files}} || true"
+  }
+}
+
+local go = new Mapping<String, Step> {
+  ["gofmt"] {
+    batch = true
+    glob = List("cmd/**/*.go", "internal/**/*.go")
+    check = "out=$(gofmt -l -s {{files}}); [ -n \"$out\" ] && exit 1; exit 0"
+    fix = "gofmt -w -l -s {{files}}"
+  }
+  ["go test"] {
+    glob = List("cmd/**/*.go", "internal/**/*.go")
+    check = "go test ./..."
+  }
+}
+
+local generic = new Mapping<String, Step> {
+  ["prosefmt"] {
+    batch = true
+    glob = "**/*"
+    exclude =
+      List(
+        "**/*.go",
+        "**/go.*",
+        "libexec/**",
+        "tests/**",
+        "src/**",
+        "app/**",
+        "test/**",
+        "dist/**",
+        "site/**",
+        ".stack-work/**",
+        "aaa/**",
+        ".git/**",
+        "completions/**",
+        "**/*.hs",
+        "docs/**",
+      )
+    check = "prosefmt check --replace-tabs-with-spaces 2 {{files}}"
+    fix = "prosefmt write --replace-tabs-with-spaces 2 {{files}}"
+  }
+}
+
+local shell = new Mapping<String, Step> {
+  ["shfmt"] {
+    batch = true
+    glob = List(".config/mise/tasks/*.bash", "install.bash")
+    check = "shfmt --list --indent 2 --simplify --diff {{files}}"
+    fix = "shfmt --list --indent 2 --simplify --write {{files}}"
+  }
+  ["shellcheck"] {
+    depends = "shfmt"
+    batch = true
+    glob = List(".config/mise/tasks/*.bash", "install.bash")
+    exclude = List("install.bash")
+    check = "shellcheck {{files}}"
+  }
+}
