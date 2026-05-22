@@ -53,7 +53,7 @@ func init() {
 	})
 
 	for _, spec := range allCommandSpecs() {
-		rootCmd.AddCommand(newStubCommand(spec))
+		rootCmd.AddCommand(newCommand(spec))
 	}
 }
 

@@ -90,21 +90,43 @@ func IsGitAcquired() bool {
 	return strings.TrimSpace(out) == AcquiredValue
 }
 
+// ConfigField describes one interactive git config key.
+type ConfigField struct {
+	Key, Message, DefaultVal string
+}
+
 // BasicsConfiguration interactively sets user.name, user.email, core.editor.
 func BasicsConfiguration(scope string, onlyUnset bool, reader io.Reader) error {
-	text.InfoBox("Configuring basics...")
-	fields := []struct {
-		key, message, defaultVal string
-	}{
+	return basicsConfiguration(scope, onlyUnset, reader, []ConfigField{
 		{"user.name", "What is your user name?", configGet(scope, "user.name")},
 		{"user.email", "What is your user email?", configGet(scope, "user.email")},
 		{"core.editor", "What is the command to launching an editor?", defaultEditor(scope)},
-	}
+	})
+}
+
+// RepositoryBasicsConfiguration sets user, editor, default branch, and protected branches locally.
+func RepositoryBasicsConfiguration(scope string, reader io.Reader) error {
+	return basicsConfiguration(scope, false, reader, []ConfigField{
+		{"user.name", "What is your user name?", configGet(scope, "user.name")},
+		{"user.email", "What is your user email?", configGet(scope, "user.email")},
+		{"core.editor", "What is the command to launching an editor?", defaultEditor(scope)},
+		{DefaultBranchKey, "What is the default branch?", defaultBranchDefault(scope)},
+		{ProtectedBranchesKey, "What are protected branches (split with space)?", protectedBranchesDefault(scope)},
+	})
+}
+
+// MarkAcquired sets elegant-git.acquired for scope.
+func MarkAcquired(scope string) error {
+	return git.Verbose("config", scope, AcquiredKey, AcquiredValue)
+}
+
+func basicsConfiguration(scope string, onlyUnset bool, reader io.Reader, fields []ConfigField) error {
+	text.InfoBox("Configuring basics...")
 	notify := true
 	for _, f := range fields {
 		if onlyUnset {
-			if cur := configGet(scope, f.key); cur != "" {
-				text.CommandText("git", "config", scope, f.key, cur)
+			if cur := configGet(scope, f.Key); cur != "" {
+				text.CommandText("git", "config", scope, f.Key, cur)
 				continue
 			}
 		}
@@ -112,12 +134,12 @@ func BasicsConfiguration(scope string, onlyUnset bool, reader io.Reader) error {
 			text.InfoText("Please hit enter if you wish {default value}.")
 			notify = false
 		}
-		answer, err := ask(reader, f.message, f.defaultVal)
+		answer, err := ask(reader, f.Message, f.DefaultVal)
 		if err != nil {
 			return err
 		}
 		if answer != "" {
-			if err := git.Verbose("config", scope, f.key, answer); err != nil {
+			if err := git.Verbose("config", scope, f.Key, answer); err != nil {
 				return err
 			}
 		}
@@ -225,6 +247,20 @@ func gitConfigLocal(key string) string {
 		return ""
 	}
 	return strings.TrimSpace(out)
+}
+
+func protectedBranchesDefault(scope string) string {
+	if v := configGet(scope, ProtectedBranchesKey); v != "" {
+		return v
+	}
+	return ProtectedBranchesDef
+}
+
+func defaultBranchDefault(scope string) string {
+	if v := configGet(scope, DefaultBranchKey); v != "" {
+		return v
+	}
+	return DefaultBranchDefault
 }
 
 func defaultEditor(scope string) string {

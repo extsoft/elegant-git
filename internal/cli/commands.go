@@ -80,6 +80,16 @@ func allCommandSpecs() []commandSpec {
 	return out
 }
 
+// CommandNames returns all elegant-git subcommand names.
+func CommandNames() []string {
+	specs := allCommandSpecs()
+	names := make([]string, len(specs))
+	for i, s := range specs {
+		names[i] = s.name
+	}
+	return names
+}
+
 func lookupCommand(name string) (commandSpec, bool) {
 	for _, spec := range allCommandSpecs() {
 		if spec.name == name {
