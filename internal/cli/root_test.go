@@ -41,7 +41,7 @@ func TestUnknownCommandExit46(t *testing.T) {
 
 func TestNoWorkflowsFlagAccepted(t *testing.T) {
 	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "--no-workflows", "start-work")
+	cmd := exec.Command(bin, "--no-workflows", "deliver-work")
 	out, _ := cmd.CombinedOutput()
 	if !strings.Contains(string(out), "not implemented") {
 		t.Fatalf("unexpected output: %s", out)
