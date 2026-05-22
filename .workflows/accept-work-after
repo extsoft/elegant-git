@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# brew upgrade --fetch-HEAD elegant-git
+# open https://github.com/extsoft/elegant-git/issues
+# git elegant acquire-git
