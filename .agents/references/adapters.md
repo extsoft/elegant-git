@@ -4,7 +4,7 @@ External trackers sync from `.tasks/` task files. Today only the GitHub stub exi
 
 ## GitHub (stub)
 
-**Script:** `.agents/skills/execute/scripts/github-sync.sh`
+**Script:** `.agents/skills/tasks/execute/scripts/github-sync.sh`
 
 **Input:** Path to a task file (e.g. `.tasks/auth-rewrite-a1b2/0001-scaffold-app.md`).
 
@@ -30,6 +30,6 @@ github:
 ## Adding adapters
 
 1. Document contract in this file.
-2. Add script under `.agents/skills/execute/scripts/` or a dedicated adapter skill.
+2. Add script under `.agents/skills/tasks/execute/scripts/` or a dedicated adapter skill.
 3. Call from `execute` skill after each status transition.
 4. Keep task files the source of truth; adapters are projections, not masters.

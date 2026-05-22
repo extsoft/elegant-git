@@ -22,4 +22,4 @@
 ...
 
 ## Next step
-Run the **plan** skill to commit to an approach and create `.tasks/<slug>-<id>/`.
+Run **tasks-plan** to commit to an approach and create `.tasks/<slug>-<id>/`.

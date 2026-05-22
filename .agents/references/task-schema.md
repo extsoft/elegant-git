@@ -1,5 +1,7 @@
 # Task schema
 
+Contract overview: [`.agents/skills/tasks/README.md`](../skills/tasks/README.md).
+
 ## Folder layout
 
 ```

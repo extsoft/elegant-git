@@ -6,7 +6,7 @@ version
 dist-newstyle/
 out/
 .DS_Store
-.tasks/**/*.md
+.tasks/
 
 # Go
 /dist/
