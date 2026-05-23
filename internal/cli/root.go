@@ -1,11 +1,25 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
+	completioncmd "github.com/bees-hive/elegant-git/internal/cli/completion"
+	gitcmd "github.com/bees-hive/elegant-git/internal/cli/git"
+	hookcmd "github.com/bees-hive/elegant-git/internal/cli/hook"
+	legacyshim "github.com/bees-hive/elegant-git/internal/cli/legacy"
+	releasecmd "github.com/bees-hive/elegant-git/internal/cli/release"
+	repocmd "github.com/bees-hive/elegant-git/internal/cli/repo"
+	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	versioncmd "github.com/bees-hive/elegant-git/internal/cli/version"
+	workcmd "github.com/bees-hive/elegant-git/internal/cli/work"
+	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/exitcode"
+	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/bees-hive/elegant-git/internal/runtime"
 	"github.com/bees-hive/elegant-git/internal/version"
 	"github.com/bees-hive/elegant-git/internal/workflows"
 	"github.com/spf13/cobra"
@@ -24,6 +38,7 @@ var rootCmd = &cobra.Command{
 
 // Execute runs the git-elegant CLI.
 func Execute() {
+	defer deprecation.Flush()
 	if err := rootCmd.Execute(); err != nil {
 		if isUnknownCommand(err) {
 			name := unknownCommandName(err)
@@ -43,22 +58,71 @@ func init() {
 	rootCmd.SetVersionTemplate("{{.Version}}\n")
 
 	rootCmd.PersistentFlags().BoolVar(&workflows.Skip, "no-workflows", false, "disables available workflows")
-
-	rootCmd.AddCommand(&cobra.Command{
-		Use:    "version",
-		Hidden: true,
-		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Println(version.Version)
-		},
-	})
-
-	for _, spec := range allCommandSpecs() {
-		rootCmd.AddCommand(newCommand(spec))
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if err := guardInvocationDepth(); err != nil {
+			return err
+		}
+		git.Use(git.RealRunner{})
+		ctx := cmd.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		ctx = git.WithRunner(ctx, git.RealRunner{})
+		ctx = runtime.WithWorkspace(ctx, runtime.DefaultWorkspace())
+		ctx = runtime.WithEditor(ctx, runtime.DefaultEditor())
+		ctx = cliruntime.WithStdin(ctx, os.Stdin)
+		cmd.SetContext(ctx)
+		return nil
 	}
+
+	rootCmd.AddCommand(versioncmd.NewCommand())
+	rootCmd.AddCommand(completioncmd.NewCommand())
+
+	gitCmd := gitcmd.NewCommand()
+	AttachObjectGroup(gitCmd, "git")
+	rootCmd.AddCommand(gitCmd)
+
+	repoCmd := repocmd.NewCommand()
+	AttachObjectGroup(repoCmd, "repo")
+	rootCmd.AddCommand(repoCmd)
+
+	hookCmd := hookcmd.NewCommand()
+	AttachObjectGroup(hookCmd, "hook")
+	rootCmd.AddCommand(hookCmd)
+
+	workCmd := workcmd.NewCommand()
+	AttachObjectGroup(workCmd, "work")
+	rootCmd.AddCommand(workCmd)
+
+	releaseCmd := releasecmd.NewCommand()
+	AttachObjectGroup(releaseCmd, "release")
+	rootCmd.AddCommand(releaseCmd)
+	legacyshim.RegisterShims(rootCmd)
 }
 
 func isUnknownCommand(err error) bool {
 	return strings.Contains(err.Error(), "unknown command")
+}
+
+const invocationDepthEnv = "ELEGANT_GIT_DEPTH"
+
+func guardInvocationDepth() error {
+	const maxDepth = 16
+	d := 0
+	if s := os.Getenv(invocationDepthEnv); s != "" {
+		n, err := strconv.Atoi(s)
+		if err == nil {
+			d = n
+		}
+	}
+	if d >= maxDepth {
+		return fmt.Errorf(
+			"elegant-git: nested invocation limit (%d); check workflow hooks for recursive `git elegant` / `git deliver-work` calls",
+			maxDepth,
+		)
+	}
+	_ = os.Setenv(invocationDepthEnv, strconv.Itoa(d+1))
+	return nil
 }
 
 func unknownCommandName(err error) string {

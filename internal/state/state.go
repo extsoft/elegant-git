@@ -11,19 +11,14 @@ import (
 
 // IsThereActiveRebase reports whether a rebase is in progress.
 func IsThereActiveRebase() bool {
-	_, err := gitPath("rebase-merge")
-	if err == nil {
-		return true
-	}
-	_, err = gitPath("rebase-apply")
-	return err == nil
+	return rebaseDir("rebase-merge") != "" || rebaseDir("rebase-apply") != ""
 }
 
 // RebasingBranch returns the branch name being rebased, or "" if none.
 func RebasingBranch() string {
 	for _, loc := range []string{"rebase-merge", "rebase-apply"} {
-		path, err := gitPath(loc)
-		if err != nil {
+		path := rebaseDir(loc)
+		if path == "" {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(path, "head-name"))
@@ -47,13 +42,13 @@ func IsThereUpstreamFor(branch string) bool {
 	return err == nil
 }
 
-// UpstreamOf returns the upstream branch name for branch, or "" if unset.
+// UpstreamOf returns the upstream branch name for branch (e.g. origin/main), or "" if unset.
 func UpstreamOf(branch string) string {
-	out := git.OutputOK("rev-parse", "--abbrev-ref", branch+"@{upstream}")
-	if out == "" {
+	out, err := git.Output("rev-parse", "--abbrev-ref", branch+"@{upstream}")
+	if err != nil {
 		return ""
 	}
-	return out
+	return strings.TrimSpace(out)
 }
 
 // IsRemoteBranch reports whether refs/remotes/<branch> exists.
@@ -74,4 +69,17 @@ func gitPath(name string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(out), nil
+}
+
+func rebaseDir(name string) string {
+	path, err := gitPath(name)
+	if err != nil || !isRebaseMetadataDir(path) {
+		return ""
+	}
+	return path
+}
+
+func isRebaseMetadataDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }

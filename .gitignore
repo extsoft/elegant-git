@@ -7,11 +7,9 @@ dist-newstyle/
 out/
 .DS_Store
 .tasks/
+.agents/plans/*
 
 # Go
 /dist/
 *.exe
 *.test
-
-# mise
-.config/mise/mise.lock

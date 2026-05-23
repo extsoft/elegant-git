@@ -23,11 +23,12 @@ mise run build
 # ❌ Never for agents (CI/humans only)
 mise run check
 mise run test
+mise run install
 ```
 
 Do not run `go test`, `go build`, or hk check directly unless the user
 explicitly asks. Prefer `mise run fix` then `mise run build` when verification
-is needed.
+is needed. Humans during development install with `mise run install` (default `~/.local/bin`, falls back to `~/bin`; override with `INSTALL_DIR`).
 
 **New tasks:** executable `*.bash` under `.config/mise/tasks/` with
 `#MISE description="..."`, or `[tasks.*]` in `config.toml`.

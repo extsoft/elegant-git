@@ -1,0 +1,17 @@
+---
+description: Deprecation policy for CLI and config changes
+globs:
+  - internal/cli/**
+  - internal/config/**
+  - internal/workflows/**
+  - internal/pipe/**
+  - internal/deprecation/**
+---
+
+# Deprecations
+
+When you change a public surface, read [.agents/references/deprecations.md](../../.agents/references/deprecations.md) and add a row to [.agents/references/deprecations-register.md](../../.agents/references/deprecations-register.md) (`id`, `introduced`, `remove_after`, `status`).
+
+- Record usage via `internal/deprecation` (`Record`, constants `DEP-001`…).
+- Provide a migrate command on the relevant object (`git migrate`, `repo migrate`, `hook migrate`).
+- Keep legacy behavior until `remove_after`; hidden Cobra shims live in `internal/cli/legacy`.

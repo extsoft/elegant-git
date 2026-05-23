@@ -41,6 +41,8 @@ Skills follow [Agent Skills](https://agentskills.io/). Templates under each skil
 | [`.agents/references/task-schema.md`](.agents/references/task-schema.md) | Task file frontmatter and lifecycle |
 | [`.agents/references/definition-of-done.md`](.agents/references/definition-of-done.md) | Definition of Done |
 | [`.agents/references/adapters.md`](.agents/references/adapters.md) | GitHub issue adapter (stub) |
+| [`.agents/references/deprecations.md`](.agents/references/deprecations.md) | Deprecation lifecycle and warning format |
+| [`.agents/references/deprecations-register.md`](.agents/references/deprecations-register.md) | Deprecation ledger (id, dates, status) |
 
 ## Task storage
 

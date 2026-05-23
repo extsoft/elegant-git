@@ -6,6 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bees-hive/elegant-git/internal/cli/legacy"
+	"github.com/bees-hive/elegant-git/internal/cmdid"
+	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/git"
 )
 
@@ -19,20 +22,27 @@ func HasChanges() bool {
 	return true
 }
 
-// StashPipe runs fn with optional auto-stash around it for command.
-func StashPipe(command string, fn func() error) error {
-	key := fmt.Sprintf("elegant.%s-stash", command)
+// StashPipe runs fn with optional auto-stash around it for id.
+func StashPipe(id cmdid.ID, fn func() error) error {
+	key := id.ConfigKeySuffix("stash")
+	legacyKey := legacyPipeKey(id, "stash")
 	_ = gitQuiet("update-index", "-q", "--really-refresh")
 
 	if HasChanges() {
 		if msg, _ := localConfigGet(key); msg == "" {
+			if msg, _ = localConfigGet(legacyKey); msg != "" {
+				deprecation.RecordLegacyPipeKey(legacyKey)
+				key = legacyKey
+			}
+		}
+		if msg, _ := localConfigGet(key); msg == "" {
 			branch, _ := git.Output("rev-parse", "--abbrev-ref", "HEAD")
 			message := fmt.Sprintf("git-elegant %s auto-stash: WIP in '%s' branch on %s",
-				command, strings.TrimSpace(branch), time.Now().Format("2006-01-02T15:04:05"))
+				id.String(), strings.TrimSpace(branch), time.Now().Format("2006-01-02T15:04:05"))
 			if err := git.Verbose("stash", "push", "--message", message); err != nil {
 				return err
 			}
-			if id := stashID(message); id != "" {
+			if sid := stashID(message); sid != "" {
 				_ = localConfigSet(key, message)
 			}
 		}
@@ -43,20 +53,32 @@ func StashPipe(command string, fn func() error) error {
 	}
 
 	saved, _ := localConfigGet(key)
+	if saved == "" {
+		saved, _ = localConfigGet(legacyKey)
+	}
 	if saved != "" {
 		_ = gitQuiet("update-index", "-q", "--really-refresh")
 		_ = localConfigUnset(key)
-		if id := stashID(saved); id != "" {
-			return git.Verbose("stash", "pop", id)
+		_ = localConfigUnset(legacyKey)
+		if sid := stashID(saved); sid != "" {
+			return git.Verbose("stash", "pop", sid)
 		}
 	}
 	return nil
 }
 
 // BranchPipe restores the original branch after fn if checkout changed it.
-func BranchPipe(command string, fn func() error) error {
-	key := fmt.Sprintf("elegant.%s-current-branch", command)
+func BranchPipe(id cmdid.ID, fn func() error) error {
+	key := id.ConfigKeySuffix("current-branch")
+	legacyKey := legacyPipeKey(id, "current-branch")
 	previous, _ := localConfigGet(key)
+	if previous == "" {
+		previous, _ = localConfigGet(legacyKey)
+		if previous != "" {
+			deprecation.RecordLegacyPipeKey(legacyKey)
+			key = legacyKey
+		}
+	}
 	if previous == "" {
 		cur, err := git.Output("rev-parse", "--abbrev-ref", "HEAD")
 		if err != nil {
@@ -71,6 +93,7 @@ func BranchPipe(command string, fn func() error) error {
 	}
 
 	_ = localConfigUnset(key)
+	_ = localConfigUnset(legacyKey)
 	now, err := git.Output("rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return err
@@ -79,6 +102,13 @@ func BranchPipe(command string, fn func() error) error {
 		return git.Verbose("checkout", previous)
 	}
 	return nil
+}
+
+func legacyPipeKey(id cmdid.ID, suffix string) string {
+	if legacyName, ok := legacy.IDToLegacy(id); ok {
+		return "elegant." + legacyName + "-" + suffix
+	}
+	return ""
 }
 
 func stashID(message string) string {

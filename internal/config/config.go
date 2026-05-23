@@ -8,8 +8,11 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/legacy"
+	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/git"
 	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/bees-hive/elegant-git/internal/version"
 )
 
 const (
@@ -18,7 +21,7 @@ const (
 	ProtectedBranchesKey  = "elegant-git.protected-branches"
 	ProtectedBranchesDef  = "master"
 	AcquiredKey           = "elegant-git.acquired"
-	AcquiredValue         = "true"
+	AcquiredValueLegacy   = "true"
 	DefaultUpstreamRemote = "origin"
 )
 
@@ -81,13 +84,13 @@ func IsBranchProtected(name string) bool {
 	return false
 }
 
-// IsGitAcquired reports whether global elegant-git.acquired is true.
+// IsGitAcquired reports whether global elegant-git.acquired is set.
 func IsGitAcquired() bool {
 	out, err := git.Output("config", "--global", "--get", AcquiredKey)
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(out) == AcquiredValue
+	return strings.TrimSpace(out) != ""
 }
 
 // ConfigField describes one interactive git config key.
@@ -115,9 +118,9 @@ func RepositoryBasicsConfiguration(scope string, reader io.Reader) error {
 	})
 }
 
-// MarkAcquired sets elegant-git.acquired for scope.
+// MarkAcquired sets elegant-git.acquired to the current binary version for scope.
 func MarkAcquired(scope string) error {
-	return git.Verbose("config", scope, AcquiredKey, AcquiredValue)
+	return git.Verbose("config", scope, AcquiredKey, version.Version)
 }
 
 func basicsConfiguration(scope string, onlyUnset bool, reader io.Reader, fields []ConfigField) error {
@@ -193,15 +196,42 @@ func AliasesRemoving(scope string) error {
 	return nil
 }
 
-// AliasesConfiguration sets git aliases for elegant commands.
-func AliasesConfiguration(scope string, commands ...string) error {
+// AliasesConfiguration sets git aliases mapping legacy names to new elegant paths.
+func AliasesConfiguration(scope string) error {
 	text.InfoBox("Configuring aliases...")
-	for _, cmd := range commands {
-		if err := git.Verbose("config", scope, "alias."+cmd, "elegant "+cmd); err != nil {
+	for _, legacyName := range legacy.LegacyNames() {
+		if legacyName == "show-commands" {
+			continue
+		}
+		val := legacy.AliasValue(legacyName)
+		if val == "" {
+			continue
+		}
+		if err := git.Verbose("config", scope, "alias."+legacyName, val); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// MigrateAcquiredValue rewrites elegant-git.acquired from legacy "true" to version.Version.
+func MigrateAcquiredValue(scope string) error {
+	out, err := git.Output("config", scope, "--get", AcquiredKey)
+	if err != nil || strings.TrimSpace(out) == "" {
+		return nil
+	}
+	if strings.TrimSpace(out) == AcquiredValueLegacy {
+		deprecation.Record(deprecation.DEP009, "config key: "+AcquiredKey+"="+AcquiredValueLegacy, AcquiredKey+"="+version.Version, migrateHint(scope))
+		return git.Verbose("config", scope, AcquiredKey, version.Version)
+	}
+	return nil
+}
+
+func migrateHint(scope string) string {
+	if scope == "--global" {
+		return "git elegant git migrate"
+	}
+	return "git elegant repo migrate"
 }
 
 // ObsoleteConfigurationsRemoving drops legacy keys and aliases.

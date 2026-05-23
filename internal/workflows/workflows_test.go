@@ -1,53 +1,67 @@
 package workflows
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
+
+	"github.com/bees-hive/elegant-git/internal/cmdid"
 )
 
 func TestWorkflowsDirectoryInitRepository(t *testing.T) {
-	dir, err := WorkflowsDirectory("common", "init-repository")
+	old := repoRootFunc
+	repoRootFunc = func() string { return "." }
+	defer func() { repoRootFunc = old }()
+
+	initID := cmdid.ID{Command: "repo", Action: "init"}
+	dir, err := WorkflowsDirectory("common", initID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dir != ".workflows" {
-		t.Fatalf("dir = %q, want .workflows", dir)
+	want := filepath.Join(".config", "elegant-git", "hooks")
+	if dir != want {
+		t.Fatalf("dir = %q, want %q", dir, want)
 	}
-	personal, err := WorkflowsDirectory("personal", "clone-repository")
+	cloneID := cmdid.ID{Command: "repo", Action: "clone"}
+	personal, err := WorkflowsDirectory("personal", cloneID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(".git", ".workflows")
-	if personal != want {
-		t.Fatalf("personal = %q, want %q", personal, want)
+	wantPersonal := filepath.Join(".git", ".config", "elegant-git", "hooks")
+	if personal != wantPersonal {
+		t.Fatalf("personal = %q, want %q", personal, wantPersonal)
 	}
 }
 
 func TestWorkflowsFileJoin(t *testing.T) {
-	path, err := WorkflowsFile("common", "init-repository", "ahead")
+	old := repoRootFunc
+	repoRootFunc = func() string { return "." }
+	defer func() { repoRootFunc = old }()
+
+	initID := cmdid.ID{Command: "repo", Action: "init"}
+	path, err := WorkflowsFile("common", initID, "ahead")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != filepath.Join(".workflows", "start-work-ahead") {
-		// init uses command name in filename
-	}
-	if path != filepath.Join(".workflows", "init-repository-ahead") {
-		t.Fatalf("path = %q", path)
+	want := filepath.Join(".config", "elegant-git", "hooks", "repo-init-ahead")
+	if path != want {
+		t.Fatalf("path = %q, want %q", path, want)
 	}
 }
 
 func TestPrefixSkipsInitAndClone(t *testing.T) {
-	if Prefix("init-repository") != "" {
-		t.Fatal("init-repository should have empty prefix")
+	if Prefix(cmdid.ID{Command: "repo", Action: "init"}) != "" {
+		t.Fatal("repo init should have empty prefix")
 	}
-	if Prefix("clone-repository") != "" {
-		t.Fatal("clone-repository should have empty prefix")
+	if Prefix(cmdid.ID{Command: "repo", Action: "clone"}) != "" {
+		t.Fatal("repo clone should have empty prefix")
 	}
 }
 
 func TestSkipDisablesHooks(t *testing.T) {
 	Skip = true
-	RunAhead("start-work")
-	RunAfter("start-work")
+	ctx := context.Background()
+	RunAhead(ctx, cmdid.ID{Command: "work", Action: "start"})
+	RunAfter(ctx, cmdid.ID{Command: "work", Action: "start"})
 	Skip = false
 }
