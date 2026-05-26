@@ -121,12 +121,11 @@ func localConfigGet(key string) (string, error) {
 }
 
 func localConfigSet(key, value string) error {
-	return git.Verbose("config", "--local", key, value)
+	return git.ConfigLocalSet(key, value)
 }
 
 func localConfigUnset(key string) error {
-	_, err := git.Output("config", "--local", "--unset", key)
-	return err
+	return git.ConfigLocalUnset(key)
 }
 
 func gitQuiet(args ...string) error {

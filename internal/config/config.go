@@ -11,15 +11,16 @@ import (
 	"github.com/bees-hive/elegant-git/internal/cli/legacy"
 	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/git"
+	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/bees-hive/elegant-git/internal/version"
 )
 
 const (
 	DefaultBranchKey      = "elegant-git.default-branch"
-	DefaultBranchDefault  = "master"
+	DefaultBranchDefault  = "main"
 	ProtectedBranchesKey  = "elegant-git.protected-branches"
-	ProtectedBranchesDef  = "master"
+	ProtectedBranchesDef  = "main"
 	AcquiredKey           = "elegant-git.acquired"
 	AcquiredValueLegacy   = "true"
 	DefaultUpstreamRemote = "origin"
@@ -45,6 +46,9 @@ var standardPairs = []stdPair{
 
 // DefaultBranch returns the configured default branch name.
 func DefaultBranch() string {
+	if s, _, err := memrepo.LoadFromCWD(); err == nil && s.DefaultBranch != "" {
+		return s.DefaultBranch
+	}
 	v := gitConfigLocal(DefaultBranchKey)
 	if v == "" {
 		return DefaultBranchDefault
@@ -59,6 +63,9 @@ func DefaultRemoteTrackingBranch() string {
 
 // FreshestDefaultBranch returns the remote tracking branch if remotes exist.
 func FreshestDefaultBranch() string {
+	if s, _, err := memrepo.LoadFromCWD(); err == nil {
+		return memrepo.FreshestDefaultBranch(s)
+	}
 	if strings.TrimSpace(git.OutputOK("remote")) == "" {
 		return DefaultBranch()
 	}
@@ -67,6 +74,9 @@ func FreshestDefaultBranch() string {
 
 // ProtectedBranches returns space-separated protected branch names.
 func ProtectedBranches() string {
+	if s, _, err := memrepo.LoadFromCWD(); err == nil && len(s.ProtectedBranches) > 0 {
+		return memrepo.ProtectedBranchesString(s)
+	}
 	v := gitConfigLocal(ProtectedBranchesKey)
 	if v == "" {
 		return ProtectedBranchesDef
@@ -76,6 +86,9 @@ func ProtectedBranches() string {
 
 // IsBranchProtected reports whether name is a protected branch.
 func IsBranchProtected(name string) bool {
+	if s, _, err := memrepo.LoadFromCWD(); err == nil {
+		return memrepo.IsBranchProtected(s, name)
+	}
 	for _, b := range strings.Fields(ProtectedBranches()) {
 		if b == name {
 			return true
@@ -107,14 +120,12 @@ func BasicsConfiguration(scope string, onlyUnset bool, reader io.Reader) error {
 	})
 }
 
-// RepositoryBasicsConfiguration sets user, editor, default branch, and protected branches locally.
+// RepositoryBasicsConfiguration sets user and editor locally (profile flow handles identity).
 func RepositoryBasicsConfiguration(scope string, reader io.Reader) error {
 	return basicsConfiguration(scope, false, reader, []ConfigField{
 		{"user.name", "What is your user name?", configGet(scope, "user.name")},
 		{"user.email", "What is your user email?", configGet(scope, "user.email")},
 		{"core.editor", "What is the command to launching an editor?", defaultEditor(scope)},
-		{DefaultBranchKey, "What is the default branch?", defaultBranchDefault(scope)},
-		{ProtectedBranchesKey, "What are protected branches (split with space)?", protectedBranchesDefault(scope)},
 	})
 }
 

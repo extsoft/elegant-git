@@ -11,6 +11,8 @@ import (
 	gitcmd "github.com/bees-hive/elegant-git/internal/cli/git"
 	hookcmd "github.com/bees-hive/elegant-git/internal/cli/hook"
 	legacyshim "github.com/bees-hive/elegant-git/internal/cli/legacy"
+	memorycmd "github.com/bees-hive/elegant-git/internal/cli/memory"
+	profilecmd "github.com/bees-hive/elegant-git/internal/cli/profile"
 	releasecmd "github.com/bees-hive/elegant-git/internal/cli/release"
 	repocmd "github.com/bees-hive/elegant-git/internal/cli/repo"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
@@ -19,11 +21,14 @@ import (
 	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/exitcode"
 	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/runtime"
 	"github.com/bees-hive/elegant-git/internal/version"
 	"github.com/bees-hive/elegant-git/internal/workflows"
 	"github.com/spf13/cobra"
 )
+
+var nonInteractive bool
 
 var rootCmd = &cobra.Command{
 	Use:           "git-elegant",
@@ -58,6 +63,7 @@ func init() {
 	rootCmd.SetVersionTemplate("{{.Version}}\n")
 
 	rootCmd.PersistentFlags().BoolVar(&workflows.Skip, "no-workflows", false, "disables available workflows")
+	rootCmd.PersistentFlags().BoolVar(&nonInteractive, "non-interactive", false, "disable prompts; fail when required input is missing")
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		if err := guardInvocationDepth(); err != nil {
 			return err
@@ -71,12 +77,21 @@ func init() {
 		ctx = runtime.WithWorkspace(ctx, runtime.DefaultWorkspace())
 		ctx = runtime.WithEditor(ctx, runtime.DefaultEditor())
 		ctx = cliruntime.WithStdin(ctx, os.Stdin)
+		if nonInteractive || os.Getenv("ELEGANT_GIT_NON_INTERACTIVE") == "1" {
+			ctx = prompt.WithPrompter(ctx, prompt.NewNonInteractive())
+		} else {
+			ctx = prompt.WithPrompter(ctx, prompt.NewTTY(os.Stdin, os.Stdout))
+		}
 		cmd.SetContext(ctx)
 		return nil
 	}
 
 	rootCmd.AddCommand(versioncmd.NewCommand())
 	rootCmd.AddCommand(completioncmd.NewCommand())
+
+	memoryCmd := memorycmd.NewCommand()
+	AttachObjectGroup(memoryCmd, "memory")
+	rootCmd.AddCommand(memoryCmd)
 
 	gitCmd := gitcmd.NewCommand()
 	AttachObjectGroup(gitCmd, "git")
@@ -85,6 +100,10 @@ func init() {
 	repoCmd := repocmd.NewCommand()
 	AttachObjectGroup(repoCmd, "repo")
 	rootCmd.AddCommand(repoCmd)
+
+	profileCmd := profilecmd.NewCommand()
+	AttachObjectGroup(profileCmd, "profile")
+	rootCmd.AddCommand(profileCmd)
 
 	hookCmd := hookcmd.NewCommand()
 	AttachObjectGroup(hookCmd, "hook")

@@ -11,6 +11,8 @@ import (
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/git"
+	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
+	"github.com/bees-hive/elegant-git/internal/memory/repoid"
 	"github.com/bees-hive/elegant-git/internal/runtime"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
@@ -59,9 +61,38 @@ func migrateLocal(dryRun bool) error {
 		if err := config.MigrateAcquiredValue("--local"); err != nil {
 			return err
 		}
+		if err := migrateRepoMemory(); err != nil {
+			return err
+		}
 		text.SuggestGitAddCommit(newPaths, oldPaths, "Migrate Elegant Git hooks")
 	}
 	return nil
+}
+
+func migrateRepoMemory() error {
+	_, err := repoid.EnsureLocal()
+	if err != nil {
+		return err
+	}
+	gitDir, err := memrepo.GitDir()
+	if err != nil {
+		return err
+	}
+	perRepo, err := memrepo.Load(gitDir)
+	if err != nil {
+		return err
+	}
+	def, prot := memrepo.ReadLegacyElegantGitSettings()
+	if def != "" {
+		perRepo.DefaultBranch = def
+	}
+	if len(prot) > 0 {
+		perRepo.ProtectedBranches = prot
+	}
+	if err := memrepo.UnsetLegacyElegantGitKeys(); err != nil {
+		return err
+	}
+	return memrepo.Save(gitDir, perRepo)
 }
 
 func migratePipeKey(legacyName string, id cmdid.ID, suffix string, dryRun bool) {
@@ -75,6 +106,6 @@ func migratePipeKey(legacyName string, id cmdid.ID, suffix string, dryRun bool) 
 	if !dryRun {
 		deprecation.RecordLegacyPipeKey(oldKey)
 		_ = git.Verbose("config", "--local", newKey, strings.TrimSpace(oldVal))
-		_, _ = git.Output("config", "--local", "--unset", oldKey)
+		_ = git.ConfigLocalUnset(oldKey)
 	}
 }

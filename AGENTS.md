@@ -30,6 +30,7 @@ Run `mise run init` once after clone. For lint/format during agent work, use **`
 | tasks-brainstorm | [`.agents/skills/tasks/brainstorm/SKILL.md`](.agents/skills/tasks/brainstorm/SKILL.md) | Ambiguous or multi-approach requests; chat-only |
 | tasks-plan | [`.agents/skills/tasks/plan/SKILL.md`](.agents/skills/tasks/plan/SKILL.md) | Scaffold and fill `.tasks/<slug>-<id>/`; validate before handoff |
 | tasks-execute | [`.agents/skills/tasks/execute/SKILL.md`](.agents/skills/tasks/execute/SKILL.md) | Implement from an existing `.tasks/` folder |
+| ubiquitous-language | [`.agents/skills/ubiquitous-language/SKILL.md`](.agents/skills/ubiquitous-language/SKILL.md) | Align vocabulary or maintain the project glossary |
 
 Skills follow [Agent Skills](https://agentskills.io/). Templates under each skill's `assets/`; contracts under [`.agents/skills/tasks/README.md`](.agents/skills/tasks/README.md) and [`.agents/references/`](.agents/references/).
 

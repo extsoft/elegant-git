@@ -33,8 +33,8 @@ if you `acquire-repository`, it proposes defaults that are set by `acquire-git`.
 1. setting your full name usign `user.name` [`b`]
 2. setting your email usign `user.email` [`b`]
 3. setting a default editor using `core.editor` [`b`]
-4. setting protected branches using `elegant-git.protected-branches` [`l`]
-5. setting a default development branch using `elegant-git.default-branch` [`l`]
+4. setting protected branches (stored in per-repo memory, not `git config`) [`l`]
+5. setting a default development branch (stored in per-repo memory, not `git config`) [`l`]
 
 # Level: Standards
 
@@ -80,19 +80,27 @@ it does not apply. The signing configuration consists of
 
 For now, only `gpg` is supported. If you need other tools, please [create a new feature request][https://github.com/bees-hive/elegant-git/issues/new/choose].
 
+# Memory
+
+Elegant Git stores profiles and repository metadata outside plain `git config`:
+
+- **Shared memory:** `$XDG_CONFIG_HOME/elegant-git/state.json` (override: `ELEGANT_GIT_STATE_FILE`). Holds profiles (`name`, `user_name`, `user_email`, optional `signing_key`, `editor`, `gpg_program`, `linked_repos`) and a registry of managed repositories (`profile_id`, `current_path`, `path_history`, `origin_url`).
+- **Per-repo memory:** `<repo>/.git/elegant-git/state.json` (override: `ELEGANT_GIT_REPO_STATE_FILE`). Holds `profile_id`, `default_branch`, and `protected_branches`.
+
+`repo configure` links the current repository to a profile, writes `user.name` / `user.email` into `.git/config`, and prompts before applying optional profile fields (`signing_key`, `editor`, `gpg_program`). Values already matching the profile are skipped without prompts. Every `git config` set or unset is logged before execution. Elegant-git-specific branch settings live only in per-repo memory; legacy `elegant-git.default-branch` and `elegant-git.protected-branches` keys are removed from `.git/config` after migration (logged unsets).
+
+Profiles can be created three ways: `git configure` (offer after global setup), `repo configure` (picker: existing profile, `[Create new]`, or `[Use settings from this repository]` when the repo already has `user.name` and `user.email`), or `profile create` (manual; suggests from local then global git config).
+
+`profile edit` is transactional: collect field edits and per-repo apply decisions, show one summary, confirm once, then save shared memory and apply to selected repositories.
+
 # Custom keys
 
 The Elegant Git configuration keys:
 
-- `elegant-git.protected-branches` defines the protected branches (if there are multiple values, they
-should be separarated with space). By default, the `master` branch treats as protected. The "protected"
-means that Elegant Git commands for a branch state modification (such as `save-work`, `polish-work`,
-etc.) are prohibited to work if the current branch is protected. Also, the protected branches cannot
-be removed while running Elegant Git commands for serving a repository.
+- `elegant-git.repo-id` identifies the repository in shared memory (UUIDv7). Set by `repo configure`.
 - `elegant-git.acquired` defines whether a user was applied global configuration or not (see
 [approach](#approach) for the details).
-- `elegant-git.default-branch` defines the name of the default development branch. By default, the `master`
-branch treats as the default one. Depending on an Elegant Git command, it can be a source branch to create
-a new branch from, a destination branch to rebase work in, a base branch to compare with, a release branch,
-and can be used in other ways. In other words, the default development branch is "a golden source" of
-modifications (commits) for any manipulation that needs them.
+
+Protected branches and the default development branch are read from per-repo memory (legacy values in
+`elegant-git.protected-branches` / `elegant-git.default-branch` are migrated by `repo configure` or
+`repo migrate`). The "protected" branch rules and default-branch semantics are unchanged; only storage moved.

@@ -40,8 +40,8 @@ func NewMemoryRunner() *MemoryRunner {
 	return &MemoryRunner{
 		GlobalConfig: map[string]string{},
 		Repo: &MemoryRepo{
-			Branches:      []string{"master"},
-			CurrentBranch: "master",
+			Branches:      []string{"main"},
+			CurrentBranch: "main",
 			LocalConfig:   map[string]string{},
 		},
 		Outputs: map[string]string{},
@@ -158,7 +158,7 @@ func (m *MemoryRunner) simulate(args []string) (string, error) {
 		if m.Repo != nil && m.Repo.CurrentBranch != "" {
 			return m.Repo.CurrentBranch, nil
 		}
-		return "master", nil
+		return "main", nil
 	case "remote":
 		if m.Repo != nil && len(m.Repo.Remotes) > 0 {
 			return strings.Join(m.Repo.Remotes, "\n"), nil

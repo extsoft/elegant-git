@@ -55,7 +55,10 @@ func configureRun(cmd *cobra.Command) error {
 	if err := config.MarkAcquired("--global"); err != nil {
 		return err
 	}
-	return config.AliasesConfiguration("--global")
+	if err := config.AliasesConfiguration("--global"); err != nil {
+		return err
+	}
+	return offerCreateProfileFromGlobal(cmd)
 }
 
 func installMessage() string {

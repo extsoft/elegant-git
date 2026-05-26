@@ -22,19 +22,34 @@ type subCommandSpec struct {
 }
 
 var commandGroups = []commandGroup{
+	{object: "memory", title: "inspect elegant-git memory", commands: []subCommandSpec{
+		{action: "status", purpose: "Summarizes shared memory paths and counts."},
+		{action: "profiles", purpose: "Lists profiles or shows one profile's details."},
+		{action: "repositories", purpose: "Lists managed repositories or shows one repository's details."},
+	}},
 	{object: "git", title: "configure Git installation", commands: []subCommandSpec{
 		{action: "configure", purpose: "Configures your Git installation."},
+		{action: "status", purpose: "Shows global Git installation and shared memory state."},
 		{action: "migrate", purpose: "Migrates global aliases and acquired marker."},
 	}},
+	{object: "profile", title: "manage git user profiles", commands: []subCommandSpec{
+		{action: "status", purpose: "Shows the linked profile for the current repository."},
+		{action: "create", purpose: "Creates a profile."},
+		{action: "edit", purpose: "Edits a profile and optionally applies it to linked repos."},
+		{action: "delete", purpose: "Deletes a profile."},
+	}},
 	{object: "repo", title: "manage repositories", commands: []subCommandSpec{
-		{action: "configure", purpose: "Configures the current local Git repository."},
-		{action: "clone", purpose: "Clones a remote repository and configures it."},
+		{action: "status", purpose: "Shows repository memory and registry state for the current repository."},
 		{action: "init", purpose: "Initializes a new repository and configures it."},
+		{action: "clone", purpose: "Clones a remote repository and configures it."},
+		{action: "relocate", purpose: "Updates the managed path for the current repository."},
+		{action: "configure", purpose: "Configures the current local Git repository."},
+		{action: "sync", purpose: "Re-applies profile settings to repositories."},
 		{action: "prune", purpose: "Removes useless local branches."},
 		{action: "migrate", purpose: "Migrates local aliases, hooks, and pipe keys."},
 	}},
 	{object: "hook", title: "manage command hooks", commands: []subCommandSpec{
-		{action: "list", purpose: "Lists configured hook file paths."},
+		{action: "status", purpose: "Lists configured hook file paths."},
 		{action: "new", purpose: "Creates a new hook file."},
 		{action: "edit", purpose: "Opens a hook file in your editor."},
 		{action: "migrate", purpose: "Migrates repo-tracked hooks to the new layout."},
@@ -82,7 +97,8 @@ func writeObjectUsage(w io.Writer, object string) {
 	fmt.Fprintf(w, "%s — %s\n\n", group.object, group.title)
 	fmt.Fprintf(w, "usage: git elegant %s <action> [-h | --help] [--no-workflows] [args]\n\n", group.object)
 	fmt.Fprintln(w, "    -h, --help       displays help for an action")
-	fmt.Fprintln(w, "    --no-workflows   disables available hooks")
+	fmt.Fprintln(w, "    --no-workflows       disables available hooks")
+	fmt.Fprintln(w, "    --non-interactive    disables prompts; fails when input is missing")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Actions:")
 	maxLen := 0
@@ -113,7 +129,8 @@ func writeRootUsage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "    -h, --help       displays help")
 	fmt.Fprintln(w, "    --version        displays program version")
-	fmt.Fprintln(w, "    --no-workflows   disables available hooks")
+	fmt.Fprintln(w, "    --no-workflows       disables available hooks")
+	fmt.Fprintln(w, "    --non-interactive    disables prompts; fails when input is missing")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Objects:")
 	for _, g := range commandGroups {

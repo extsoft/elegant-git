@@ -15,7 +15,7 @@ func TestRootHelpListsObjects(t *testing.T) {
 		t.Fatalf("--help: %v", err)
 	}
 	text := string(out)
-	for _, want := range []string{"git configure", "repo clone", "work start", "hook list", "release new"} {
+	for _, want := range []string{"git configure", "git status", "repo clone", "memory profiles", "work start", "hook status", "release new"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("help missing %q", want)
 		}
@@ -80,7 +80,7 @@ func TestObjectGroupHelpHook(t *testing.T) {
 	if strings.Contains(text, "Objects:") && strings.Contains(text, "  git —") {
 		t.Fatal("hook without subcommand should not show full root catalog")
 	}
-	for _, want := range []string{"hook — manage command hooks", "list", "new", "edit", "migrate", ".config/elegant-git/hooks"} {
+	for _, want := range []string{"hook — manage command hooks", "status", "new", "edit", "migrate", ".config/elegant-git/hooks"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("hook help missing %q", want)
 		}

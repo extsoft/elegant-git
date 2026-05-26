@@ -8,6 +8,7 @@ out/
 .DS_Store
 .tasks/
 .agents/plans/*
+.cursor/plans/*
 
 # Go
 /dist/
