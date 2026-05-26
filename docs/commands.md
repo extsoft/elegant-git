@@ -27,7 +27,7 @@
 | --- | --- |
 | `git configure` | Configures your Git installation (global); offers to create a profile from global values. |
 | `git status` | Shows global Git installation and shared memory state (not the same as native `git status`). |
-| `git migrate` | Migrates global aliases and `elegant-git.acquired`. |
+| `git migrate` | Migrates global aliases and legacy `elegant-git.acquired` into shared memory. |
 
 ### repo
 

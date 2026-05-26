@@ -17,7 +17,7 @@ func newMigrateCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "migrate",
 		Short: "Migrate global aliases and acquired marker",
-		Long:  "Rewrites legacy git aliases to the new object-first form and updates elegant-git.acquired.",
+		Long:  "Rewrites legacy git aliases to the new object-first form and migrates elegant-git.acquired into shared memory.",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return migrateGlobal(dryRun)
 		},
@@ -48,6 +48,11 @@ func migrateGlobal(dryRun bool) error {
 	}
 	if err := config.MigrateAcquiredValue("--global"); err != nil {
 		return err
+	}
+	if dryRun {
+		text.Complete("Global migration complete (dry run).")
+	} else {
+		text.Complete("Global migration complete.")
 	}
 	return nil
 }

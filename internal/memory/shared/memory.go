@@ -17,9 +17,10 @@ const (
 
 // State is the on-disk shared memory document.
 type State struct {
-	SchemaVersion int                    `json:"schema_version"`
-	Profiles      map[string]*Profile    `json:"profiles"`
-	Repositories  map[string]*Repository `json:"repositories"`
+	SchemaVersion   int                    `json:"schema_version"`
+	AcquiredVersion string                 `json:"acquired_version,omitempty"`
+	Profiles        map[string]*Profile    `json:"profiles"`
+	Repositories    map[string]*Repository `json:"repositories"`
 }
 
 // Profile holds git user identity fields for reuse across repos.

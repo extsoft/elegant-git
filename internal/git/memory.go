@@ -113,7 +113,7 @@ func (m *MemoryRunner) handleConfig(args []string) (string, error) {
 	cfg := m.configMap(scope)
 	switch args[0] {
 	case "config":
-		if len(args) >= 4 && args[1] == "--get-regexp" {
+		if len(args) >= 3 && args[1] == "--get-regexp" {
 			var lines []string
 			prefix := args[2]
 			for k, v := range cfg {

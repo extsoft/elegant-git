@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"runtime"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/git"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
+	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/bees-hive/elegant-git/internal/version"
 )
@@ -97,13 +99,35 @@ func IsBranchProtected(name string) bool {
 	return false
 }
 
-// IsGitAcquired reports whether global elegant-git.acquired is set.
+// IsGitAcquired reports whether global Elegant Git configuration is recorded.
 func IsGitAcquired() bool {
+	s, err := shared.Load()
+	if err == nil && shared.Acquired(s) != "" {
+		return true
+	}
 	out, err := git.Output("config", "--global", "--get", AcquiredKey)
 	if err != nil {
 		return false
 	}
 	return strings.TrimSpace(out) != ""
+}
+
+// AcquiredVersion returns the recorded global install version from shared memory,
+// or from legacy git config when not yet migrated.
+func AcquiredVersion() string {
+	s, err := shared.Load()
+	if err == nil {
+		if v := shared.Acquired(s); v != "" {
+			return v
+		}
+	}
+	return strings.TrimSpace(git.OutputOK("config", "--global", "--get", AcquiredKey))
+}
+
+// NeedsLocalGitInstall reports whether repo configure should apply local
+// standards and git aliases (false when global elegant-git is already acquired).
+func NeedsLocalGitInstall() bool {
+	return !IsGitAcquired()
 }
 
 // ConfigField describes one interactive git config key.
@@ -129,9 +153,17 @@ func RepositoryBasicsConfiguration(scope string, reader io.Reader) error {
 	})
 }
 
-// MarkAcquired sets elegant-git.acquired to the current binary version for scope.
-func MarkAcquired(scope string) error {
-	return git.Verbose("config", scope, AcquiredKey, version.Version)
+// MarkAcquired records global configuration in shared memory.
+func MarkAcquired(_ string) error {
+	s, err := shared.Load()
+	if err != nil {
+		return err
+	}
+	shared.SetAcquired(s, version.Version)
+	if err := shared.Save(s); err != nil {
+		return err
+	}
+	return RemoveObsoleteAcquired("--global", false)
 }
 
 func basicsConfiguration(scope string, onlyUnset bool, reader io.Reader, fields []ConfigField) error {
@@ -176,8 +208,8 @@ func StandardsConfiguration(scope string) error {
 	return nil
 }
 
-// AliasesRemoving removes old elegant git aliases from scope.
-func AliasesRemoving(scope string) error {
+// AliasesRemoving removes elegant git aliases from scope.
+func AliasesRemoving(scope string, dryRun bool) error {
 	out, err := git.Output("config", scope, "--get-regexp", `^alias\.`)
 	if err != nil || strings.TrimSpace(out) == "" {
 		return nil
@@ -195,6 +227,12 @@ func AliasesRemoving(scope string) error {
 		}
 	}
 	if len(keys) == 0 {
+		return nil
+	}
+	if dryRun {
+		for _, key := range keys {
+			fmt.Fprintf(os.Stdout, "  would remove %s\n", key)
+		}
 		return nil
 	}
 	text.InfoText("Removing old Elegant Git aliases...")
@@ -225,17 +263,35 @@ func AliasesConfiguration(scope string) error {
 	return nil
 }
 
-// MigrateAcquiredValue rewrites elegant-git.acquired from legacy "true" to version.Version.
+// MigrateAcquiredValue imports legacy git config markers into shared memory and unsets them.
 func MigrateAcquiredValue(scope string) error {
+	if scope == "--global" {
+		return importAcquiredToSharedMemory(scope)
+	}
+	return RemoveObsoleteAcquired(scope, false)
+}
+
+func importAcquiredToSharedMemory(scope string) error {
 	out, err := git.Output("config", scope, "--get", AcquiredKey)
 	if err != nil || strings.TrimSpace(out) == "" {
-		return nil
+		return RemoveObsoleteAcquired(scope, false)
 	}
-	if strings.TrimSpace(out) == AcquiredValueLegacy {
-		deprecation.Record(deprecation.DEP009, "config key: "+AcquiredKey+"="+AcquiredValueLegacy, AcquiredKey+"="+version.Version, migrateHint(scope))
-		return git.Verbose("config", scope, AcquiredKey, version.Version)
+	val := strings.TrimSpace(out)
+	if val == AcquiredValueLegacy {
+		deprecation.Record(deprecation.DEP009, "config key: "+AcquiredKey+"="+AcquiredValueLegacy, "shared memory acquired_version", migrateHint(scope))
+		val = version.Version
 	}
-	return nil
+	s, err := shared.Load()
+	if err != nil {
+		return err
+	}
+	if shared.Acquired(s) == "" {
+		shared.SetAcquired(s, val)
+		if err := shared.Save(s); err != nil {
+			return err
+		}
+	}
+	return RemoveObsoleteAcquired(scope, false)
 }
 
 func migrateHint(scope string) string {
@@ -245,16 +301,40 @@ func migrateHint(scope string) string {
 	return "git elegant repo migrate"
 }
 
-// ObsoleteConfigurationsRemoving drops legacy keys and aliases.
+// RemoveObsoleteAcquired unsets elegant-git.acquired for scope when present.
+func RemoveObsoleteAcquired(scope string, dryRun bool) error {
+	out, err := git.Output("config", scope, "--get-regexp", AcquiredKey)
+	if err != nil || strings.TrimSpace(out) == "" {
+		return nil
+	}
+	if dryRun {
+		fmt.Fprintf(os.Stdout, "  would unset %s\n", AcquiredKey)
+		return nil
+	}
+	text.InfoText("Removing old Elegant Git configuration keys...")
+	return git.Verbose("config", scope, "--unset", AcquiredKey)
+}
+
+// CleanupRedundantLocalInstall removes local acquired marker and elegant aliases
+// when global configuration is already applied.
+func CleanupRedundantLocalInstall(dryRun bool) error {
+	if err := RemoveObsoleteAcquired("--local", dryRun); err != nil {
+		return err
+	}
+	return AliasesRemoving("--local", dryRun)
+}
+
+// ObsoleteConfigurationsRemoving drops legacy acquired marker and elegant aliases.
 func ObsoleteConfigurationsRemoving(scope string) error {
 	text.InfoBox("Removing obsolete configurations...")
-	if out, err := git.Output("config", scope, "--get-regexp", AcquiredKey); err == nil && strings.TrimSpace(out) != "" {
-		text.InfoText("Removing old Elegnat Git configuration keys...")
-		if err := git.Verbose("config", scope, "--unset", AcquiredKey); err != nil {
+	if scope == "--global" {
+		if err := importAcquiredToSharedMemory(scope); err != nil {
 			return err
 		}
+	} else if err := RemoveObsoleteAcquired(scope, false); err != nil {
+		return err
 	}
-	return AliasesRemoving(scope)
+	return AliasesRemoving(scope, false)
 }
 
 func ask(reader io.Reader, message, defaultVal string) (string, error) {

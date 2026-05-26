@@ -88,9 +88,16 @@ func TestPrintGitStatusNoProfileDump(t *testing.T) {
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	m := git.NewMemoryRunner()
 	m.GlobalConfig["user.name"] = "Global"
-	m.GlobalConfig["elegant-git.acquired"] = "true"
 	git.Use(m)
-	s := seedState(t, "p1", "work", "W", "w@x.com", "", "", "")
+	s, err := shared.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	shared.SetAcquired(s, "true")
+	if err := shared.Save(s); err != nil {
+		t.Fatal(err)
+	}
+	s.Profiles["p1"] = &shared.Profile{Name: "work", UserName: "W", UserEmail: "w@x.com", LinkedRepos: []string{}}
 	if err := shared.Save(s); err != nil {
 		t.Fatal(err)
 	}

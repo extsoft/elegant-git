@@ -34,18 +34,26 @@ func newMigrateCommand() *cobra.Command {
 
 func migrateLocal(dryRun bool) error {
 	text.InfoBox("Migrating local Elegant Git configuration...")
-	for _, legacyName := range legacy.LegacyNames() {
-		if legacyName == "show-commands" {
-			continue
-		}
-		newVal := legacy.AliasValue(legacyName)
-		cur, _ := git.Output("config", "--local", "--get", "alias."+legacyName)
-		cur = strings.TrimSpace(cur)
-		if cur != newVal {
-			fmt.Fprintf(os.Stdout, "  alias.%s -> %q\n", legacyName, newVal)
-			if !dryRun {
-				_ = git.Verbose("config", "--local", "alias."+legacyName, newVal)
+	globalAcquired := config.IsGitAcquired()
+	if !globalAcquired {
+		for _, legacyName := range legacy.LegacyNames() {
+			if legacyName == "show-commands" {
+				continue
 			}
+			newVal := legacy.AliasValue(legacyName)
+			cur, _ := git.Output("config", "--local", "--get", "alias."+legacyName)
+			cur = strings.TrimSpace(cur)
+			if cur != newVal {
+				fmt.Fprintf(os.Stdout, "  alias.%s -> %q\n", legacyName, newVal)
+				if !dryRun {
+					_ = git.Verbose("config", "--local", "alias."+legacyName, newVal)
+				}
+			}
+		}
+	} else {
+		text.InfoText("Removing redundant local configuration (global Elegant Git configuration is applied).")
+		if err := config.CleanupRedundantLocalInstall(dryRun); err != nil {
+			return err
 		}
 	}
 	ws := runtime.Workspace{RepoRoot: "."}
@@ -53,18 +61,27 @@ func migrateLocal(dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	for legacyName, id := range legacy.LegacyToID {
-		migratePipeKey(legacyName, id, "stash", dryRun)
-		migratePipeKey(legacyName, id, "current-branch", dryRun)
+	if !globalAcquired {
+		for legacyName, id := range legacy.LegacyToID {
+			migratePipeKey(legacyName, id, "stash", dryRun)
+			migratePipeKey(legacyName, id, "current-branch", dryRun)
+		}
 	}
 	if !dryRun {
-		if err := config.MigrateAcquiredValue("--local"); err != nil {
-			return err
+		if !globalAcquired {
+			if err := config.MigrateAcquiredValue("--local"); err != nil {
+				return err
+			}
 		}
 		if err := migrateRepoMemory(); err != nil {
 			return err
 		}
 		text.SuggestGitAddCommit(newPaths, oldPaths, "Migrate Elegant Git hooks")
+	}
+	if dryRun {
+		text.Complete("Local migration complete (dry run).")
+	} else {
+		text.Complete("Local migration complete.")
 	}
 	return nil
 }

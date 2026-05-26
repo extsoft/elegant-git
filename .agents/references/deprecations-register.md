@@ -10,6 +10,6 @@
 | DEP-006 | 2026-05-22 | config keys: elegant.<legacy>-stash, elegant.<legacy>-current-branch | elegant.<command>-<action>-stash | `git elegant repo migrate` | 2027-01-31 | active |
 | DEP-007 | 2026-05-22 | hook new argument: legacy command name | canonical id (e.g. work.start) | use `git elegant hook new work.start ...` | 2027-01-31 | active |
 | DEP-008 | 2026-05-22 | hook dispatch: acquire-repository, obtain-work from clone/init/accept | repo.configure, work.track + legacy hooks | migrate hooks | 2027-01-31 | active |
-| DEP-009 | 2026-05-22 | config: elegant-git.acquired=true | elegant-git.acquired=<version> | `git elegant git migrate` / `git elegant repo migrate` | 2027-01-31 | active |
+| DEP-009 | 2026-05-22 | config: elegant-git.acquired=true | shared memory `acquired_version` | `git elegant git migrate` / `git elegant repo migrate` | 2027-01-31 | active |
 | DEP-010 | 2026-05-24 | config: elegant-git.default-branch, elegant-git.protected-branches in `.git/config` | per-repo memory `.git/elegant-git/state.json` | `git elegant repo configure` / `git elegant repo migrate` | 2027-01-31 | active |
 | DEP-011 | 2026-05-24 | commands: `profile list`, `repo list`, `hook list` | `memory profiles`, `memory repositories`, `hook status` | use replacement commands | 2027-01-31 | active |

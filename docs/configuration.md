@@ -4,13 +4,20 @@ Elegant Git aims to standardize how a work environment should be configured. It 
 levels of configurations (see below) that can be applied to a Git repository (local configuration)
 and/or to a Git installation globally (global configuration). So,
 
-- the local configuration applies by running
-[`git elegant acquire-repository`](commands.md#acquire-repository) and configures current Git
-repository by using `git config --local <key> <value>`
-- the global configuration invokes by running [`git elegant acquire-git`](commands.md#acquire-git)
-and uses `git config --global <key> <value>` for Git configuration
+- the local configuration applies by running [`git elegant repo configure`](commands.md#repo)
+  and configures the current Git repository (profile linkage, per-repo memory, optional local
+  standards and aliases)
+- the global configuration applies by running [`git elegant git configure`](commands.md#git)
+  and uses `git config --global <key> <value>` for Git installation-wide settings
 
-If you've applied a global configuration, there is no sense to repeat some options for a local one.
+If you've applied a global configuration (`acquired_version` in shared memory), `repo configure`
+does **not** add or rewrite local git aliases or local standards — those come from
+`git configure` once per Git installation. It still removes redundant **local**
+`elegant …` aliases and a stale local `elegant-git.acquired` marker when present. Run `git elegant git configure` once on each machine where you use Elegant Git globally.
+
+For local-only setups (no global acquired marker), `repo configure` applies the full local
+standards and alias set, same as before.
+
 That's why the following markers explain how each particular option will be configured:
 
 - [`b`] - configures for both configurations
@@ -20,15 +27,14 @@ That's why the following markers explain how each particular option will be conf
 otherwise, uses in local configuration
 
 Also, there are defined [the custom configuration keys](#custom-keys) in addition to
-[the standard `git config` options](https://git-scm.com/docs/git-config). These keys will be configured
-automatically during `acquire-git` or `acquire-repository` execution, so, you don't need to set them
-manually.
+[the standard `git config` options](https://git-scm.com/docs/git-config). These keys are set
+automatically during `git configure` or `repo configure`; you do not need to set them manually.
 
 # Level: Basics
 
 The basics configuration sets the mandatory options for the correct user-focused operation of Git and
 Elegant Git. During the configuration, you will be asked to provide appropriate values. Furthermore,
-if you `acquire-repository`, it proposes defaults that are set by `acquire-git`. The basics includes:
+if you run `repo configure`, it proposes defaults that are set by `git configure`. The basics includes:
 
 1. setting your full name usign `user.name` [`b`]
 2. setting your email usign `user.email` [`b`]
@@ -54,7 +60,7 @@ Windows with `true`
 6. `pull.rebase true` [`i`] uses `rebase` when `git pull`
 7. `rebase.autoStash false` [`i`] don't use `autostash` when `git rebase`
 8. `credential.helper osxkeychain` [`i`] configures default credentials storage on MacOS only
-9. `elegant-git.acquired true` [`g`] identifies that Elegant Git global configuration is applied
+9. `acquired_version` in shared memory [`g`] identifies that Elegant Git global configuration is applied (value is the installed version)
 
 # Level: Aliases
 
@@ -63,7 +69,8 @@ an appropriate alias like `git elegant save-work` will become `git save-work`. T
 significantly improve user experience.
 
 The configuration is a call of `git config "alias.<command>" "elegant <command>"` [`i`] for each Elegant
-Git command.
+Git command. When global configuration is applied, aliases are written globally only;
+`repo configure` and `repo migrate` remove redundant local elegant aliases instead.
 
 # Level: Signature
 
@@ -98,8 +105,9 @@ Profiles can be created three ways: `git configure` (offer after global setup), 
 The Elegant Git configuration keys:
 
 - `elegant-git.repo-id` identifies the repository in shared memory (UUIDv7). Set by `repo configure`.
-- `elegant-git.acquired` defines whether a user was applied global configuration or not (see
-[approach](#approach) for the details).
+- `acquired_version` in shared memory defines whether global configuration was applied (see
+[approach](#approach) for the details). Legacy `elegant-git.acquired` in git config is migrated
+by `git configure` / `git migrate`.
 
 Protected branches and the default development branch are read from per-repo memory (legacy values in
 `elegant-git.protected-branches` / `elegant-git.default-branch` are migrated by `repo configure` or

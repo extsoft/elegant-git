@@ -7,6 +7,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 
@@ -32,21 +33,37 @@ func newConfigureCommand() *cobra.Command {
 func configureRun(cmd *cobra.Command, profileFlag string) error {
 	p := prompt.FromContext(cmd.Context())
 	reader := promptReader(cmd, p)
-	if err := config.ObsoleteConfigurationsRemoving("--local"); err != nil {
+	if err := configureLocalGitInstallPre(); err != nil {
 		return err
 	}
 	if err := configureWithMemory(cmd, profileFlag); err != nil {
 		return err
 	}
-	if !config.IsGitAcquired() {
-		if err := config.StandardsConfiguration("--local"); err != nil {
-			return err
-		}
-		if err := config.AliasesConfiguration("--local"); err != nil {
-			return err
-		}
+	if err := configureLocalGitInstallPost(); err != nil {
+		return err
 	}
-	return config.ConfigureSignature(reader)
+	if err := config.ConfigureSignature(reader); err != nil {
+		return err
+	}
+	text.Complete("Repository configuration complete.")
+	return nil
+}
+
+func configureLocalGitInstallPre() error {
+	if config.NeedsLocalGitInstall() {
+		return config.ObsoleteConfigurationsRemoving("--local")
+	}
+	return config.CleanupRedundantLocalInstall(false)
+}
+
+func configureLocalGitInstallPost() error {
+	if !config.NeedsLocalGitInstall() {
+		return nil
+	}
+	if err := config.StandardsConfiguration("--local"); err != nil {
+		return err
+	}
+	return config.AliasesConfiguration("--local")
 }
 
 func promptReader(cmd *cobra.Command, p prompt.Prompter) io.Reader {

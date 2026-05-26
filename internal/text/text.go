@@ -92,6 +92,11 @@ func InfoBox(parts ...string) {
 	boxText(func(p ...string) { InfoText(p...) }, parts...)
 }
 
+// Complete prints a final confirmation after a command finishes successfully.
+func Complete(parts ...string) {
+	InfoBox(parts...)
+}
+
 // ErrorBox prints an error message in a box.
 func ErrorBox(parts ...string) {
 	boxText(func(p ...string) { ErrorText(p...) }, parts...)

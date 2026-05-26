@@ -140,8 +140,10 @@ func printGitState(w io.Writer) error {
 	fmt.Fprintln(w, "global git identity:")
 	printGitIdentity(w, "  ", git.ConfigGlobalGet)
 
-	if acquired := git.ConfigGlobalGet("elegant-git.acquired"); acquired != "" {
+	if acquired := shared.Acquired(s); acquired != "" {
 		fmt.Fprintf(w, "  elegant-git.acquired: %s\n", acquired)
+	} else if acquired := git.ConfigGlobalGet("elegant-git.acquired"); acquired != "" {
+		fmt.Fprintf(w, "  elegant-git.acquired: %s (legacy git config; run git migrate)\n", acquired)
 	} else {
 		fmt.Fprintln(w, "  elegant-git.acquired: (not set; run git configure)")
 	}
