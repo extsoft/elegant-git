@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/git"
@@ -19,10 +20,9 @@ func newNotesCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "notes [<layout>] [<from-ref>] [<to-ref>]",
 		Short: "Prints a release log between two refs",
-		Args:  cobra.MaximumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, notesID, func() error {
-				return notesRun(args)
+				return notesRun(cmd, args)
 			})
 		},
 	}
@@ -30,8 +30,26 @@ func newNotesCommand() *cobra.Command {
 	return c
 }
 
-func notesRun(args []string) error {
-	out, err := formatReleaseNotes(args)
+func notesRun(cmd *cobra.Command, args []string) error {
+	var layout, fromRef, toRef string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("layout", 0, false, "Layout (simple or smart)", &layout, func() string { return "simple" }),
+		argspec.PositionalInput("from-ref", 1, false, "From ref", &fromRef, nil),
+		argspec.PositionalInput("to-ref", 2, false, "To ref", &toRef, func() string { return "HEAD" }),
+	}}); err != nil {
+		return err
+	}
+	resolved := []string{}
+	if layout != "" {
+		resolved = append(resolved, layout)
+	}
+	if fromRef != "" {
+		resolved = append(resolved, fromRef)
+	}
+	if toRef != "" {
+		resolved = append(resolved, toRef)
+	}
+	out, err := formatReleaseNotes(resolved)
 	if err != nil {
 		return err
 	}

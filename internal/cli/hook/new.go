@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/cli/legacy"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
@@ -22,7 +23,6 @@ func newNewCommand() *cobra.Command {
 		Use:   "new <command-id> <ahead|after> <personal|common>",
 		Short: "Creates a new hook file",
 		Long:  "Creates a hook script under .config/elegant-git/hooks/. command-id is canonical (e.g. work.start) or legacy (e.g. start-work).",
-		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, newID, func() error {
 				return newRun(cmd, args)
@@ -34,15 +34,21 @@ func newNewCommand() *cobra.Command {
 }
 
 func newRun(cmd *cobra.Command, args []string) error {
-	id, ok := legacy.ParseID(args[0])
+	var commandID, hookType, location string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("command-id", 0, true, "Command id (e.g. work.start)", &commandID, nil),
+		argspec.PositionalInput("hook-type", 1, true, "Hook type (ahead or after)", &hookType, nil),
+		argspec.PositionalInput("location", 2, true, "Hook location (personal or common)", &location, nil),
+	}}); err != nil {
+		return err
+	}
+	id, ok := legacy.ParseID(commandID)
 	if !ok {
 		cliruntime.ExitWorkflowError("Please specify a valid command id (e.g. work.start) or legacy name.")
 	}
-	if _, ok := legacy.LegacyToID[args[0]]; ok {
-		deprecation.Record(deprecation.DEP007, "hook new command argument: "+args[0], id.String(), "git elegant hook new "+id.String())
+	if _, ok := legacy.LegacyToID[commandID]; ok {
+		deprecation.Record(deprecation.DEP007, "hook new command argument: "+commandID, id.String(), "git elegant hook new "+id.String())
 	}
-	hookType := args[1]
-	location := args[2]
 	file, err := workflows.WorkflowsFile(location, id, hookType)
 	if err != nil {
 		text.ErrorText(err.Error())

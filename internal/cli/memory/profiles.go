@@ -6,6 +6,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/spf13/cobra"
 )
@@ -15,15 +16,20 @@ func newProfilesCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "profiles [name]",
 		Short: "List profiles or show one profile's details",
-		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var name string
+			if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+				argspec.PositionalInput("name", 0, false, "Profile name", &name, nil),
+			}}); err != nil {
+				return err
+			}
 			s, err := shared.Load()
 			if err != nil {
 				return err
 			}
 			w := cmd.OutOrStdout()
-			if len(args) == 1 {
-				return showProfile(w, s, args[0], format)
+			if name != "" {
+				return showProfile(w, s, name, format)
 			}
 			return listProfiles(w, s, format)
 		},

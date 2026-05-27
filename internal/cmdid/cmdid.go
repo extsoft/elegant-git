@@ -23,12 +23,6 @@ func (id ID) String() string {
 	return strings.Join(parts, ".")
 }
 
-// ConfigKeySuffix builds elegant.<command>-<action>-<suffix> for pipe stash keys.
-func (id ID) ConfigKeySuffix(suffix string) string {
-	base := id.Command + "-" + id.Action
-	return "elegant." + base + "-" + suffix
-}
-
 // HookFileName returns <command>-<action>-<hookType> (e.g. work-save-ahead).
 func (id ID) HookFileName(hookType string) string {
 	return id.Command + "-" + id.Action + "-" + hookType

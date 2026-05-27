@@ -22,7 +22,6 @@ const (
 	DEP003 = "DEP-003"
 	DEP004 = "DEP-004"
 	DEP005 = "DEP-005"
-	DEP006 = "DEP-006"
 	DEP007 = "DEP-007"
 	DEP008 = "DEP-008"
 	DEP009 = "DEP-009"
@@ -66,11 +65,6 @@ func RecordLegacyPersonalHook(path string) {
 // RecordLegacyCommonHook records DEP-003.
 func RecordLegacyCommonHook(path string) {
 	Record(DEP003, "common hook: "+path, ".config/elegant-git/hooks/<command>-<action>-{ahead,after}", "git elegant hook migrate")
-}
-
-// RecordLegacyPipeKey records DEP-006.
-func RecordLegacyPipeKey(key string) {
-	Record(DEP006, "config key: "+key, "elegant.<command>-<action>-stash", "git elegant repo migrate")
 }
 
 // RecordShowCommands records DEP-004.

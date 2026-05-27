@@ -28,7 +28,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var nonInteractive bool
+var (
+	nonInteractive   bool
+	forceInteractive bool
+)
 
 var rootCmd = &cobra.Command{
 	Use:           "git-elegant",
@@ -64,6 +67,7 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&workflows.Skip, "no-workflows", false, "disables available workflows")
 	rootCmd.PersistentFlags().BoolVar(&nonInteractive, "non-interactive", false, "disable prompts; fail when required input is missing")
+	rootCmd.PersistentFlags().BoolVar(&forceInteractive, "interactive", false, "force prompts even when stdin is not a TTY or CI is set")
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		if err := guardInvocationDepth(); err != nil {
 			return err
@@ -76,12 +80,17 @@ func init() {
 		ctx = git.WithRunner(ctx, git.RealRunner{})
 		ctx = runtime.WithWorkspace(ctx, runtime.DefaultWorkspace())
 		ctx = runtime.WithEditor(ctx, runtime.DefaultEditor())
-		ctx = cliruntime.WithStdin(ctx, os.Stdin)
-		if nonInteractive || os.Getenv("ELEGANT_GIT_NON_INTERACTIVE") == "1" {
-			ctx = prompt.WithPrompter(ctx, prompt.NewNonInteractive())
-		} else {
-			ctx = prompt.WithPrompter(ctx, prompt.NewTTY(os.Stdin, os.Stdout))
+		stdin := cliruntime.StdinFromContext(ctx)
+		if stdin == os.Stdin {
+			stdin = os.Stdin
 		}
+		ctx = cliruntime.WithStdin(ctx, stdin)
+		mode := cliruntime.ResolveMode(cliruntime.ModeConfig{
+			ForceInteractive:    forceInteractive,
+			ForceNonInteractive: nonInteractive,
+			Stdin:               stdin,
+		})
+		ctx = prompt.WithPrompter(ctx, cliruntime.PrompterForMode(mode, stdin, os.Stdout))
 		cmd.SetContext(ctx)
 		return nil
 	}

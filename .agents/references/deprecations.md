@@ -44,4 +44,4 @@ warning: <surface> is deprecated; use <replacement>. Run `<migrate>` to migrate.
 
 ## Canonical command id
 
-`{command}.{action}[.{condition}][.{extension}]` — e.g. `work.start`. Used for hook paths (`.config/elegant-git/hooks/work-start-ahead`) and pipe keys (`elegant.work-start-stash`).
+`{command}.{action}[.{condition}][.{extension}]` — e.g. `work.start`. Used for hook paths (`.config/elegant-git/hooks/work-start-ahead`) and per-command state in `.git/elegant-git/commands.json`.

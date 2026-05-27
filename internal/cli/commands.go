@@ -46,7 +46,7 @@ var commandGroups = []commandGroup{
 		{action: "configure", purpose: "Configures the current local Git repository."},
 		{action: "sync", purpose: "Re-applies profile settings to repositories."},
 		{action: "prune", purpose: "Removes useless local branches."},
-		{action: "migrate", purpose: "Migrates local aliases, hooks, and pipe keys."},
+		{action: "migrate", purpose: "Migrates local aliases and hooks."},
 	}},
 	{object: "hook", title: "manage command hooks", commands: []subCommandSpec{
 		{action: "status", purpose: "Lists configured hook file paths."},

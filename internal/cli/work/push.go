@@ -1,6 +1,7 @@
 package work
 
 import (
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
@@ -16,10 +17,9 @@ func newPushCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "push [branch-name]",
 		Short: "Publishes HEAD to a remote repository",
-		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, pushID, func() error {
-				return pushRun(args)
+				return pushRun(cmd, args)
 			})
 		},
 	}
@@ -27,12 +27,17 @@ func newPushCommand() *cobra.Command {
 	return c
 }
 
-func pushRun(args []string) error {
+func pushRun(cmd *cobra.Command, args []string) error {
+	var remoteBranchArg string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("branch-name", 0, false, "Remote branch name", &remoteBranchArg, nil),
+	}}); err != nil {
+		return err
+	}
 	branch := cliruntime.CurrentBranch()
 	if config.IsBranchProtected(branch) {
 		cliruntime.ExitProtectedDeliver(branch)
 	}
-	remoteBranchArg := cliruntime.ArgAt(args, 0)
 	return pipe.StashPipe(pushID, func() error {
 		return pushLogic(branch, remoteBranchArg)
 	})

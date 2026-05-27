@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/git"
@@ -17,10 +18,9 @@ func newTrackCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "track <name> [local-branch]",
 		Short: "Checks out a remote-tracking branch",
-		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, trackID, func() error {
-				return trackRun(args)
+				return trackRun(cmd, args)
 			})
 		},
 	}
@@ -28,8 +28,15 @@ func newTrackCommand() *cobra.Command {
 	return c
 }
 
-func trackRun(args []string) error {
-	return trackLogic(args[0], cliruntime.ArgAt(args, 1))
+func trackRun(cmd *cobra.Command, args []string) error {
+	var pattern, localBranch string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("name", 0, true, "Remote branch name or pattern", &pattern, nil),
+		argspec.PositionalInput("local-branch", 1, false, "Local branch name", &localBranch, nil),
+	}}); err != nil {
+		return err
+	}
+	return trackLogic(pattern, localBranch)
 }
 
 func trackLogic(pattern, localBranch string) error {

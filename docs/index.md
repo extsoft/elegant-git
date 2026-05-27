@@ -81,8 +81,7 @@ There are the following pipes:
 - **stash pipe** which preserves and restores uncommitted changes
 
 A command can use one or several pipes at the same time (see command help for the details).
-And if a "piped" command is used, each pipe stores the state within repository configuration (using
-`git config --local`), runs the original command, and restores saved state if the command is
+And if a "piped" command is used, each pipe stores the state in per-repo command memory (`.git/elegant-git/commands.json`), runs the original command, and restores saved state if the command is
 successful. If the command is failed and it reruns, the pipes do not preserve the state again but
 will restore the initial preserved state if the command is successful.
 

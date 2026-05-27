@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
@@ -18,9 +19,8 @@ var newID = cmdid.ID{Command: "release", Action: "new"}
 
 func newNewCommand() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "new [name]",
+		Use:   "new <name>",
 		Short: "Releases the default development branch",
-		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, newID, func() error {
 				return newRun(cmd, args)
@@ -40,6 +40,12 @@ func newRun(cmd *cobra.Command, args []string) error {
 }
 
 func newLogic(cmd *cobra.Command, args []string) error {
+	var tagName string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("name", 0, true, "Release tag name", &tagName, nil),
+	}}); err != nil {
+		return err
+	}
 	defaultBranch := config.DefaultBranch()
 	if err := git.Verbose("checkout", defaultBranch); err != nil {
 		return err
@@ -47,15 +53,8 @@ func newLogic(cmd *cobra.Command, args []string) error {
 	if err := git.Verbose("pull", "--tags"); err != nil {
 		return err
 	}
-	newTag := cliruntime.ArgAt(args, 0)
 	lastTag := state.LastTag()
-	if newTag == "" {
-		answer, err := cliruntime.ReadLineAnswer(cmd.Context(), fmt.Sprintf("'%s' is the last tag. Which one will be next? ", lastTag))
-		if err != nil {
-			return err
-		}
-		newTag = answer
-	}
+	newTag := tagName
 	messageFile := "tag-message"
 	diapason := lastTag + "...HEAD"
 	notesFrom := lastTag

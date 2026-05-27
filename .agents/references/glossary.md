@@ -2,9 +2,37 @@
 
 Canonical domain terms for Elegant Git. Unqualified **repository** means a tracked entry in shared memory; say **git repository** for any clone.
 
+### Argument resolution
+
+Policy that fills required and optional command inputs before business logic runs (`argspec.Resolve`).
+
+Notes: when any required input is missing in interactive mode, optional inputs are reviewed with edit-or-accept even if already passed on the CLI.
+
 ### Git
 
 CLI object for installation-wide setup, inspection, and migration—not “run git” or native `git status`.
+
+### Interactive mode
+
+CLI mode where the prompter accepts input; default when stdin is a TTY and no non-interactive override applies.
+
+Aliases: TTY mode
+
+Avoid: conflating with workflow prompts inside configure/migrate commands
+
+### Non-interactive mode
+
+CLI mode where required missing inputs fail without prompts; auto-detected from non-TTY stdin, `CI`, env, or `--non-interactive`.
+
+Notes: override with `--interactive` or `ELEGANT_GIT_INTERACTIVE=1`
+
+### Optional input
+
+Command argument or flag declared non-required in an arg spec; reviewed in interactive mode only when at least one required input was missing.
+
+### Required input
+
+Command argument or flag that must be set before the command’s main logic runs; missing values error in non-interactive mode.
 
 ### Hook
 

@@ -2,6 +2,18 @@
 
 `git elegant` uses an object-first CLI. Legacy flat names (e.g. `git elegant start-work`) remain available as hidden aliases.
 
+## Argument handling
+
+Every command follows the same policy:
+
+1. When all **required** inputs are present (flags or positionals), the command runs with no argument prompts.
+2. In **interactive** mode, missing required inputs are prompted; then every **optional** input is offered for edit-or-accept (including flags already passed on the CLI).
+3. In **non-interactive** mode, missing required inputs cause an error listing what is missing.
+
+Interactive mode is the default when stdin is a TTY. Non-interactive mode is used when `--non-interactive` or `ELEGANT_GIT_NON_INTERACTIVE=1` is set, when `CI` is set, or when stdin is not a TTY. Use `--interactive` or `ELEGANT_GIT_INTERACTIVE=1` to force prompts.
+
+Workflow prompts inside commands (e.g. `git configure`, `repo configure`, uncommitted changes during `work start`) are separate from argument resolution.
+
 ## Objects
 
 ### memory
@@ -17,7 +29,7 @@
 | Command | Description |
 | --- | --- |
 | `profile status` | Shows the linked profile for the current repository (when inside a git work tree). |
-| `profile create` | Creates a profile (edit-or-accept for all fields; suggests from local/global git config; offers apply to current repo). |
+| `profile create` | Creates a profile (`--name`, `--user-name`, `--user-email` required in non-interactive mode; optional signing/editor flags). |
 | `profile edit <name>` | Edits a profile transactionally: plan changes and repo targets, summary + single confirm, then commit to shared memory and selected repos. |
 | `profile delete <name>` | Deletes a profile only when no repositories are linked. |
 
@@ -40,7 +52,7 @@
 | `repo sync` | Re-applies profile settings (`--all` for every managed repo; `[y/n/A/S]` per repo). |
 | `repo relocate <path>` | Updates the managed path for the current repository. |
 | `repo prune` | Removes useless local branches. |
-| `repo migrate` | Migrates local aliases, hooks, pipe keys, and elegant-git settings into memory. |
+| `repo migrate` | Migrates local aliases, hooks, and elegant-git settings into memory. |
 
 ### hook
 
@@ -71,7 +83,7 @@ Hooks live under `.config/elegant-git/hooks/<command>-<action>-{ahead,after}` (r
 
 | Command | Description |
 | --- | --- |
-| `release new` | Tags and releases the default branch. |
+| `release new <name>` | Tags and releases the default branch. |
 | `release notes` | Prints a release log between two refs. |
 
 ## Top-level
@@ -84,7 +96,8 @@ Hooks live under `.config/elegant-git/hooks/<command>-<action>-{ahead,after}` (r
 ## Flags
 
 - `--no-workflows` — disables ahead/after hooks
-- `--non-interactive` — disables prompts; fails when required input is missing (also `ELEGANT_GIT_NON_INTERACTIVE=1`)
+- `--non-interactive` — disables argument prompts; fails when required input is missing (also `ELEGANT_GIT_NON_INTERACTIVE=1`, `CI`, or non-TTY stdin)
+- `--interactive` — forces argument prompts even when stdin is not a TTY or `CI` is set (also `ELEGANT_GIT_INTERACTIVE=1`)
 - `--version` — prints version
 
 ## Shell completion

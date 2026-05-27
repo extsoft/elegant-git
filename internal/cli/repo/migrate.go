@@ -7,9 +7,7 @@ import (
 
 	hookcmd "github.com/bees-hive/elegant-git/internal/cli/hook"
 	"github.com/bees-hive/elegant-git/internal/cli/legacy"
-	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
-	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/git"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/repoid"
@@ -22,8 +20,8 @@ func newMigrateCommand() *cobra.Command {
 	var dryRun bool
 	c := &cobra.Command{
 		Use:   "migrate",
-		Short: "Migrate local aliases, hooks, and pipe keys",
-		Long:  "Rewrites local git aliases, moves personal hooks, and renames pipe config keys.",
+		Short: "Migrate local aliases and hooks",
+		Long:  "Rewrites local git aliases and moves personal hooks.",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return migrateLocal(dryRun)
 		},
@@ -60,12 +58,6 @@ func migrateLocal(dryRun bool) error {
 	newPaths, oldPaths, err := hookcmd.MigrateHooks(ws, true, dryRun)
 	if err != nil {
 		return err
-	}
-	if !globalAcquired {
-		for legacyName, id := range legacy.LegacyToID {
-			migratePipeKey(legacyName, id, "stash", dryRun)
-			migratePipeKey(legacyName, id, "current-branch", dryRun)
-		}
 	}
 	if !dryRun {
 		if !globalAcquired {
@@ -110,19 +102,4 @@ func migrateRepoMemory() error {
 		return err
 	}
 	return memrepo.Save(gitDir, perRepo)
-}
-
-func migratePipeKey(legacyName string, id cmdid.ID, suffix string, dryRun bool) {
-	oldKey := "elegant." + legacyName + "-" + suffix
-	newKey := id.ConfigKeySuffix(suffix)
-	oldVal, err := git.Output("config", "--local", "--get", oldKey)
-	if err != nil || strings.TrimSpace(oldVal) == "" {
-		return
-	}
-	fmt.Fprintf(os.Stdout, "  config %s -> %s\n", oldKey, newKey)
-	if !dryRun {
-		deprecation.RecordLegacyPipeKey(oldKey)
-		_ = git.Verbose("config", "--local", newKey, strings.TrimSpace(oldVal))
-		_ = git.ConfigLocalUnset(oldKey)
-	}
 }

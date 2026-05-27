@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
@@ -23,7 +24,6 @@ func newAcceptCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "accept <branch>",
 		Short: "Adds modifications to the default development branch",
-		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, acceptID, func() error {
 				return acceptRun(cmd, args)
@@ -43,6 +43,12 @@ func acceptRun(cmd *cobra.Command, args []string) error {
 }
 
 func acceptLogic(cmd *cobra.Command, args []string) error {
+	var branch string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("branch", 0, true, "Branch to accept", &branch, nil),
+	}}); err != nil {
+		return err
+	}
 	if state.IsThereActiveRebase() {
 		rb := state.RebasingBranch()
 		if rb == acceptWorkBranch {
@@ -50,19 +56,18 @@ func acceptLogic(cmd *cobra.Command, args []string) error {
 		}
 		cliruntime.ExitWorkflowError(fmt.Sprintf("First, please complete current rebase which updates '%s' branch.", rb))
 	}
-	changes := args[0]
-	if cliruntime.LocalBranchExists(changes) {
+	if cliruntime.LocalBranchExists(branch) {
 		if err := git.Verbose("fetch", "--all"); err != nil {
 			return err
 		}
-		if err := git.Verbose("checkout", "-B", acceptWorkBranch, changes); err != nil {
+		if err := git.Verbose("checkout", "-B", acceptWorkBranch, branch); err != nil {
 			return err
 		}
 	} else {
 		ctx := cmd.Context()
 		workflows.RunAheadCompat(ctx, trackIDAccept, "obtain-work")
 		defer workflows.RunAfterCompat(ctx, trackIDAccept, "obtain-work")
-		if err := trackLogic(changes, acceptWorkBranch); err != nil {
+		if err := trackLogic(branch, acceptWorkBranch); err != nil {
 			return err
 		}
 	}

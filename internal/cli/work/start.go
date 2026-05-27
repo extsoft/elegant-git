@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
@@ -29,10 +30,9 @@ func newStartCommand() *cobra.Command {
 		Long: `Creates a new local branch from the default development branch (or from-ref).
 
 When there are uncommitted changes, you can add them to the new branch or reset them before checkout.`,
-		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, startID, func() error {
-				return startRun(cmd.Context(), args)
+				return startRun(cmd, args)
 			})
 		},
 	}
@@ -40,11 +40,21 @@ When there are uncommitted changes, you can add them to the new branch or reset 
 	return c
 }
 
-func startRun(ctx context.Context, args []string) error {
-	name := args[0]
+func startRun(cmd *cobra.Command, args []string) error {
+	var name, fromRef string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("name", 0, true, "Branch name", &name, nil),
+		argspec.PositionalInput("from-ref", 1, false, "Start from ref", &fromRef, config.DefaultBranch),
+	}}); err != nil {
+		return err
+	}
+	return startRunWithRefs(cmd.Context(), name, fromRef)
+}
+
+func startRunWithRefs(ctx context.Context, name, fromRef string) error {
 	target := config.DefaultBranch()
-	if len(args) > 1 && args[1] != "" {
-		target = args[1]
+	if fromRef != "" {
+		target = fromRef
 	}
 	logic := func() error {
 		if err := git.Verbose("checkout", target); err != nil {

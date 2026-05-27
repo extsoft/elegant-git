@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/spf13/cobra"
@@ -16,15 +17,20 @@ func newRepositoriesCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "repositories [name-or-path]",
 		Short: "List managed repositories or show one repository's details",
-		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var nameOrPath string
+			if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+				argspec.PositionalInput("name-or-path", 0, false, "Repository name or path", &nameOrPath, nil),
+			}}); err != nil {
+				return err
+			}
 			s, err := shared.Load()
 			if err != nil {
 				return err
 			}
 			w := cmd.OutOrStdout()
-			if len(args) == 1 {
-				_, repo, err := shared.ResolveRepository(s, args[0])
+			if nameOrPath != "" {
+				_, repo, err := shared.ResolveRepository(s, nameOrPath)
 				if err != nil {
 					return err
 				}

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/git"
@@ -20,7 +21,6 @@ func newCloneCommand() *cobra.Command {
 		Use:   "clone <repository> [<directory>]",
 		Short: "Clones a remote repository and configures it",
 		Long:  "Runs git clone then repo configure.",
-		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithCompat(cmd, cloneID, "acquire-repository", func() error {
 				return cloneRun(cmd, args)
@@ -32,10 +32,21 @@ func newCloneCommand() *cobra.Command {
 }
 
 func cloneRun(cmd *cobra.Command, args []string) error {
-	if err := git.Verbose(append([]string{"clone"}, args...)...); err != nil {
+	var repository, directory string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("repository", 0, true, "Repository URL or path", &repository, nil),
+		argspec.PositionalInput("directory", 1, false, "Target directory", &directory, nil),
+	}}); err != nil {
 		return err
 	}
-	location := cloneTargetDir(args)
+	cloneArgs := []string{repository}
+	if directory != "" {
+		cloneArgs = append(cloneArgs, directory)
+	}
+	if err := git.Verbose(append([]string{"clone"}, cloneArgs...)...); err != nil {
+		return err
+	}
+	location := cloneTargetDir(cloneArgs)
 	text.InfoText(fmt.Sprintf("The repository was cloned into '%s' directory.", location))
 	if err := os.Chdir(location); err != nil {
 		return err

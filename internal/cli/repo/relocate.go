@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/memory/repoid"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/bees-hive/elegant-git/internal/text"
@@ -15,13 +16,18 @@ func newRelocateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "relocate <new-path>",
 		Short: "Update managed repository path",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var newPathArg string
+			if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+				argspec.PositionalInput("new-path", 0, true, "New repository path", &newPathArg, nil),
+			}}); err != nil {
+				return err
+			}
 			repoID, err := repoid.ReadLocal()
 			if err != nil || repoID == "" {
 				return fmt.Errorf("not a configured elegant-git repository")
 			}
-			newPath, err := filepath.Abs(args[0])
+			newPath, err := filepath.Abs(newPathArg)
 			if err != nil {
 				return err
 			}

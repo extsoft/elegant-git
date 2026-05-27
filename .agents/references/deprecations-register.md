@@ -7,7 +7,7 @@
 | DEP-003 | 2026-05-22 | common hooks: `.workflows/<legacy>-{ahead,after}` | `.config/elegant-git/hooks/<command>-<action>-{ahead,after}` | `git elegant hook migrate` | 2027-01-31 | active |
 | DEP-004 | 2026-05-22 | command: show-commands | `git elegant completion <shell>` | install new completion script | 2027-01-31 | active |
 | DEP-005 | 2026-05-22 | files: completions/_git-elegant, completions/git-elegant.bash | `git elegant completion <shell>` | regenerate completion | 2027-01-31 | active |
-| DEP-006 | 2026-05-22 | config keys: elegant.<legacy>-stash, elegant.<legacy>-current-branch | elegant.<command>-<action>-stash | `git elegant repo migrate` | 2027-01-31 | active |
+| DEP-006 | 2026-05-22 | config keys: elegant.<legacy>-stash, elegant.<legacy>-current-branch | per-repo `.git/elegant-git/commands.json` | — | 2027-01-31 | removed |
 | DEP-007 | 2026-05-22 | hook new argument: legacy command name | canonical id (e.g. work.start) | use `git elegant hook new work.start ...` | 2027-01-31 | active |
 | DEP-008 | 2026-05-22 | hook dispatch: acquire-repository, obtain-work from clone/init/accept | repo.configure, work.track + legacy hooks | migrate hooks | 2027-01-31 | active |
 | DEP-009 | 2026-05-22 | config: elegant-git.acquired=true | shared memory `acquired_version` | `git elegant git migrate` / `git elegant repo migrate` | 2027-01-31 | active |

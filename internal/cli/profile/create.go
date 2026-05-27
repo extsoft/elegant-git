@@ -3,6 +3,7 @@ package profile
 import (
 	"fmt"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/text"
@@ -21,52 +22,36 @@ func newCreateCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "create",
 		Short: "Create a profile",
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			p := prompt.FromContext(cmd.Context())
-			var err error
-			if name == "" && !prompt.NonInteractive(p) {
-				emailHint := suggestField(userEmail, "user.email")
-				name, err = p.EditOrAccept("Profile name", defaultProfileName(emailHint))
-				if err != nil {
-					return err
-				}
-			}
-			name, err = prompt.RequireString(p, name, "profile name")
-			if err != nil {
+			spec := argspec.Spec{Inputs: []argspec.Input{
+				argspec.FlagInput("name", "name", true, "Profile name", &name, func() string {
+					return defaultProfileName(suggestField(userEmail, "user.email"))
+				}),
+				argspec.FlagInput("user-name", "user-name", true, "Git user.name", &userName, func() string {
+					return suggestField(userName, "user.name")
+				}),
+				argspec.FlagInput("user-email", "user-email", true, "Git user.email", &userEmail, func() string {
+					return suggestField(userEmail, "user.email")
+				}),
+				argspec.FlagInput("signing-key", "signing-key", false, "Signing key (empty to skip)", &signingKey, func() string {
+					return suggestField(signingKey, "user.signingkey")
+				}),
+				argspec.FlagInput("gpg-program", "gpg-program", false, "GPG program (empty to skip)", &gpgProgram, func() string {
+					return suggestField(gpgProgram, "gpg.program")
+				}),
+				argspec.FlagInput("editor", "editor", false, "Editor command (empty to skip)", &editor, func() string {
+					return suggestField(editor, "core.editor")
+				}),
+			}}
+			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
 			}
-			userName = suggestField(userName, "user.name")
-			userName, err = prompt.Skippable(p, "Git user.name", userName, userName)
-			if err != nil {
-				return err
+			if name == "" {
+				return fmt.Errorf("profile name is required")
 			}
-			userName, err = prompt.RequireString(p, userName, "user name")
-			if err != nil {
-				return err
-			}
-			userEmail = suggestField(userEmail, "user.email")
-			userEmail, err = prompt.Skippable(p, "Git user.email", userEmail, userEmail)
-			if err != nil {
-				return err
-			}
-			userEmail, err = prompt.RequireString(p, userEmail, "user email")
-			if err != nil {
-				return err
-			}
-			signingKey = suggestField(signingKey, "user.signingkey")
-			signingKey, err = p.EditOrAccept("Signing key (empty to skip)", signingKey)
-			if err != nil {
-				return err
-			}
-			gpgProgram = suggestField(gpgProgram, "gpg.program")
-			gpgProgram, err = p.EditOrAccept("GPG program (empty to skip)", gpgProgram)
-			if err != nil {
-				return err
-			}
-			editor = suggestField(editor, "core.editor")
-			editor, err = p.EditOrAccept("Editor command (empty to skip)", editor)
-			if err != nil {
-				return err
+			if userName == "" || userEmail == "" {
+				return fmt.Errorf("user name and email are required")
 			}
 			s, err := shared.Load()
 			if err != nil {
@@ -90,6 +75,7 @@ func newCreateCommand() *cobra.Command {
 				return err
 			}
 			text.InfoText(fmt.Sprintf("Created profile %s (%s)", name, id))
+			_ = p
 			return nil
 		},
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/runtime"
@@ -17,10 +18,9 @@ func newEditCommand() *cobra.Command {
 		Use:   "edit <path>",
 		Short: "Opens a hook file in your editor",
 		Long:  "Opens the given hook path in core.editor.",
-		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, editID, func() error {
-				return editRun(cmd, args[0])
+				return editRun(cmd, args)
 			})
 		},
 	}
@@ -28,7 +28,13 @@ func newEditCommand() *cobra.Command {
 	return c
 }
 
-func editRun(cmd *cobra.Command, path string) error {
+func editRun(cmd *cobra.Command, args []string) error {
+	var path string
+	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("path", 0, true, "Hook file path", &path, nil),
+	}}); err != nil {
+		return err
+	}
 	if _, err := os.Stat(path); err != nil {
 		cliruntime.ExitWorkflowError(fmt.Sprintf("The '%s' file does not exist.", path))
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/repoid"
@@ -45,13 +46,18 @@ func newEditCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "edit <name>",
 		Short: "Edit a profile",
-		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var profileName string
+			if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
+				argspec.PositionalInput("name", 0, true, "Profile name", &profileName, nil),
+			}}); err != nil {
+				return err
+			}
 			s, err := shared.Load()
 			if err != nil {
 				return err
 			}
-			id, prof, err := shared.GetProfileByName(s, args[0])
+			id, prof, err := shared.GetProfileByName(s, profileName)
 			if err != nil {
 				return err
 			}
