@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/git"
@@ -21,34 +23,41 @@ var acceptID = cmdid.ID{Command: "work", Action: "accept"}
 var trackIDAccept = cmdid.ID{Command: "work", Action: "track"}
 
 func newAcceptCommand() *cobra.Command {
+	var branch string
+	spec := acceptSpec(&branch)
 	c := &cobra.Command{
 		Use:   "accept <branch>",
 		Short: "Adds modifications to the default development branch",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, acceptID, func() error {
-				return acceptRun(cmd, args)
+				return acceptRun(cmd, args, spec)
 			})
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
 	return c
 }
 
-func acceptRun(cmd *cobra.Command, args []string) error {
+func acceptSpec(branch *string) argspec.Spec {
+	return argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInputWithComplete("branch", 0, true, "Branch to accept", branch, nil, sources.BranchNamesUnion, true),
+	}}
+}
+
+func acceptRun(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 	return pipe.StashPipe(acceptID, func() error {
 		return pipe.BranchPipe(acceptID, func() error {
-			return acceptLogic(cmd, args)
+			return acceptLogic(cmd, args, spec)
 		})
 	})
 }
 
-func acceptLogic(cmd *cobra.Command, args []string) error {
-	var branch string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("branch", 0, true, "Branch to accept", &branch, nil),
-	}}); err != nil {
+func acceptLogic(cmd *cobra.Command, args []string, spec argspec.Spec) error {
+	if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 		return err
 	}
+	branch := spec.Inputs[0].Get()
 	if state.IsThereActiveRebase() {
 		rb := state.RebasingBranch()
 		if rb == acceptWorkBranch {
@@ -67,7 +76,7 @@ func acceptLogic(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 		workflows.RunAheadCompat(ctx, trackIDAccept, "obtain-work")
 		defer workflows.RunAfterCompat(ctx, trackIDAccept, "obtain-work")
-		if err := trackLogic(branch, acceptWorkBranch); err != nil {
+		if err := trackExactRemote(branch, acceptWorkBranch); err != nil {
 			return err
 		}
 	}

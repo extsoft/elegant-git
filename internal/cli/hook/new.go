@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	"github.com/bees-hive/elegant-git/internal/cli/legacy"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/runtime"
@@ -18,7 +20,17 @@ import (
 
 var newID = cmdid.ID{Command: "hook", Action: "new"}
 
+func hookNewSpec(commandID, hookType, location *string) argspec.Spec {
+	return argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInputWithComplete("command-id", 0, true, "Command id (e.g. work.start)", commandID, nil, sources.HookCommandIDs, true),
+		argspec.PositionalInputWithComplete("hook-type", 1, true, "Hook type (ahead or after)", hookType, nil, sources.HookTypes, true),
+		argspec.PositionalInputWithComplete("location", 2, true, "Hook location (personal or common)", location, nil, sources.HookLocations, true),
+	}}
+}
+
 func newNewCommand() *cobra.Command {
+	var commandID, hookType, location string
+	spec := hookNewSpec(&commandID, &hookType, &location)
 	c := &cobra.Command{
 		Use:   "new <command-id> <ahead|after> <personal|common>",
 		Short: "Creates a new hook file",
@@ -30,16 +42,13 @@ func newNewCommand() *cobra.Command {
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
 	return c
 }
 
 func newRun(cmd *cobra.Command, args []string) error {
 	var commandID, hookType, location string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("command-id", 0, true, "Command id (e.g. work.start)", &commandID, nil),
-		argspec.PositionalInput("hook-type", 1, true, "Hook type (ahead or after)", &hookType, nil),
-		argspec.PositionalInput("location", 2, true, "Hook location (personal or common)", &location, nil),
-	}}); err != nil {
+	if err := argspec.ResolveCmd(cmd, args, hookNewSpec(&commandID, &hookType, &location)); err != nil {
 		return err
 	}
 	id, ok := legacy.ParseID(commandID)

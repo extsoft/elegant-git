@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/git"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
@@ -15,18 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	pickerCreateNew    = "[Create new]"
-	pickerImportGitCfg = "[Import from this repository]"
-)
-
-func configureWithMemory(cmd *cobra.Command, profileFlag string) error {
+func configureWithMemory(cmd *cobra.Command, profileName string) error {
 	p := prompt.FromContext(cmd.Context())
 	repoID, err := repoid.EnsureLocal()
 	if err != nil {
 		return err
 	}
-	_ = shared.TouchCurrentRepo()
 	gitDir, err := memrepo.GitDir()
 	if err != nil {
 		return err
@@ -47,7 +42,7 @@ func configureWithMemory(cmd *cobra.Command, profileFlag string) error {
 	}
 	perRepo.RepoID = repoID
 
-	profileID, prof, err := resolveProfile(cmd, sharedState, profileFlag, p)
+	profileID, prof, err := resolveProfile(sharedState, profileName, p)
 	if err != nil {
 		return err
 	}
@@ -58,9 +53,6 @@ func configureWithMemory(cmd *cobra.Command, profileFlag string) error {
 		ID: repoID, Name: repoName, ProfileID: profileID, CurrentPath: cwd, OriginURL: origin,
 	}); err != nil {
 		return err
-	}
-	if r, _ := shared.GetRepo(sharedState, repoID); r != nil {
-		_ = shared.RecordPath(sharedState, repoID, cwd)
 	}
 
 	perRepo.ProfileID = profileID
@@ -81,67 +73,18 @@ func configureWithMemory(cmd *cobra.Command, profileFlag string) error {
 	return shared.Save(sharedState)
 }
 
-func resolveProfile(cmd *cobra.Command, s *shared.State, profileFlag string, p prompt.Prompter) (string, *shared.Profile, error) {
-	if profileFlag != "" {
-		id, prof, err := shared.GetProfileByName(s, profileFlag)
-		if err != nil {
-			return "", nil, fmt.Errorf("profile %q: %w", profileFlag, err)
+func resolveProfile(s *shared.State, profileName string, p prompt.Prompter) (string, *shared.Profile, error) {
+	if profileName == sources.ProfileCreateNew {
+		if prompt.NonInteractive(p) {
+			return "", nil, fmt.Errorf("profile creation requires interactive mode")
 		}
-		return id, prof, nil
-	}
-	if prompt.NonInteractive(p) {
-		return "", nil, fmt.Errorf("repo configure: --profile is required in non-interactive mode")
-	}
-	options := []string{}
-	for _, prof := range shared.ListProfiles(s) {
-		if prof != nil {
-			options = append(options, prof.Name)
-		}
-	}
-	options = append(options, pickerCreateNew)
-	if hasLocalUserConfig() {
-		options = append(options, pickerImportGitCfg)
-	}
-	idx, err := p.Choose("Select a profile", options)
-	if err != nil {
-		return "", nil, err
-	}
-	choice := options[idx]
-	switch choice {
-	case pickerCreateNew:
 		return createProfileInteractive(p, s)
-	case pickerImportGitCfg:
-		return importProfileFromGitConfig(p, s)
-	default:
-		id, prof, err := shared.GetProfileByName(s, choice)
-		return id, prof, err
 	}
-}
-
-func hasLocalUserConfig() bool {
-	n := git.ConfigLocalGet("user.name")
-	e := git.ConfigLocalGet("user.email")
-	return n != "" && e != ""
-}
-
-func importProfileFromGitConfig(p prompt.Prompter, s *shared.State) (string, *shared.Profile, error) {
-	userName := git.ConfigLocalGet("user.name")
-	userEmail := git.ConfigLocalGet("user.email")
-	signingKey := git.ConfigLocalGet("user.signingkey")
-	editor := git.ConfigLocalGet("core.editor")
-	gpgProgram := git.ConfigLocalGet("gpg.program")
-	profName, err := p.EditOrAccept("Profile name", defaultProfileName(userEmail))
+	id, prof, err := shared.GetProfileByName(s, profileName)
 	if err != nil {
-		return "", nil, err
+		return "", nil, fmt.Errorf("profile %q: %w", profileName, err)
 	}
-	id, err := shared.CreateProfile(s, shared.CreateProfileInput{
-		Name: profName, UserName: userName, UserEmail: userEmail,
-		SigningKey: signingKey, Editor: editor, GPGProgram: gpgProgram,
-	})
-	if err != nil {
-		return "", nil, err
-	}
-	return id, s.Profiles[id], nil
+	return id, prof, nil
 }
 
 func createProfileInteractive(p prompt.Prompter, s *shared.State) (string, *shared.Profile, error) {

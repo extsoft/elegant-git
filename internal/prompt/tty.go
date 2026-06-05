@@ -15,6 +15,7 @@ import (
 type TTY struct {
 	in  io.Reader
 	out io.Writer
+	br  *bufio.Reader
 }
 
 // NewTTY returns a prompter; nil in/out default to os.Stdin/os.Stdout.
@@ -28,13 +29,20 @@ func NewTTY(in io.Reader, out io.Writer) *TTY {
 	return &TTY{in: in, out: out}
 }
 
+func (t *TTY) reader() *bufio.Reader {
+	if t.br == nil {
+		t.br = bufio.NewReader(t.in)
+	}
+	return t.br
+}
+
 func (t *TTY) String(question, defaultVal string) (string, error) {
 	prompt := question
 	if defaultVal != "" {
 		prompt = question + " {" + defaultVal + "}"
 	}
 	text.QuestionText(prompt + ": ")
-	line, err := bufio.NewReader(t.in).ReadString('\n')
+	line, err := t.reader().ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", err
 	}
@@ -47,7 +55,7 @@ func (t *TTY) String(question, defaultVal string) (string, error) {
 
 func (t *TTY) Confirm(question string) (bool, error) {
 	text.QuestionText(question + " [y/N]: ")
-	line, err := bufio.NewReader(t.in).ReadString('\n')
+	line, err := t.reader().ReadString('\n')
 	if err != nil && err != io.EOF {
 		return false, err
 	}
@@ -65,7 +73,7 @@ func (t *TTY) Choose(question string, options []string) (int, error) {
 		fmt.Fprintf(t.out, "  %d) %s\n", i+1, opt)
 	}
 	text.QuestionText("Enter choice (number): ")
-	line, err := bufio.NewReader(t.in).ReadString('\n')
+	line, err := t.reader().ReadString('\n')
 	if err != nil && err != io.EOF {
 		return -1, err
 	}
@@ -94,7 +102,7 @@ func (t *TTY) EditOrAccept(label, suggested string) (string, error) {
 		prompt = label + " {" + suggested + "}"
 	}
 	text.QuestionText(prompt + ": ")
-	line, err := bufio.NewReader(t.in).ReadString('\n')
+	line, err := t.reader().ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", err
 	}
@@ -110,7 +118,7 @@ func (t *TTY) EditOrAccept(label, suggested string) (string, error) {
 
 func (t *TTY) BatchChoice(question string) (BatchDecision, error) {
 	text.QuestionText(question + " [y/n/A/S]: ")
-	line, err := bufio.NewReader(t.in).ReadString('\n')
+	line, err := t.reader().ReadString('\n')
 	if err != nil && err != io.EOF {
 		return BatchReject, err
 	}

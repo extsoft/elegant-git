@@ -2,6 +2,7 @@ package work
 
 import (
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
@@ -13,10 +14,19 @@ import (
 
 var syncID = cmdid.ID{Command: "work", Action: "sync"}
 
+func syncSpec(branch *string) argspec.Spec {
+	in := argspec.PositionalInput("branch-name", 0, false, "Branch name", branch, nil)
+	in.OmitInteractive = true
+	return argspec.Spec{Inputs: []argspec.Input{in}}
+}
+
 func newSyncCommand() *cobra.Command {
+	var branch string
+	spec := syncSpec(&branch)
 	c := &cobra.Command{
 		Use:   "sync [branch-name]",
 		Short: "Actualizes the branch with upstream commits",
+		Long:  "Rebases the current branch onto upstream or the given branch name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, syncID, func() error {
 				return syncRun(cmd, args)
@@ -24,14 +34,13 @@ func newSyncCommand() *cobra.Command {
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.AttachArgs(c, spec)
 	return c
 }
 
 func syncRun(cmd *cobra.Command, args []string) error {
 	var branch string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("branch-name", 0, false, "Branch name", &branch, nil),
-	}}); err != nil {
+	if err := argspec.ResolveCmd(cmd, args, syncSpec(&branch)); err != nil {
 		return err
 	}
 	return pipe.StashPipe(syncID, func() error {

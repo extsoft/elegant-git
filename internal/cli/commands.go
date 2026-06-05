@@ -3,10 +3,23 @@ package cli
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/spf13/cobra"
 )
+
+// AllCanonicalCommandIDs returns object.action ids for every registered subcommand.
+func AllCanonicalCommandIDs() []string {
+	var ids []string
+	for _, g := range commandGroups {
+		for _, c := range g.commands {
+			ids = append(ids, g.object+"."+c.action)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
 
 const siteURL = "https://elegant-git.bees-hive.org"
 
@@ -42,7 +55,6 @@ var commandGroups = []commandGroup{
 		{action: "status", purpose: "Shows repository memory and registry state for the current repository."},
 		{action: "init", purpose: "Initializes a new repository and configures it."},
 		{action: "clone", purpose: "Clones a remote repository and configures it."},
-		{action: "relocate", purpose: "Updates the managed path for the current repository."},
 		{action: "configure", purpose: "Configures the current local Git repository."},
 		{action: "sync", purpose: "Re-applies profile settings to repositories."},
 		{action: "prune", purpose: "Removes useless local branches."},

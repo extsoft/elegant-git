@@ -66,7 +66,7 @@ CLI object for tagging and release notes on the default development branch.
 
 ### Repo
 
-CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `status`, `sync`, `relocate`, `prune`, `migrate`).
+CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `status`, `sync`, `prune`, `migrate`).
 
 Avoid: using “repo” when you mean the **Repository** entity in shared memory
 

@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
+	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/text"
@@ -85,5 +87,8 @@ func newCreateCommand() *cobra.Command {
 	c.Flags().StringVar(&signingKey, "signing-key", "", "GPG signing key id")
 	c.Flags().StringVar(&editor, "editor", "", "core.editor command")
 	c.Flags().StringVar(&gpgProgram, "gpg-program", "", "gpg.program path")
+	c.Long = "Creates a Git user profile in shared memory. Required fields can be passed as flags or prompted interactively."
+	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.AttachArgs(c, argspec.Spec{})
 	return c
 }

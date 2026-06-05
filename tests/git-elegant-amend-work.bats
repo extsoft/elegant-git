@@ -16,7 +16,6 @@ teardown() {
 
 @test "'amend-work': command works as expected for non-master branch" {
     fake-pass "git add --interactive"
-    fake-pass "git diff --cached --check"
     fake-pass "git commit --amend"
     repo git checkout -b test
     check git-elegant amend-work

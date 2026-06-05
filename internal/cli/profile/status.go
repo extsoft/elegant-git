@@ -9,6 +9,7 @@ func newStatusCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show the linked profile for the current repository",
+		Long:  "Prints the profile linked to the current repository from shared memory.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return memorycmd.PrintProfileStatus(cmd.OutOrStdout())
 		},

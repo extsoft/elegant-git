@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/git"
@@ -16,29 +17,36 @@ import (
 
 var cloneID = cmdid.ID{Command: "repo", Action: "clone"}
 
+func cloneSpec(repository, profile, directory *string) argspec.Spec {
+	return argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("repository", 0, true, "Repository URL or path", repository, nil),
+		profileInput(1, profile),
+		argspec.PositionalInput("directory", 2, false, "Target directory", directory, nil),
+	}}
+}
+
 func newCloneCommand() *cobra.Command {
+	var repository, profileName, directory string
+	spec := cloneSpec(&repository, &profileName, &directory)
 	c := &cobra.Command{
-		Use:   "clone <repository> [<directory>]",
+		Use:   "clone <repository> <profile> [<directory>]",
 		Short: "Clones a remote repository and configures it",
 		Long:  "Runs git clone then repo configure.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithCompat(cmd, cloneID, "acquire-repository", func() error {
-				return cloneRun(cmd, args)
+				if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
+					return err
+				}
+				return cloneRun(cmd, repository, profileName, directory)
 			})
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
 	return c
 }
 
-func cloneRun(cmd *cobra.Command, args []string) error {
-	var repository, directory string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("repository", 0, true, "Repository URL or path", &repository, nil),
-		argspec.PositionalInput("directory", 1, false, "Target directory", &directory, nil),
-	}}); err != nil {
-		return err
-	}
+func cloneRun(cmd *cobra.Command, repository, profile, directory string) error {
 	cloneArgs := []string{repository}
 	if directory != "" {
 		cloneArgs = append(cloneArgs, directory)
@@ -51,7 +59,7 @@ func cloneRun(cmd *cobra.Command, args []string) error {
 	if err := os.Chdir(location); err != nil {
 		return err
 	}
-	return ConfigureRun(cmd)
+	return ConfigureRun(cmd, profile)
 }
 
 func cloneTargetDir(args []string) string {

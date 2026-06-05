@@ -21,13 +21,10 @@ commit process.
 
 The command doesn't allow to modify the history of the protected branches.
 
-If there are trailing whitespaces in the modifications, the commit is rejected.
-
 Approximate commands flow is
 \`\`\`bash
 ==>> git elegant save-work
 git add --interactive
-git diff --cached --check
 git commit
 \`\`\`
 MESSAGE
@@ -43,6 +40,5 @@ default(){
         exit 42
     fi
     git-verbose add --interactive
-    git-verbose diff --cached --check
     git-verbose commit
 }

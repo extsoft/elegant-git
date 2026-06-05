@@ -30,8 +30,5 @@ func amendRun() error {
 	if err := git.Verbose("add", "--interactive"); err != nil {
 		return err
 	}
-	if err := git.Verbose("diff", "--cached", "--check"); err != nil {
-		return err
-	}
 	return git.Verbose("commit", "--amend")
 }

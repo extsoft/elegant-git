@@ -16,7 +16,6 @@ teardown() {
 
 @test "'save-work': command works as expected for non-master branch" {
     fake-pass "git add --interactive"
-    fake-pass "git diff --cached --check"
     fake-pass "git commit"
     repo git checkout -b test
     check git-elegant save-work

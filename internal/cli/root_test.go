@@ -37,6 +37,44 @@ func TestUnknownCommandExit46(t *testing.T) {
 	}
 }
 
+func TestUnknownFlagShowsHelp(t *testing.T) {
+	bin := buildTestBinary(t)
+	cmd := exec.Command(bin, "memory", "profiles", "--unknown-flag")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected error exit")
+	}
+	if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 47 {
+		t.Fatalf("exit code = %v, want 47; output: %s", err, out)
+	}
+	text := string(out)
+	if !strings.Contains(text, "unknown flag") && !strings.Contains(text, "Unknown flag") {
+		t.Fatalf("expected unknown flag error, got: %s", text)
+	}
+	if !strings.Contains(text, "Usage:") {
+		t.Fatalf("expected help after error, got: %s", text)
+	}
+}
+
+func TestExtraPositionalShowsHelp(t *testing.T) {
+	bin := buildTestBinary(t)
+	cmd := exec.Command(bin, "version", "extra-arg")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("expected error exit")
+	}
+	if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() != 47 {
+		t.Fatalf("exit code = %v, want 47; output: %s", err, out)
+	}
+	text := string(out)
+	if !strings.Contains(text, "accepts no arguments") {
+		t.Fatalf("expected extra arg error, got: %s", text)
+	}
+	if !strings.Contains(text, "Usage:") {
+		t.Fatalf("expected help after error, got: %s", text)
+	}
+}
+
 func TestVersionFlag(t *testing.T) {
 	bin := buildTestBinary(t)
 	out, err := exec.Command(bin, "--version").Output()

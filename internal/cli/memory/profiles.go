@@ -7,20 +7,23 @@ import (
 	"sort"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
+	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/spf13/cobra"
 )
 
 func newProfilesCommand() *cobra.Command {
 	var format string
+	var name string
+	spec := profilesSpec(&name)
 	c := &cobra.Command{
 		Use:   "profiles [name]",
 		Short: "List profiles or show one profile's details",
+		Long:  "Lists profiles in shared memory. When name is given, prints full details for that profile.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var name string
-			if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-				argspec.PositionalInput("name", 0, false, "Profile name", &name, nil),
-			}}); err != nil {
+			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
 			}
 			s, err := shared.Load()
@@ -35,7 +38,15 @@ func newProfilesCommand() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&format, "format", "table", "output format: table or json")
+	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
 	return c
+}
+
+func profilesSpec(name *string) argspec.Spec {
+	in := argspec.PositionalInputWithComplete("name", 0, false, "Profile name", name, nil, sources.Profiles, true)
+	in.OmitInteractive = true
+	return argspec.Spec{Inputs: []argspec.Input{in}}
 }
 
 func listProfiles(w io.Writer, s *shared.State, format string) error {

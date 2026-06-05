@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/git"
@@ -24,6 +26,8 @@ const startChangesPrompt = `There are uncommitted changes.
 Choice [a/r/c]: `
 
 func newStartCommand() *cobra.Command {
+	var name, fromRef string
+	spec := startSpec(&name, &fromRef)
 	c := &cobra.Command{
 		Use:   "start <name> [from-ref]",
 		Short: "Creates a new branch",
@@ -32,23 +36,27 @@ func newStartCommand() *cobra.Command {
 When there are uncommitted changes, you can add them to the new branch or reset them before checkout.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, startID, func() error {
-				return startRun(cmd, args)
+				return startRun(cmd, args, spec)
 			})
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
 	return c
 }
 
-func startRun(cmd *cobra.Command, args []string) error {
-	var name, fromRef string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("name", 0, true, "Branch name", &name, nil),
-		argspec.PositionalInput("from-ref", 1, false, "Start from ref", &fromRef, config.DefaultBranch),
-	}}); err != nil {
+func startSpec(name, fromRef *string) argspec.Spec {
+	return argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("name", 0, true, "Branch name", name, nil),
+		argspec.PositionalInputWithComplete("from-ref", 1, false, "Start from ref", fromRef, config.DefaultBranch, sources.Refs, true),
+	}}
+}
+
+func startRun(cmd *cobra.Command, args []string, spec argspec.Spec) error {
+	if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 		return err
 	}
-	return startRunWithRefs(cmd.Context(), name, fromRef)
+	return startRunWithRefs(cmd.Context(), spec.Inputs[0].Get(), spec.Inputs[1].Get())
 }
 
 func startRunWithRefs(ctx context.Context, name, fromRef string) error {

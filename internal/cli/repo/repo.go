@@ -12,6 +12,5 @@ func NewCommand() *cobra.Command {
 	c.AddCommand(newMigrateCommand())
 	c.AddCommand(newStatusCommand())
 	c.AddCommand(newSyncCommand())
-	c.AddCommand(newRelocateCommand())
 	return c
 }

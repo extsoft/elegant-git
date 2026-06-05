@@ -8,20 +8,22 @@ import (
 	"sort"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
+	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/spf13/cobra"
 )
 
 func newRepositoriesCommand() *cobra.Command {
-	return &cobra.Command{
+	var nameOrPath string
+	spec := repositoriesSpec(&nameOrPath)
+	c := &cobra.Command{
 		Use:   "repositories [name-or-path]",
 		Short: "List managed repositories or show one repository's details",
+		Long:  "Lists managed repositories in shared memory. When name-or-path is given, prints full details for that repository.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var nameOrPath string
-			if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-				argspec.PositionalInput("name-or-path", 0, false, "Repository name or path", &nameOrPath, nil),
-			}}); err != nil {
+			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
 			}
 			s, err := shared.Load()
@@ -39,6 +41,15 @@ func newRepositoriesCommand() *cobra.Command {
 			return listRepositories(w, s)
 		},
 	}
+	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
+	return c
+}
+
+func repositoriesSpec(nameOrPath *string) argspec.Spec {
+	in := argspec.PositionalInput("name-or-path", 0, false, "Repository name or path", nameOrPath, nil)
+	in.OmitInteractive = true
+	return argspec.Spec{Inputs: []argspec.Input{in}}
 }
 
 func listRepositories(w io.Writer, s *shared.State) error {

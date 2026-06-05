@@ -1,13 +1,18 @@
 package work
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
@@ -15,6 +20,7 @@ import (
 var trackID = cmdid.ID{Command: "work", Action: "track"}
 
 func newTrackCommand() *cobra.Command {
+	spec := trackSpec()
 	c := &cobra.Command{
 		Use:   "track <name> [local-branch]",
 		Short: "Checks out a remote-tracking branch",
@@ -25,32 +31,66 @@ func newTrackCommand() *cobra.Command {
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
 	return c
 }
 
-func trackRun(cmd *cobra.Command, args []string) error {
-	var pattern, localBranch string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("name", 0, true, "Remote branch name or pattern", &pattern, nil),
-		argspec.PositionalInput("local-branch", 1, false, "Local branch name", &localBranch, nil),
-	}}); err != nil {
-		return err
-	}
-	return trackLogic(pattern, localBranch)
+func trackSpec() argspec.Spec {
+	var pattern string
+	return argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInputWithComplete("name", 0, true, "Remote branch name or pattern", &pattern, nil, sources.RemoteBranches, false),
+	}}
 }
 
-func trackLogic(pattern, localBranch string) error {
+func trackRun(cmd *cobra.Command, args []string) error {
+	pattern := ""
+	if len(args) >= 1 {
+		pattern = args[0]
+	}
+	localBranch := ""
+	if len(args) >= 2 {
+		localBranch = args[1]
+	}
+	p := prompt.FromContext(cmd.Context())
+	if pattern == "" && prompt.NonInteractive(p) {
+		return &argspec.ErrMissingRequired{Names: []string{"name"}}
+	}
+	return trackLogic(cmd.Context(), p, pattern, localBranch)
+}
+
+func trackExactRemote(remoteRef, localBranch string) error {
 	if err := git.Verbose("fetch", "--all"); err != nil {
 		return err
 	}
 	remotes := strings.Split(git.OutputOK("for-each-ref", "--format=%(refname:short)", "refs/remotes"), "\n")
-	var matches []string
+	found := false
 	for _, ref := range remotes {
-		ref = strings.TrimSpace(ref)
-		if ref != "" && strings.Contains(ref, pattern) {
-			matches = append(matches, ref)
+		if strings.TrimSpace(ref) == remoteRef {
+			found = true
+			break
 		}
 	}
+	if !found {
+		cliruntime.ExitWorkflowError(fmt.Sprintf("There is no remote branch %q.", remoteRef))
+	}
+	local := localBranch
+	if local == "" {
+		local = cliruntime.BranchFromRemoteBranch(remoteRef)
+	}
+	return git.Verbose("checkout", "-B", local, remoteRef)
+}
+
+func trackLogic(ctx context.Context, p prompt.Prompter, pattern, localBranch string) error {
+	if err := git.Verbose("fetch", "--all"); err != nil {
+		return err
+	}
+
+	pattern, err := resolveRemotePattern(ctx, p, pattern)
+	if err != nil {
+		return err
+	}
+
+	matches := remoteBranchesMatching(pattern)
 	if len(matches) > 1 {
 		text.InfoText("The following branches are found:")
 		for _, b := range matches {
@@ -62,9 +102,73 @@ func trackLogic(pattern, localBranch string) error {
 		cliruntime.ExitWorkflowError(fmt.Sprintf("There is no branch that matches the '%s' pattern.", pattern))
 	}
 	remote := matches[0]
-	local := localBranch
-	if local == "" {
-		local = cliruntime.BranchFromRemoteBranch(remote)
+
+	local, err := resolveLocalBranch(p, remote, localBranch)
+	if err != nil {
+		return err
 	}
 	return git.Verbose("checkout", "-B", local, remote)
+}
+
+func resolveRemotePattern(ctx context.Context, p prompt.Prompter, pattern string) (string, error) {
+	if strings.TrimSpace(pattern) != "" {
+		return strings.TrimSpace(pattern), nil
+	}
+	choices, err := sources.RemoteBranches(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(choices) == 0 {
+		return "", &argspec.ErrEmptySource{Name: "name"}
+	}
+	promptChoices := make([]prompt.Choice, len(choices))
+	for i, c := range choices {
+		promptChoices[i] = prompt.Choice{Value: c.Value, Description: c.Description}
+	}
+	val, err := p.Pick("Remote branch name or pattern", promptChoices)
+	if err != nil {
+		return "", err
+	}
+	val = strings.TrimSpace(val)
+	if i := strings.IndexByte(val, '\t'); i >= 0 {
+		val = val[:i]
+	}
+	if val == "" {
+		return "", errors.New("name is required")
+	}
+	return val, nil
+}
+
+func resolveLocalBranch(p prompt.Prompter, remote, localBranch string) (string, error) {
+	suggested := cliruntime.BranchFromRemoteBranch(remote)
+	if prompt.NonInteractive(p) {
+		if strings.TrimSpace(localBranch) != "" {
+			return strings.TrimSpace(localBranch), nil
+		}
+		return suggested, nil
+	}
+	if strings.TrimSpace(localBranch) != "" {
+		suggested = strings.TrimSpace(localBranch)
+	}
+	val, err := p.EditOrAccept("Local branch name", suggested)
+	if err != nil {
+		return "", err
+	}
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return suggested, nil
+	}
+	return val, nil
+}
+
+func remoteBranchesMatching(pattern string) []string {
+	remotes := strings.Split(git.OutputOK("for-each-ref", "--format=%(refname:short)", "refs/remotes"), "\n")
+	var matches []string
+	for _, ref := range remotes {
+		ref = strings.TrimSpace(ref)
+		if ref != "" && strings.Contains(ref, pattern) {
+			matches = append(matches, ref)
+		}
+	}
+	return matches
 }

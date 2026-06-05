@@ -17,7 +17,10 @@ func (f fakePrompter) String(string, string) (string, error) {
 }
 func (f fakePrompter) Confirm(string) (bool, error)         { return f.confirmYes, nil }
 func (f fakePrompter) Choose(string, []string) (int, error) { return 0, prompt.ErrNonInteractive }
-func (f fakePrompter) Required(string, string) error        { return prompt.ErrNonInteractive }
+func (f fakePrompter) Pick(string, []prompt.Choice) (string, error) {
+	return "", prompt.ErrNonInteractive
+}
+func (f fakePrompter) Required(string, string) error { return prompt.ErrNonInteractive }
 func (f fakePrompter) EditOrAccept(string, suggested string) (string, error) {
 	if f.editVal != "" {
 		return f.editVal, nil

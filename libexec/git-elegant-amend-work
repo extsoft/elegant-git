@@ -25,7 +25,6 @@ Approximate commands flow is
 \`\`\`bash
 ==>> git elegant amend-work
 git add --interactive
-git diff --cached --check
 git commit --amend
 \`\`\`
 MESSAGE
@@ -41,6 +40,5 @@ default(){
         exit 42
     fi
     git-verbose add --interactive
-    git-verbose diff --cached --check
     git-verbose commit --amend
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
@@ -17,10 +18,19 @@ import (
 
 var newID = cmdid.ID{Command: "release", Action: "new"}
 
+func releaseNewSpec(name *string) argspec.Spec {
+	return argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInput("name", 0, true, "Release tag name", name, nil),
+	}}
+}
+
 func newNewCommand() *cobra.Command {
+	var tagName string
+	spec := releaseNewSpec(&tagName)
 	c := &cobra.Command{
 		Use:   "new <name>",
 		Short: "Releases the default development branch",
+		Long:  "Checks out the default branch, tags a new release, pushes tags, and prints release notes.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, newID, func() error {
 				return newRun(cmd, args)
@@ -28,6 +38,7 @@ func newNewCommand() *cobra.Command {
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.AttachArgs(c, spec)
 	return c
 }
 
@@ -41,9 +52,7 @@ func newRun(cmd *cobra.Command, args []string) error {
 
 func newLogic(cmd *cobra.Command, args []string) error {
 	var tagName string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("name", 0, true, "Release tag name", &tagName, nil),
-	}}); err != nil {
+	if err := argspec.ResolveCmd(cmd, args, releaseNewSpec(&tagName)); err != nil {
 		return err
 	}
 	defaultBranch := config.DefaultBranch()

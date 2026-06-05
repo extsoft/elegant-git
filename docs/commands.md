@@ -31,7 +31,7 @@ Workflow prompts inside commands (e.g. `git configure`, `repo configure`, uncomm
 | `profile status` | Shows the linked profile for the current repository (when inside a git work tree). |
 | `profile create` | Creates a profile (`--name`, `--user-name`, `--user-email` required in non-interactive mode; optional signing/editor flags). |
 | `profile edit <name>` | Edits a profile transactionally: plan changes and repo targets, summary + single confirm, then commit to shared memory and selected repos. |
-| `profile delete <name>` | Deletes a profile only when no repositories are linked. |
+| `profile delete [name]` | Deletes a profile only when no repositories are linked. |
 
 ### git
 
@@ -45,12 +45,11 @@ Workflow prompts inside commands (e.g. `git configure`, `repo configure`, uncomm
 
 | Command | Description |
 | --- | --- |
-| `repo configure` | Configures the current local repository (`--profile <name>`). |
-| `repo clone` | Clones a remote repository and configures it. |
-| `repo init` | Initializes a new repository and configures it. |
+| `repo configure <profile>` | Configures the current local repository. |
+| `repo clone <repository> <profile> [<directory>]` | Clones a remote repository and configures it. |
+| `repo init <profile>` | Initializes a new repository and configures it. |
 | `repo status` | Shows per-repo memory, registry linkage, branch settings, and local git identity for the current repository. |
 | `repo sync` | Re-applies profile settings (`--all` for every managed repo; `[y/n/A/S]` per repo). |
-| `repo relocate <path>` | Updates the managed path for the current repository. |
 | `repo prune` | Removes useless local branches. |
 | `repo migrate` | Migrates local aliases, hooks, and elegant-git settings into memory. |
 

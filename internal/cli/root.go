@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	releasecmd "github.com/bees-hive/elegant-git/internal/cli/release"
 	repocmd "github.com/bees-hive/elegant-git/internal/cli/repo"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	versioncmd "github.com/bees-hive/elegant-git/internal/cli/version"
 	workcmd "github.com/bees-hive/elegant-git/internal/cli/work"
 	"github.com/bees-hive/elegant-git/internal/deprecation"
@@ -54,12 +56,19 @@ func Execute() {
 			writeRootUsage(os.Stderr)
 			os.Exit(exitcode.UnknownCommand)
 		}
+		var ue *cliruntime.UsageError
+		if errors.As(err, &ue) {
+			fmt.Fprintln(os.Stderr, err.Error())
+			cliruntime.EmitCommandHelp(os.Stderr, ue.Cmd)
+			os.Exit(exitcode.Usage)
+		}
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
 }
 
 func init() {
+	sources.SetHookCommandIDsProvider(AllCanonicalCommandIDs)
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
 		writeRootUsage(cmd.OutOrStdout())
 	})
@@ -126,6 +135,7 @@ func init() {
 	AttachObjectGroup(releaseCmd, "release")
 	rootCmd.AddCommand(releaseCmd)
 	legacyshim.RegisterShims(rootCmd)
+	cliruntime.ConfigureCommandTree(rootCmd)
 }
 
 func isUnknownCommand(err error) bool {

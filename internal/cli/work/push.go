@@ -2,6 +2,7 @@ package work
 
 import (
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
@@ -13,10 +14,19 @@ import (
 
 var pushID = cmdid.ID{Command: "work", Action: "push"}
 
+func pushSpec(branch *string) argspec.Spec {
+	in := argspec.PositionalInput("branch-name", 0, false, "Remote branch name", branch, nil)
+	in.OmitInteractive = true
+	return argspec.Spec{Inputs: []argspec.Input{in}}
+}
+
 func newPushCommand() *cobra.Command {
+	var branch string
+	spec := pushSpec(&branch)
 	c := &cobra.Command{
 		Use:   "push [branch-name]",
 		Short: "Publishes HEAD to a remote repository",
+		Long:  "Rebases onto upstream when needed, then force-pushes the current branch to its remote tracking branch or the given branch name.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, pushID, func() error {
 				return pushRun(cmd, args)
@@ -24,14 +34,13 @@ func newPushCommand() *cobra.Command {
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.AttachArgs(c, spec)
 	return c
 }
 
 func pushRun(cmd *cobra.Command, args []string) error {
 	var remoteBranchArg string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("branch-name", 0, false, "Remote branch name", &remoteBranchArg, nil),
-	}}); err != nil {
+	if err := argspec.ResolveCmd(cmd, args, pushSpec(&remoteBranchArg)); err != nil {
 		return err
 	}
 	branch := cliruntime.CurrentBranch()

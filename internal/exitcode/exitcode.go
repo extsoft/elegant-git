@@ -6,4 +6,5 @@ const (
 	WorkflowError   = 43
 	EmptyArgument   = 45
 	UnknownCommand  = 46
+	Usage           = 47
 )

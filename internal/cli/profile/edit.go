@@ -5,7 +5,9 @@ import (
 	"os"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/repoid"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
@@ -35,22 +37,28 @@ type editPlan struct {
 	missing   []repoTarget
 }
 
+func profileEditSpec(name *string) argspec.Spec {
+	return argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInputWithComplete("name", 0, true, "Profile name", name, nil, sources.Profiles, true),
+	}}
+}
+
 func newEditCommand() *cobra.Command {
 	var (
-		userName   string
-		userEmail  string
-		signingKey string
-		editor     string
-		gpgProgram string
+		profileName string
+		userName    string
+		userEmail   string
+		signingKey  string
+		editor      string
+		gpgProgram  string
 	)
+	spec := profileEditSpec(&profileName)
 	c := &cobra.Command{
 		Use:   "edit <name>",
 		Short: "Edit a profile",
+		Long:  "Edits profile fields and optionally applies changes to linked repositories.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var profileName string
-			if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-				argspec.PositionalInput("name", 0, true, "Profile name", &profileName, nil),
-			}}); err != nil {
+			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
 			}
 			s, err := shared.Load()
@@ -73,6 +81,7 @@ func newEditCommand() *cobra.Command {
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
 	c.Flags().StringVar(&userName, "user-name", "", "git user.name")
 	c.Flags().StringVar(&userEmail, "user-email", "", "git user.email")
 	c.Flags().StringVar(&signingKey, "signing-key", "", "GPG signing key id")
@@ -261,7 +270,7 @@ func profileEditSummaryConfirm(plan *editPlan, p prompt.Prompter) error {
 		}
 	}
 	if len(plan.missing) > 0 {
-		fmt.Printf("\nMissing path: %d repository (-ies); run `git elegant repo relocate` to fix:\n", len(plan.missing))
+		fmt.Printf("\nMissing path: %d repository (-ies); run `git elegant repo configure <name>` from the repository path to fix:\n", len(plan.missing))
 		for _, t := range plan.missing {
 			fmt.Printf("  - %s    (%s)\n", t.name, t.path)
 		}

@@ -20,6 +20,10 @@ func (nonInteractive) Choose(string, []string) (int, error) {
 	return -1, ErrNonInteractive
 }
 
+func (nonInteractive) Pick(string, []Choice) (string, error) {
+	return "", ErrNonInteractive
+}
+
 func (nonInteractive) Required(string, string) error {
 	return ErrNonInteractive
 }

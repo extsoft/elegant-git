@@ -5,7 +5,9 @@ import (
 	"os"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/runtime"
 	"github.com/spf13/cobra"
@@ -13,7 +15,15 @@ import (
 
 var editID = cmdid.ID{Command: "hook", Action: "edit"}
 
+func hookEditSpec(path *string) argspec.Spec {
+	return argspec.Spec{Inputs: []argspec.Input{
+		argspec.PositionalInputWithComplete("path", 0, true, "Hook file path", path, nil, sources.HookPaths, true),
+	}}
+}
+
 func newEditCommand() *cobra.Command {
+	var path string
+	spec := hookEditSpec(&path)
 	c := &cobra.Command{
 		Use:   "edit <path>",
 		Short: "Opens a hook file in your editor",
@@ -25,14 +35,13 @@ func newEditCommand() *cobra.Command {
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
+	completion.Attach(c, spec)
 	return c
 }
 
 func editRun(cmd *cobra.Command, args []string) error {
 	var path string
-	if err := argspec.ResolveCmd(cmd, args, argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("path", 0, true, "Hook file path", &path, nil),
-	}}); err != nil {
+	if err := argspec.ResolveCmd(cmd, args, hookEditSpec(&path)); err != nil {
 		return err
 	}
 	if _, err := os.Stat(path); err != nil {

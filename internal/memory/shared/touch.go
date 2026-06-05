@@ -2,7 +2,6 @@ package shared
 
 import (
 	"os"
-	"path/filepath"
 
 	"github.com/bees-hive/elegant-git/internal/memory/repoid"
 )
@@ -17,19 +16,16 @@ func TouchCurrentRepo() error {
 	if err != nil {
 		return err
 	}
-	if _, err := GetRepo(s, repoID); err != nil {
-		return nil
-	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	cwd, err = filepath.Abs(cwd)
+	changed, err := UpdateRepoPath(s, repoID, cwd)
 	if err != nil {
-		return err
+		return nil
 	}
-	if err := RecordPath(s, repoID, cwd); err != nil {
-		return err
+	if !changed {
+		return nil
 	}
 	return Save(s)
 }

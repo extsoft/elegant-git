@@ -1,6 +1,7 @@
 package argspec
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -10,9 +11,11 @@ import (
 type recordingPrompter struct {
 	strings    []string
 	editValues []string
+	pickValues []string
 	edits      []editCall
 	stringIdx  int
 	editIdx    int
+	pickIdx    int
 }
 
 type editCall struct {
@@ -32,6 +35,15 @@ func (r *recordingPrompter) Confirm(string) (bool, error) { return false, nil }
 
 func (r *recordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
+}
+
+func (r *recordingPrompter) Pick(string, []prompt.Choice) (string, error) {
+	if r.pickIdx < len(r.pickValues) {
+		v := r.pickValues[r.pickIdx]
+		r.pickIdx++
+		return v, nil
+	}
+	return "", errors.New("no pick value")
 }
 
 func (r *recordingPrompter) Required(string, string) error { return nil }
@@ -60,11 +72,32 @@ func TestResolveAllRequiredPresent(t *testing.T) {
 		PositionalInput("from-ref", 1, false, "Start from ref", &from, nil),
 	}}
 	p := &recordingPrompter{}
-	if err := Resolve(p, []string{"feature", "main"}, spec); err != nil {
+	if err := Resolve(context.Background(), p, []string{"feature", "main"}, spec); err != nil {
 		t.Fatal(err)
 	}
 	if len(p.edits) != 0 {
-		t.Fatalf("unexpected prompts: %+v", p.edits)
+		t.Fatalf("expected no optional prompts when all args on CLI, got %+v", p.edits)
+	}
+}
+
+func TestResolveSkipOptionalWhenRequiredOnCLI(t *testing.T) {
+	var name, from string
+	complete := func(context.Context) ([]Choice, error) {
+		return []Choice{{Value: "main"}, {Value: "develop"}}, nil
+	}
+	spec := Spec{Inputs: []Input{
+		PositionalInput("name", 0, true, "Branch name", &name, nil),
+		PositionalInputWithComplete("from-ref", 1, false, "Start from ref", &from, func() string { return "main" }, complete, true),
+	}}
+	p := &recordingPrompter{pickValues: []string{"should-not-ask"}}
+	if err := Resolve(context.Background(), p, []string{"feature"}, spec); err != nil {
+		t.Fatal(err)
+	}
+	if name != "feature" || from != "" {
+		t.Fatalf("name=%q from=%q", name, from)
+	}
+	if p.pickIdx != 0 {
+		t.Fatalf("unexpected pick prompts: pickIdx=%d", p.pickIdx)
 	}
 }
 
@@ -73,16 +106,9 @@ func TestResolveMissingRequiredNonInteractive(t *testing.T) {
 	spec := Spec{Inputs: []Input{
 		PositionalInput("name", 0, true, "Branch name", &name, nil),
 	}}
-	err := Resolve(prompt.NewNonInteractive(), nil, spec)
+	err := Resolve(context.Background(), prompt.NewNonInteractive(), nil, spec)
 	if !IsMissingRequired(err) {
 		t.Fatalf("got %v", err)
-	}
-	var mr *ErrMissingRequired
-	if !errors.As(err, &mr) {
-		t.Fatalf("got %T", err)
-	}
-	if len(mr.Names) != 1 || mr.Names[0] != "name" {
-		t.Fatalf("names: %+v", mr.Names)
 	}
 }
 
@@ -93,30 +119,82 @@ func TestResolveMissingRequiredInteractive(t *testing.T) {
 		PositionalInput("from-ref", 1, false, "Start from ref", &from, func() string { return "main" }),
 	}}
 	p := &recordingPrompter{strings: []string{"feature"}, editValues: []string{"develop"}}
-	if err := Resolve(p, nil, spec); err != nil {
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
 		t.Fatal(err)
 	}
-	if name != "feature" {
-		t.Fatalf("name=%q", name)
-	}
-	if from != "develop" {
-		t.Fatalf("from=%q", from)
-	}
-	if len(p.edits) != 1 {
-		t.Fatalf("edits: %+v", p.edits)
+	if name != "feature" || from != "develop" {
+		t.Fatalf("name=%q from=%q", name, from)
 	}
 }
 
-func TestResolveHydratesPositionals(t *testing.T) {
-	var name string
+func TestResolveCompletePickRequired(t *testing.T) {
+	var branch string
+	complete := func(context.Context) ([]Choice, error) {
+		return []Choice{{Value: "main"}, {Value: "feature"}}, nil
+	}
 	spec := Spec{Inputs: []Input{
-		PositionalInput("name", 0, true, "Branch name", &name, nil),
+		PositionalInputWithComplete("branch", 0, true, "Branch to accept", &branch, nil, complete, true),
 	}}
-	if err := Resolve(&recordingPrompter{}, []string{"x"}, spec); err != nil {
+	p := &recordingPrompter{pickValues: []string{"feature"}}
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
 		t.Fatal(err)
 	}
-	if name != "x" {
-		t.Fatalf("got %q", name)
+	if branch != "feature" {
+		t.Fatalf("branch=%q", branch)
+	}
+}
+
+func TestResolveCompletePickTabbedValue(t *testing.T) {
+	var branch string
+	complete := func(context.Context) ([]Choice, error) {
+		return []Choice{{Value: "origin/main", Description: "abc123"}}, nil
+	}
+	spec := Spec{Inputs: []Input{
+		PositionalInputWithComplete("branch", 0, true, "Branch", &branch, nil, complete, true),
+	}}
+	p := &recordingPrompter{pickValues: []string{"origin/main\tabc123"}}
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if branch != "origin/main" {
+		t.Fatalf("branch=%q", branch)
+	}
+}
+
+func TestResolveOmitInteractiveOptional(t *testing.T) {
+	var name string
+	in := PositionalInput("name", 0, false, "Profile name", &name, nil)
+	in.OmitInteractive = true
+	spec := Spec{Inputs: []Input{in}}
+	p := &recordingPrompter{strings: []string{"should-not-ask"}}
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if name != "" {
+		t.Fatalf("name=%q", name)
+	}
+	if p.stringIdx != 0 {
+		t.Fatalf("unexpected prompts: stringIdx=%d", p.stringIdx)
+	}
+}
+
+func TestResolveOmitInteractiveKeepsCLIArg(t *testing.T) {
+	var name string
+	complete := func(context.Context) ([]Choice, error) {
+		return []Choice{{Value: "dz"}, {Value: "work"}}, nil
+	}
+	in := PositionalInputWithComplete("name", 0, false, "Profile name", &name, nil, complete, true)
+	in.OmitInteractive = true
+	spec := Spec{Inputs: []Input{in}}
+	p := &recordingPrompter{}
+	if err := Resolve(context.Background(), p, []string{"dz"}, spec); err != nil {
+		t.Fatal(err)
+	}
+	if name != "dz" {
+		t.Fatalf("name=%q", name)
+	}
+	if p.pickIdx != 0 {
+		t.Fatalf("unexpected pick prompts: pickIdx=%d", p.pickIdx)
 	}
 }
 

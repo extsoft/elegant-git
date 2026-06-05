@@ -132,7 +132,7 @@ func DeleteProfile(s *State, id string) error {
 	}
 	if len(p.LinkedRepos) > 0 {
 		names := linkedRepoNames(s, p.LinkedRepos)
-		return fmt.Errorf("profile %q is linked to %d repository (-ies): %s.\nRun `git elegant repo configure --profile <other>` in each (or `git elegant repo sync`) to relink before deleting",
+		return fmt.Errorf("profile %q is linked to %d repository (-ies): %s.\nRun `git elegant repo configure <other>` in each (or `git elegant repo sync`) to relink before deleting",
 			p.Name, len(p.LinkedRepos), strings.Join(names, ", "))
 	}
 	delete(s.Profiles, id)

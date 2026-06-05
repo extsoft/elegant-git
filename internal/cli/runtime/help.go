@@ -19,19 +19,25 @@ const (
 
 // CommandHelp prints usage, long description, flags, and version footer.
 func CommandHelp(cmd *cobra.Command, _ []string) {
-	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Usage: %s\n", cmd.UseLine())
+	PrintCommandHelp(cmd.OutOrStdout(), cmd)
+}
+
+// PrintCommandHelp writes usage, long description, flags, and version footer.
+func PrintCommandHelp(w io.Writer, cmd *cobra.Command) {
+	fmt.Fprintf(w, "Usage: %s\n", cmd.UseLine())
 	if cmd.Long != "" {
-		fmt.Fprintf(out, "\n%s\n", wrapWords(cmd.Long, helpTextWidth))
+		fmt.Fprintf(w, "\n%s\n", wrapWords(cmd.Long, helpTextWidth))
+	} else if cmd.Short != "" {
+		fmt.Fprintf(w, "\n%s\n", wrapWords(cmd.Short, helpTextWidth))
 	}
 	if cmd.HasAvailableLocalFlags() {
-		fmt.Fprintln(out, "\nFlags:")
+		fmt.Fprintln(w, "\nFlags:")
 		cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
-			printFlagUsage(out, f, helpTextWidth)
+			printFlagUsage(w, f, helpTextWidth)
 		})
 	}
 	if version.Version != "" {
-		fmt.Fprintf(out, "\nVersion: %s\n", version.Version)
+		fmt.Fprintf(w, "\nVersion: %s\n", version.Version)
 	}
 }
 
