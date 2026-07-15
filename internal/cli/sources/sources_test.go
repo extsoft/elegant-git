@@ -4,6 +4,8 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+
+	"github.com/bees-hive/elegant-git/internal/git"
 )
 
 func TestHookCommandIDsFromProvider(t *testing.T) {
@@ -46,5 +48,51 @@ func TestCompletionShells(t *testing.T) {
 	}
 	if len(choices) != 4 {
 		t.Fatalf("got %d", len(choices))
+	}
+}
+
+func TestRemoteBranchesFetchesFirst(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Repo.Remotes = []string{"origin"}
+	m.Outputs["for-each-ref --format=%(refname:short)\t%(objectname:short) refs/remotes"] = "origin/main\tabc"
+	git.Use(m)
+
+	if _, err := RemoteBranches(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	fetchIdx, refIdx := -1, -1
+	for i, c := range m.Calls {
+		if len(c.Args) == 0 {
+			continue
+		}
+		switch c.Args[0] {
+		case "fetch":
+			fetchIdx = i
+		case "for-each-ref":
+			refIdx = i
+		}
+	}
+	if fetchIdx < 0 {
+		t.Fatalf("missing fetch, calls=%v", m.Calls)
+	}
+	if refIdx < 0 {
+		t.Fatalf("missing for-each-ref, calls=%v", m.Calls)
+	}
+	if fetchIdx > refIdx {
+		t.Fatalf("fetch=%d after for-each-ref=%d", fetchIdx, refIdx)
+	}
+}
+
+func TestRemoteBranchesSkipsFetchWithoutRemotes(t *testing.T) {
+	m := git.NewMemoryRunner()
+	git.Use(m)
+
+	if _, err := RemoteBranches(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range m.Calls {
+		if len(c.Args) > 0 && c.Args[0] == "fetch" {
+			t.Fatalf("unexpected fetch: %v", c.Args)
+		}
 	}
 }

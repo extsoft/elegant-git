@@ -27,6 +27,30 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestBranchSourcesRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	s := &State{BranchSources: map[string]string{"feature": "origin/main"}}
+	SetBranchSource(s, "task", "develop")
+	if err := Save(gitDir, s); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(gitDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := BranchSource(loaded, "feature"); got != "origin/main" {
+		t.Fatalf("feature source %q", got)
+	}
+	if got := BranchSource(loaded, "task"); got != "develop" {
+		t.Fatalf("task source %q", got)
+	}
+	ClearBranchSource(loaded, "task")
+	if got := BranchSource(loaded, "task"); got != "" {
+		t.Fatalf("cleared source %q", got)
+	}
+}
+
 func TestDefaultBranchName(t *testing.T) {
 	if DefaultBranchName(nil) != defaultBranchDefault {
 		t.Fatal()

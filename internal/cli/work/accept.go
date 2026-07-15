@@ -80,7 +80,7 @@ func acceptLogic(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 			return err
 		}
 	}
-	if err := git.Verbose("rebase", config.FreshestDefaultBranch()); err != nil {
+	if err := git.Verbose("rebase", config.FreshestBranchSourceBranch(branch)); err != nil {
 		return err
 	}
 	actualRemote := git.OutputOK("for-each-ref", "--format=%(upstream:short)", "refs/heads/"+acceptWorkBranch)
@@ -105,5 +105,5 @@ func acceptLogic(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 			}
 		}
 	}
-	return nil
+	return config.ClearBranchSourceBranch(branch)
 }

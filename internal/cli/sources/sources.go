@@ -11,10 +11,22 @@ import (
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/git"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/bees-hive/elegant-git/internal/state"
+	"github.com/bees-hive/elegant-git/internal/text"
 )
+
+func fetchRemotes() {
+	if !state.AreThereRemotes() {
+		return
+	}
+	if err := git.Verbose("fetch", "--all"); err != nil {
+		text.InfoText("Unable to fetch. The last local revision will be used.")
+	}
+}
 
 // Refs returns local branches, remote-tracking branches, and tags.
 func Refs(_ context.Context) ([]argspec.Choice, error) {
+	fetchRemotes()
 	var out []argspec.Choice
 	out = append(out, forEachRefChoices("refs/heads", "%(refname:short)\t%(upstream:short)")...)
 	out = append(out, forEachRefChoices("refs/remotes", "%(refname:short)\t%(objectname:short)")...)
@@ -32,6 +44,7 @@ func LocalBranches(_ context.Context) ([]argspec.Choice, error) {
 
 // RemoteBranches returns remote-tracking branch refs (origin/foo).
 func RemoteBranches(_ context.Context) ([]argspec.Choice, error) {
+	fetchRemotes()
 	choices := forEachRefChoices("refs/remotes", "%(refname:short)\t%(objectname:short)")
 	sort.Slice(choices, func(i, j int) bool { return choices[i].Value < choices[j].Value })
 	return choices, nil

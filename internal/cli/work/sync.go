@@ -63,7 +63,7 @@ func syncLogic(branchArg string) error {
 	}
 	if state.AreThereRemotes() {
 		cliruntime.FetchOrInform()
-		return git.Verbose("rebase", config.DefaultRemoteTrackingBranch())
 	}
-	return git.Verbose("rebase", config.DefaultBranch())
+	source := config.FreshestBranchSourceBranch(cliruntime.CurrentBranch())
+	return git.Verbose("rebase", source)
 }

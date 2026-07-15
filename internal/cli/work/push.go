@@ -61,22 +61,35 @@ func pushLogic(localBranch, remoteBranchArg string) error {
 		if err := git.Verbose("fetch"); err != nil {
 			return err
 		}
-		if err := git.Verbose("rebase", config.DefaultRemoteTrackingBranch()); err != nil {
+		if err := git.Verbose("rebase", config.FreshestBranchSourceBranch(localBranch)); err != nil {
 			return err
 		}
 	}
 	upstream := cliruntime.BranchUpstreamShort(localBranch)
-	branch := cliruntime.BranchFromRemoteBranch(upstream)
 	remote := cliruntime.RemoteFromRemoteBranch(upstream)
-	if remoteBranchArg != "" {
-		branch = remoteBranchArg
-	}
-	if branch == "" {
-		branch = localBranch
-	}
+	branch := pushRemoteBranch(localBranch, remoteBranchArg, upstream)
 	if remote == "" {
 		remote = config.DefaultUpstreamRemote
 	}
 	refSpec := localBranch + ":" + branch
 	return git.VerboseOpLines(cliruntime.OpenURLsIfPossible, "push", "--set-upstream", "--force", remote, refSpec)
+}
+
+func pushRemoteBranch(localBranch, remoteBranchArg, upstream string) string {
+	if remoteBranchArg != "" {
+		return remoteBranchArg
+	}
+	if upstream == "" {
+		return localBranch
+	}
+	upstreamBranch := cliruntime.BranchFromRemoteBranch(upstream)
+	if upstreamBranch == localBranch {
+		return localBranch
+	}
+	freshestSource := config.FreshestBranchSourceBranch(localBranch)
+	sourceBranch := cliruntime.BranchFromRemoteBranch(freshestSource)
+	if upstreamBranch == config.DefaultBranch() || upstream == freshestSource || upstreamBranch == sourceBranch {
+		return localBranch
+	}
+	return upstreamBranch
 }

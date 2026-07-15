@@ -36,7 +36,7 @@ func listRun() error {
 		text.InfoText("remote: none")
 	}
 	text.InfoText("")
-	latest := config.FreshestDefaultBranch()
+	latest := config.FreshestBranchSourceBranch(branch)
 	if git.OutputOK("rev-list", latest+".."+branch) != "" {
 		text.InfoText(fmt.Sprintf(">>> New commits (comparing to '%s' branch):", latest))
 		if err := cliruntime.GitStdout("log", "--oneline", latest+".."+branch); err != nil {

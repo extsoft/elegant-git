@@ -63,6 +63,18 @@ func AreThereRemotes() bool {
 	return strings.TrimSpace(out) != ""
 }
 
+// RefExists reports whether ref resolves in the current repository.
+func RefExists(ref string) bool {
+	_, err := git.Output("rev-parse", "--verify", "--quiet", ref)
+	return err == nil
+}
+
+// LocalBranchExists reports whether a local branch ref exists.
+func LocalBranchExists(name string) bool {
+	_, err := git.Output("rev-parse", "--verify", "--quiet", "--abbrev-ref", "--branches=refs/heads", name)
+	return err == nil
+}
+
 func gitPath(name string) (string, error) {
 	out, err := git.Output("rev-parse", "--git-path", name)
 	if err != nil {

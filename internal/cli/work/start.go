@@ -65,13 +65,14 @@ func startRunWithRefs(ctx context.Context, name, fromRef string) error {
 		target = fromRef
 	}
 	logic := func() error {
-		if err := git.Verbose("checkout", target); err != nil {
+		if state.AreThereRemotes() {
+			cliruntime.FetchOrInform()
+		}
+		startPoint := resolveStartPoint(target)
+		if err := git.Verbose("checkout", "-b", name, "--no-track", startPoint); err != nil {
 			return err
 		}
-		if state.IsThereUpstreamFor(target) {
-			cliruntime.PullOrInform()
-		}
-		return git.Verbose("checkout", "-b", name)
+		return config.SetBranchSourceBranch(name, target)
 	}
 	mode, err := resolveStartChanges(ctx)
 	if err != nil {
@@ -110,6 +111,15 @@ func resolveStartChanges(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("invalid choice %q (use a, r, or c)", answer)
 	}
 	return mode, nil
+}
+
+func resolveStartPoint(target string) string {
+	if state.IsThereUpstreamFor(target) {
+		if upstream := state.UpstreamOf(target); upstream != "" {
+			return upstream
+		}
+	}
+	return target
 }
 
 func parseStartChangesChoice(answer string) (string, bool) {

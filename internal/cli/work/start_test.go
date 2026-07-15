@@ -1,6 +1,27 @@
 package work
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+
+	"github.com/bees-hive/elegant-git/internal/git"
+)
+
+var errNoUpstream = fmt.Errorf("no upstream")
+
+func TestResolveStartPoint(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --abbrev-ref main@{upstream}"] = "origin/main"
+	m.FailOn["rev-parse --abbrev-ref origin/feat/foo@{upstream}"] = errNoUpstream
+	git.Use(m)
+
+	if got := resolveStartPoint("main"); got != "origin/main" {
+		t.Fatalf("resolveStartPoint(main) = %q, want origin/main", got)
+	}
+	if got := resolveStartPoint("origin/feat/foo"); got != "origin/feat/foo" {
+		t.Fatalf("resolveStartPoint(remote) = %q, want origin/feat/foo", got)
+	}
+}
 
 func TestParseStartChangesChoice(t *testing.T) {
 	tests := []struct {

@@ -7,6 +7,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/state"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
@@ -62,6 +63,9 @@ func pruneRun() error {
 			}
 		}
 		if err := git.Verbose("branch", "--delete", "--force", branch); err != nil {
+			return err
+		}
+		if err := repo.ClearBranchSourceFromCWD(branch); err != nil {
 			return err
 		}
 	}

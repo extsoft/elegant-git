@@ -18,11 +18,12 @@ const (
 
 // State is the per-repo memory document.
 type State struct {
-	SchemaVersion     int      `json:"schema_version"`
-	RepoID            string   `json:"repo_id"`
-	ProfileID         string   `json:"profile_id"`
-	DefaultBranch     string   `json:"default_branch"`
-	ProtectedBranches []string `json:"protected_branches"`
+	SchemaVersion     int               `json:"schema_version"`
+	RepoID            string            `json:"repo_id"`
+	ProfileID         string            `json:"profile_id"`
+	DefaultBranch     string            `json:"default_branch"`
+	ProtectedBranches []string          `json:"protected_branches"`
+	BranchSources     map[string]string `json:"branch_sources,omitempty"`
 }
 
 // Path returns the state file path for a git directory.

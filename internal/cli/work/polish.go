@@ -36,7 +36,7 @@ func polishRun() error {
 	if state.IsThereActiveRebase() {
 		return git.Verbose("rebase", "--continue")
 	}
-	latest := config.FreshestDefaultBranch()
+	latest := config.FreshestBranchSourceBranch(branch)
 	commits := strings.Fields(git.OutputOK("rev-list", latest+"..@"))
 	if len(commits) == 0 {
 		text.InfoText(fmt.Sprintf("There are no new commits comparing to '%s' branch.", latest))
