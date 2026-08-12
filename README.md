@@ -158,16 +158,3 @@ All other files in ["docs" directory](docs/) require manual corrections.
     - bash: `source completions/git-elegant.bash`
     - zsh: `source completions/_git-elegant`
 2. run `git-elegant <some>` and press Tab twice
-
-### Haskell code formatting
-We use fourmolu as a formatting tool for haskell code.
-Fourmolu works in pipeline fashion.
-To reformat source code use:
-```shell
-$ git ls-files -z '*.hs' | xargs -0 fourmolu --mode inplace
-```
-
-To check if everything is formatted correctly, use:
-```shell
-$ fourmolu --mode check app src test
-```

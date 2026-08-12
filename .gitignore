@@ -2,8 +2,6 @@
 tmp/
 site/
 version
-.stack-work/
-dist-newstyle/
 out/
 .DS_Store
 .tasks/

@@ -1,4 +1,2 @@
 #!/usr/bin/env bash
 # ./workflows generate-docs
-# stack build --no-haddock --only-dependencies --fast --pedantic
-# stack test --fast --pedantic
