@@ -21,7 +21,9 @@ func cloneSpec(repository, profile, directory *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
 		argspec.PositionalInput("repository", 0, true, "Repository URL or path", repository, nil),
 		profileInput(1, profile),
-		argspec.PositionalInput("directory", 2, false, "Target directory", directory, nil),
+		argspec.PositionalInput("directory", 2, false, "Target directory", directory, func() string {
+			return defaultCloneDir(*repository)
+		}),
 	}}
 }
 
@@ -47,26 +49,21 @@ func newCloneCommand() *cobra.Command {
 }
 
 func cloneRun(cmd *cobra.Command, repository, profile, directory string) error {
-	cloneArgs := []string{repository}
-	if directory != "" {
-		cloneArgs = append(cloneArgs, directory)
+	if directory == "" {
+		directory = defaultCloneDir(repository)
 	}
-	if err := git.Verbose(append([]string{"clone"}, cloneArgs...)...); err != nil {
+	if err := git.Verbose("clone", repository, directory); err != nil {
 		return err
 	}
-	location := cloneTargetDir(cloneArgs)
-	text.InfoText(fmt.Sprintf("The repository was cloned into '%s' directory.", location))
-	if err := os.Chdir(location); err != nil {
+	text.InfoText(fmt.Sprintf("The repository was cloned into '%s' directory.", directory))
+	if err := os.Chdir(directory); err != nil {
 		return err
 	}
 	return ConfigureRun(cmd, profile)
 }
 
-func cloneTargetDir(args []string) string {
-	location := args[len(args)-1]
-	if strings.HasSuffix(location, ".git") {
-		base := filepath.Base(location)
-		location = strings.TrimSuffix(base, ".git")
-	}
-	return location
+// defaultCloneDir mirrors git clone's default destination: last path segment, without .git.
+func defaultCloneDir(repository string) string {
+	base := filepath.Base(strings.TrimRight(repository, "/"))
+	return strings.TrimSuffix(base, ".git")
 }
