@@ -10,7 +10,7 @@ globs:
 
 # Deprecations
 
-When you change a public surface, read [.agents/references/deprecations.md](../../.agents/references/deprecations.md) and add a row to [.agents/references/deprecations-register.md](../../.agents/references/deprecations-register.md) (`id`, `introduced`, `remove_after`, `status`).
+When you change a public surface, read [.cursor/references/deprecations.md](../references/deprecations.md) and add a row to [.cursor/references/deprecations-register.md](../references/deprecations-register.md) (`id`, `introduced`, `remove_after`, `status`).
 
 - Record usage via `internal/deprecation` (`Record`, constants `DEP-001`…).
 - Provide a migrate command on the relevant object (`git migrate`, `repo migrate`, `hook migrate`).

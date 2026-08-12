@@ -1,0 +1,15 @@
+---
+description: Domain glossary and vocabulary alignment for Elegant Git. Use when naming, defining terms, resolving synonyms, or editing domain language.
+alwaysApply: false
+---
+
+# Glossary
+
+Canonical terms live in [.cursor/references/glossary.md](../references/glossary.md). Read it before inventing names.
+
+When updating the glossary:
+
+- One canonical term per concept; keep entries short (`### Term` blocks, no tables).
+- Preserve existing entries unless the user approves changes; never silently rename.
+- Merge duplicates; call out conflicts before overwriting.
+- Format: definition sentence; optional `Aliases:`, `Avoid:`, `Notes:`.
