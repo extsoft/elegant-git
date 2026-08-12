@@ -1,7 +1,6 @@
 .idea/
 tmp/
 site/
-version
 out/
 .DS_Store
 .tasks/

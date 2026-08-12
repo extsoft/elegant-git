@@ -48,14 +48,7 @@ something which should be quickly available, please propose changes here.
 
 - [Architecture](#architecture)
 - [Development environment](#development-environment)
-- [Coding rules](#coding-rules)
-- [Debug mode](#debug-mode)
-- [Testing procedure](#testing-procedure)
-- [Unit testing](#unit-testing)
-  - [Addons](#addons)
-  - [Writing tests](#writing-tests)
-  - [Assertions](#assertions)
-  - [Test name template](#test-name-template)
+- [Checks and tests](#checks-and-tests)
 - [Updating documentation](#updating-documentation)
 
 ### Architecture
@@ -63,98 +56,27 @@ something which should be quickly available, please propose changes here.
 The structure of directories:
 ```text
 .
-├── .workflows/    <- stores development scripts
-├── bin/           <- stores executable which is entry point
-├── completions/   <- stores completion files
-├── docs/          <- stores user documentation
-├── libexec/       <- contains all commands
-├── tests/         <- stores all tests along with additional test libraries
-└── workflows      <- executes different development tasks
+├── .config/mise/  <- tool versions and project tasks
+├── .workflows/    <- docs helpers and repo hook stubs
+├── cmd/           <- Go CLI entrypoint
+├── docs/          <- user documentation
+└── internal/      <- Go packages (CLI commands, git, memory, …)
 ```
 
-When you run `git elegant ...`, it initiates `bin/git-elegant` entry-point script. It calls
-`libexec/git-elegant` which is responsible for the execution of a given command by loading the code
-of a desired command (using a command file like `libexec/git-elegant-<command>`) and executing
-it. Each command file has to provide the following BASH functions:
-- `command-name` prints a command name (line length is limited to 50 characters)
-- `command-synopsis` prints a `usage` statement (line length is limited to 80 characters)
-- `command-description` prints a command description (line length is limited to 80 characters)
-- `default` executes given command
+`git elegant …` runs the Go binary built from `cmd/git-elegant`. Commands live under
+`internal/cli/` as an object-first Cobra tree (for example `work start`, `repo clone`).
 
 ### Development environment
-The following tools are needed for successful development:
-- Docker >= 19.03.2 is used for running tests
-- Elegant Git is used for running the testing process and generating documentation
+1. Install [mise](https://mise.jdx.dev/)
+2. Run `mise run init` once after clone
+3. Use `mise run build` to produce `dist/git-elegant`
 
-### Coding rules
-We enforce having a consistent implementation by following the next strict rules:
-- add `#!/usr/bin/env bash` at the beginning of each script
-- use whether `git-verbose` or `git-verbose-op` instead of `git` command for well-formatted outputs
-- a private function (a usage in the scope of current script) should be prefixed with `--`
-
-If you need to write a message to the system output, please use public functions in
-[libexec/plugins/text](libexec/plugins/text). All help messages have to use `cat`
-for printing them.
-
-### Debug mode
-You can enable debug mode by running `export GED=1` (the equivalent of `set -x` for `bash`).
-Run `unset GED` to switch debug off.
-
-### Testing procedure
-A testing procedure consists of 3 steps:
-1. unit testing using [bats-core](https://github.com/bats-core/bats-core)
-2. installation testing
-3. validation of documentation correctness
-
-All these steps can be executed by `./workflows ci` which runs a Docker container (based on
-`beeshive/elegant-git-ci` image) and calls all described checks. The image is also used on CI.
-If the image requires modifications, then
-
-1. run `./workflows prepare-worker <new tag>` to build a new image
-2. update `WORKER_IMAGE` in `./workflows` and test some workflow
-3. run `./workflows publich-worker <new tag>`  to push the image
-
-### Unit testing
-#### Addons
-In order to have a working unit tests, you need to add `load addons-common` line to each `.bats`
-file. This addon configures right access to executables (`libexec` directory) and defines mandatory
-functions.
-
-Also, there are several optional addons which can be useful in some circumstances:
-- add `load addons-repo` to interact with real git repository
-- add `load addons-fake` to fake a Linux command
-- add `load addons-cd`   to fake `cd` command
-- add `load addons-read` to fake `read` command
-
-#### Writing tests
-1. **Use `setup()` or `teardown()`** bats methods only in the tests.
-2. Use **`check` instead of bats `run`** to execute a command to be tested.
-3. Use **`perform-verbose`** to execute any real command within a test which should not be tested.
-4. Use appropriate `*-clean` function within a `teardown()` method if the addon provides it.
-5. Do not fake `git-elegant` commands within the tests.
-
-#### Assertions
-- `[[ ${status} -eq 2 ]]` for a command status
-- `[[ ${#lines[@]} -eq 0 ]]` for a length of command output
-- `[[ ${lines[0]} = "+ the space " ]]` for an output line (index starts from 0)
-- `[[ ${lines[@]} =~ "exact string" ]]` for an output line within whole output
-
-#### Test name template
-Use the following test name template - `'<command>': <describes the behavior that will be tested>`
-like `'clone-repository': stops with exit code 45 if cloneable URL is not set`.
-
-The behavior should be descriptive-style (`stops with exit code 45 if cloneable URL is not set`)
-rather than imperative-style (`stop with exit code 45 if cloneable URL is not set`).
+### Checks and tests
+- Format and lint: `mise run fix` (CI runs `mise run check`)
+- Go tests: `mise run test`
 
 ### Updating documentation
-In order to get a preview of the documentation site locally, please run `./workflows serve-docs`
-and open [http://localhost](http://localhost) (happens automatically if you have `open` command).
-
-The [docs/commands.md](docs/commands.md) generates by running `./workflows generate-docs` script.
+Build the binary (`mise run build`), then generate command docs with
+`.workflows/docs/docs-workflows.bash generate` (or `python .workflows/docs/docs.py`).
+Preview the site with `python -m mkdocs serve`.
 All other files in ["docs" directory](docs/) require manual corrections.
-
-### Completions testing
-1. source updated competion file
-    - bash: `source completions/git-elegant.bash`
-    - zsh: `source completions/_git-elegant`
-2. run `git-elegant <some>` and press Tab twice

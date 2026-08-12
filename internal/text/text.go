@@ -1,4 +1,4 @@
-// Package text provides colored terminal output matching libexec/plugins/text.
+// Package text provides colored terminal output helpers for CLI messages.
 package text
 
 import (

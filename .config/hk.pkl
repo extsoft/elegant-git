@@ -61,13 +61,10 @@ local generic = new Mapping<String, Step> {
       List(
         "**/*.go",
         "**/go.*",
-        "libexec/**",
-        "tests/**",
         "dist/**",
         "site/**",
         "aaa/**",
         ".git/**",
-        "completions/**",
         "docs/**",
       )
     check = "prosefmt check --replace-tabs-with-spaces 2 {{files}}"
@@ -78,15 +75,14 @@ local generic = new Mapping<String, Step> {
 local shell = new Mapping<String, Step> {
   ["shfmt"] {
     batch = true
-    glob = List(".config/mise/tasks/*.bash", "install.bash")
+    glob = List(".config/mise/tasks/*.bash")
     check = "shfmt --list --indent 2 --simplify --diff {{files}}"
     fix = "shfmt --list --indent 2 --simplify --write {{files}}"
   }
   ["shellcheck"] {
     depends = "shfmt"
     batch = true
-    glob = List(".config/mise/tasks/*.bash", "install.bash")
-    exclude = List("install.bash")
+    glob = List(".config/mise/tasks/*.bash")
     check = "shellcheck {{files}}"
   }
 }

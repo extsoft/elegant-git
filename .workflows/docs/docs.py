@@ -1,7 +1,9 @@
 """The script generates 'docs/commands.md' file."""
+import os
 import subprocess
-
 from typing import List, Sequence
+
+BINARY = os.environ.get("EG_BIN", "dist/git-elegant")
 
 
 def output(raw) -> str:
@@ -26,19 +28,24 @@ def normalize_command_line(line: str):
 
 def body() -> Sequence[str]:
     print("Generate documentation...")
+    if not os.path.isfile(BINARY):
+        raise SystemExit(
+            f"docs: {BINARY} not found; run `mise run build` first "
+            "(or set EG_BIN)"
+        )
     data = []
     print("Explain 'git-elegant'...")
     data.append(header("git-elegant"))
     data.append("```\n")
-    data.extend(map(lambda line: f"{line}\n", command_output("bin/git-elegant")))
+    data.extend(map(lambda line: f"{line}\n", command_output([BINARY])))
     data.append("```\n\n")
-    for command in command_output(["bin/git-elegant", "show-commands"]):
+    for command in command_output([BINARY, "show-commands"]):
         print(f"Explain 'git-elegant {command}'...")
         data.append(header(command))
         data.extend(
             map(
                 normalize_command_line,
-                command_output(["bin/git-elegant", command, "--help"]),
+                command_output([BINARY, command, "--help"]),
             )
         )
     return data[:-1]
