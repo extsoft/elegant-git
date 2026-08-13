@@ -71,7 +71,7 @@ func syncRun(cmd *cobra.Command, all bool) error {
 		}
 		apply := &shared.Apply{Force: applyAll}
 		if !applyAll {
-			dec, err := p.BatchChoice(fmt.Sprintf("Apply %s?", repo.Name))
+			dec, err := p.BatchChoice(fmt.Sprintf("Apply %s?", repo.Name), "no")
 			if err != nil {
 				return err
 			}

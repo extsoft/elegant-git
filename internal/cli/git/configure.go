@@ -1,14 +1,13 @@
 package git
 
 import (
-	"bufio"
 	"fmt"
 	"os"
-	"strings"
 
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/config"
+	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
@@ -31,22 +30,24 @@ func newConfigureCommand() *cobra.Command {
 }
 
 func configureRun(cmd *cobra.Command) error {
-	reader := cliruntime.StdinFromContext(cmd.Context())
+	p := prompt.FromContext(cmd.Context())
 	if err := config.ObsoleteConfigurationsRemoving("--global"); err != nil {
 		return err
 	}
 	if !config.IsGitAcquired() {
 		text.InfoBox("Thank you for installing Elegant Git! Let's configure it...")
 		fmt.Fprint(os.Stdout, installMessage())
-		text.QuestionText("Would you like to apply a global configuration? (y/n) ")
-		line, _ := bufio.NewReader(reader).ReadString('\n')
-		if strings.TrimSpace(strings.ToLower(line)) != "y" {
+		ok, err := p.Confirm("Would you like to apply a global configuration?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
 			fmt.Fprint(os.Stdout, localOnlyMessage())
 			os.Exit(0)
 		}
 		text.InfoText("Applying global configuration...")
 	}
-	if err := config.BasicsConfiguration("--global", true, reader); err != nil {
+	if err := config.BasicsConfiguration("--global", true, p); err != nil {
 		return err
 	}
 	if err := config.StandardsConfiguration("--global"); err != nil {

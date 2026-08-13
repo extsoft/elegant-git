@@ -111,12 +111,18 @@ type trackRecordingPrompter struct {
 }
 
 func (p *trackRecordingPrompter) String(string, string) (string, error) { return "", nil }
-func (p *trackRecordingPrompter) Confirm(string) (bool, error)          { return false, nil }
+func (p *trackRecordingPrompter) Confirm(string, bool) (bool, error)    { return false, nil }
 func (p *trackRecordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
 }
 func (p *trackRecordingPrompter) Required(string, string) error { return nil }
-func (p *trackRecordingPrompter) BatchChoice(string) (prompt.BatchDecision, error) {
+func (p *trackRecordingPrompter) Optional(string, string) (string, error) {
+	return "", nil
+}
+func (p *trackRecordingPrompter) Closed(string, []string, string, bool) (string, error) {
+	return "", prompt.ErrNonInteractive
+}
+func (p *trackRecordingPrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
 	return prompt.BatchSkip, nil
 }
 

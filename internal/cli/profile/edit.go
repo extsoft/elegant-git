@@ -44,14 +44,7 @@ func profileEditSpec(name *string) argspec.Spec {
 }
 
 func newEditCommand() *cobra.Command {
-	var (
-		profileName string
-		userName    string
-		userEmail   string
-		signingKey  string
-		editor      string
-		gpgProgram  string
-	)
+	var profileName string
 	spec := profileEditSpec(&profileName)
 	c := &cobra.Command{
 		Use:   "edit <name>",
@@ -70,7 +63,7 @@ func newEditCommand() *cobra.Command {
 				return err
 			}
 			p := prompt.FromContext(cmd.Context())
-			plan, err := profileEditPlan(cmd, s, id, prof, p, userName, userEmail, signingKey, editor, gpgProgram)
+			plan, err := profileEditPlan(cmd, s, id, prof, p)
 			if err != nil {
 				return err
 			}
@@ -82,53 +75,30 @@ func newEditCommand() *cobra.Command {
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
 	completion.Attach(c, spec)
-	c.Flags().StringVar(&userName, "user-name", "", "git user.name")
-	c.Flags().StringVar(&userEmail, "user-email", "", "git user.email")
-	c.Flags().StringVar(&signingKey, "signing-key", "", "GPG signing key id")
-	c.Flags().StringVar(&editor, "editor", "", "core.editor command")
-	c.Flags().StringVar(&gpgProgram, "gpg-program", "", "gpg.program path")
 	return c
 }
 
-func profileEditPlan(_ *cobra.Command, s *shared.State, id string, prof *shared.Profile, p prompt.Prompter, userName, userEmail, signingKey, editor, gpgProgram string) (*editPlan, error) {
+func profileEditPlan(_ *cobra.Command, s *shared.State, id string, prof *shared.Profile, p prompt.Prompter) (*editPlan, error) {
 	planned := *prof
 	var err error
-	if userName != "" {
-		planned.UserName = userName
-	} else if !prompt.NonInteractive(p) {
+	if !prompt.NonInteractive(p) {
 		planned.UserName, err = p.EditOrAccept("Git user.name", prof.UserName)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if userEmail != "" {
-		planned.UserEmail = userEmail
-	} else if !prompt.NonInteractive(p) {
 		planned.UserEmail, err = p.EditOrAccept("Git user.email", prof.UserEmail)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if signingKey != "" {
-		planned.SigningKey = signingKey
-	} else if !prompt.NonInteractive(p) {
-		planned.SigningKey, err = p.EditOrAccept("Signing key (empty to clear)", prof.SigningKey)
+		planned.SigningKey, err = p.Optional("Signing key", prof.SigningKey)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if gpgProgram != "" {
-		planned.GPGProgram = gpgProgram
-	} else if !prompt.NonInteractive(p) {
-		planned.GPGProgram, err = p.EditOrAccept("GPG program (empty to clear)", prof.GPGProgram)
+		planned.GPGProgram, err = p.Optional("GPG program", prof.GPGProgram)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if editor != "" {
-		planned.Editor = editor
-	} else if !prompt.NonInteractive(p) {
-		planned.Editor, err = p.EditOrAccept("Editor command (empty to clear)", prof.Editor)
+		planned.Editor, err = p.Optional("Editor command", prof.Editor)
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +127,7 @@ func profileEditPlan(_ *cobra.Command, s *shared.State, id string, prof *shared.
 			repoName = repo.Name
 		}
 		if !prompt.NonInteractive(p) {
-			ok, err := p.Confirm(fmt.Sprintf(`Apply changes to current repository "%s"?`, repoName))
+			ok, err := p.Confirm(fmt.Sprintf(`Apply changes to current repository "%s"?`, repoName), true)
 			if err != nil {
 				return nil, err
 			}
@@ -183,7 +153,7 @@ func profileEditPlan(_ *cobra.Command, s *shared.State, id string, prof *shared.
 		if err != nil {
 			continue
 		}
-		dec, err := p.BatchChoice(fmt.Sprintf("Apply to %s?", repo.Name))
+		dec, err := p.BatchChoice(fmt.Sprintf("Apply to %s?", repo.Name), "no")
 		if err != nil {
 			return nil, err
 		}
@@ -278,7 +248,7 @@ func profileEditSummaryConfirm(plan *editPlan, p prompt.Prompter) error {
 	if prompt.NonInteractive(p) {
 		return nil
 	}
-	ok, err := p.Confirm("Proceed?")
+	ok, err := p.Confirm("Proceed?", true)
 	return errIfNotOK(ok, err)
 }
 

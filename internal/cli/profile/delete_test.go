@@ -85,12 +85,18 @@ type deleteRecordingPrompter struct {
 }
 
 func (p *deleteRecordingPrompter) String(string, string) (string, error) { return "", nil }
-func (p *deleteRecordingPrompter) Confirm(string) (bool, error)          { return false, nil }
+func (p *deleteRecordingPrompter) Confirm(string, bool) (bool, error)    { return false, nil }
 func (p *deleteRecordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
 }
 func (p *deleteRecordingPrompter) Required(string, string) error { return nil }
-func (p *deleteRecordingPrompter) BatchChoice(string) (prompt.BatchDecision, error) {
+func (p *deleteRecordingPrompter) Optional(string, string) (string, error) {
+	return "", nil
+}
+func (p *deleteRecordingPrompter) Closed(string, []string, string, bool) (string, error) {
+	return "", prompt.ErrNonInteractive
+}
+func (p *deleteRecordingPrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
 	return prompt.BatchSkip, nil
 }
 func (p *deleteRecordingPrompter) EditOrAccept(string, string) (string, error) {

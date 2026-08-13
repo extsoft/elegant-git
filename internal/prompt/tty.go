@@ -37,30 +37,36 @@ func (t *TTY) reader() *bufio.Reader {
 }
 
 func (t *TTY) String(question, defaultVal string) (string, error) {
-	prompt := question
-	if defaultVal != "" {
-		prompt = question + " {" + defaultVal + "}"
+	q := RequiredLine(question, defaultVal) + " "
+	for {
+		text.QuestionText(q)
+		line, err := t.reader().ReadString('\n')
+		if err != nil && err != io.EOF {
+			return "", err
+		}
+		line = strings.TrimSpace(line)
+		if line != "" {
+			return line, nil
+		}
+		if defaultVal != "" {
+			return defaultVal, nil
+		}
+		if err == io.EOF {
+			return "", err
+		}
 	}
-	text.QuestionText(prompt + ": ")
-	line, err := t.reader().ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return defaultVal, nil
-	}
-	return line, nil
 }
 
-func (t *TTY) Confirm(question string) (bool, error) {
-	text.QuestionText(question + " [y/N]: ")
-	line, err := t.reader().ReadString('\n')
-	if err != nil && err != io.EOF {
+func (t *TTY) Confirm(question string, defaultYes bool) (bool, error) {
+	def := "no"
+	if defaultYes {
+		def = "yes"
+	}
+	ans, err := t.askClosed(question, yesNoOptions, def, true)
+	if err != nil {
 		return false, err
 	}
-	line = strings.TrimSpace(strings.ToLower(line))
-	return line == "y" || line == "yes", nil
+	return ans == "yes", nil
 }
 
 func (t *TTY) Choose(question string, options []string) (int, error) {
@@ -97,11 +103,11 @@ func (t *TTY) Required(label, current string) error {
 }
 
 func (t *TTY) EditOrAccept(label, suggested string) (string, error) {
-	prompt := label
-	if suggested != "" {
-		prompt = label + " {" + suggested + "}"
+	q := RequiredLine(label, suggested)
+	if suggested == "" {
+		q = OptionalLine(label, "")
 	}
-	text.QuestionText(prompt + ": ")
+	text.QuestionText(q + " ")
 	line, err := t.reader().ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", err
@@ -116,20 +122,52 @@ func (t *TTY) EditOrAccept(label, suggested string) (string, error) {
 	return "", nil
 }
 
-func (t *TTY) BatchChoice(question string) (BatchDecision, error) {
-	text.QuestionText(question + " [y/n/A/S]: ")
+func (t *TTY) Optional(label, suggested string) (string, error) {
+	text.QuestionText(OptionalLine(label, suggested) + " ")
 	line, err := t.reader().ReadString('\n')
 	if err != nil && err != io.EOF {
+		return "", err
+	}
+	return strings.TrimSpace(line), nil
+}
+
+func (t *TTY) Closed(question string, options []string, defaultWord string, required bool) (string, error) {
+	return t.askClosed(question, options, defaultWord, required)
+}
+
+func (t *TTY) BatchChoice(question, defaultWord string) (BatchDecision, error) {
+	ans, err := t.askClosed(question, batchChoiceOptions, defaultWord, true)
+	if err != nil {
 		return BatchReject, err
 	}
-	switch strings.ToLower(strings.TrimSpace(line)) {
-	case "y", "yes":
+	switch ans {
+	case "yes":
 		return BatchConfirm, nil
-	case "a", "all":
+	case "all":
 		return BatchApplyAll, nil
-	case "s", "skip":
+	case "skip":
 		return BatchSkip, nil
 	default:
 		return BatchReject, nil
+	}
+}
+
+func (t *TTY) askClosed(question string, options []string, defaultWord string, required bool) (string, error) {
+	q := ClosedLine(question, options, defaultWord) + " "
+	for {
+		text.QuestionText(q)
+		line, err := t.reader().ReadString('\n')
+		if err != nil && err != io.EOF {
+			return "", err
+		}
+		if got, ok := MatchClosed(line, options, defaultWord); ok {
+			return got, nil
+		}
+		if !required && strings.TrimSpace(line) == "" {
+			return "", nil
+		}
+		if err == io.EOF {
+			return "", err
+		}
 	}
 }

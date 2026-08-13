@@ -6,13 +6,22 @@
 
 Every command follows the same policy:
 
-1. When all **required** inputs are present, the command runs with no argument prompts.
-2. In **interactive** mode, missing required inputs are prompted; then every **optional** input is offered for edit-or-accept (including values already passed on the CLI, unless all required arguments were given).
-3. In **non-interactive** mode, missing required inputs cause an error listing what is missing.
+1. When all **required** arguments are present, the command runs with no argument prompts.
+2. In **interactive** mode, missing required arguments are asked as one-line questions; then every **optional** argument is offered (including values already passed on the CLI, unless all required arguments were given).
+3. In **non-interactive** mode, missing required arguments cause an error listing what is missing.
+
+A question is one line: `<prompt> [<suggested>] (<action on enter>):`. Parts are omitted when they do not apply.
+
+- Required with a suggestion: `Git user.name [Alice] (press enter to accept):`
+- Optional with a suggestion: `Signing key [ABC123]:` (empty Enter leaves it unset)
+- Optional with no suggestion: `Signing key (press enter to skip):`
+- Required with no suggestion: `Profile name:` (empty Enter asks again)
+- Yes/no: `Proceed? [yes/no] (press enter to 'yes'):` (`y`/`n` or the full word)
+- Repeat over many: `Apply to repo? [yes/no/all/skip] (press enter to 'no'):`
 
 Interactive mode is the default when stdin is a TTY. Non-interactive mode is used when `--non-interactive` or `ELEGANT_GIT_NON_INTERACTIVE=1` is set, when `CI` is set, or when stdin is not a TTY. Use `--interactive` or `ELEGANT_GIT_INTERACTIVE=1` to force prompts.
 
-Workflow prompts inside commands (e.g. `git configure`, `repo configure`, uncommitted changes during `work start`) are separate from argument resolution.
+Workflow prompts inside commands (for example `git configure`, `repo configure`, uncommitted changes during `work start`) use the same question line and honor `--interactive` / `--non-interactive`.
 
 ## Objects
 
@@ -49,7 +58,7 @@ Workflow prompts inside commands (e.g. `git configure`, `repo configure`, uncomm
 | `repo clone <repository> <profile> [<directory>]` | Clones a remote repository and configures it. |
 | `repo init <profile>` | Initializes a new repository and configures it. |
 | `repo status` | Shows per-repo memory, registry linkage, branch settings, and local git identity for the current repository. |
-| `repo sync` | Re-applies profile settings (`--all` for every managed repo; `[y/n/A/S]` per repo). |
+| `repo sync` | Re-applies profile settings (`--all` for every managed repo; `[yes/no/all/skip]` per repo). |
 | `repo prune` | Removes useless local branches. |
 | `repo migrate` | Migrates local aliases, hooks, and elegant-git settings into memory. |
 

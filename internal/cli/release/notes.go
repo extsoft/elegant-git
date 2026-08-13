@@ -9,6 +9,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/cmdid"
 	"github.com/bees-hive/elegant-git/internal/git"
 	"github.com/bees-hive/elegant-git/internal/state"
@@ -19,9 +20,9 @@ var notesID = cmdid.ID{Command: "release", Action: "notes"}
 
 func releaseNotesSpec(layout, fromRef, toRef *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("layout", 0, false, "Layout (simple or smart)", layout, func() string { return "simple" }),
-		argspec.PositionalInput("from-ref", 1, false, "From ref", fromRef, nil),
-		argspec.PositionalInput("to-ref", 2, false, "To ref", toRef, func() string { return "HEAD" }),
+		argspec.PositionalInputWithComplete("layout", 0, false, "Release notes layout", layout, func() string { return "simple" }, sources.ReleaseNotesLayouts, false).AsClosed(),
+		argspec.PositionalInputWithComplete("from-ref", 1, false, "From ref", fromRef, nil, sources.Refs, true),
+		argspec.PositionalInputWithComplete("to-ref", 2, false, "To ref", toRef, func() string { return "HEAD" }, sources.Refs, true),
 	}}
 }
 

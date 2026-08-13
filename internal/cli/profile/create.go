@@ -22,13 +22,13 @@ func createSpec(name, userName, userEmail, signingKey, gpgProgram, editor *strin
 		argspec.PositionalInput("user-email", 2, true, "Git user.email", userEmail, func() string {
 			return suggestField(*userEmail, "user.email")
 		}),
-		argspec.PositionalInput("signing-key", 3, false, "Signing key (empty to skip)", signingKey, func() string {
+		argspec.PositionalInput("signing-key", 3, false, "Signing key", signingKey, func() string {
 			return suggestField(*signingKey, "user.signingkey")
 		}),
-		argspec.PositionalInput("gpg-program", 4, false, "GPG program (empty to skip)", gpgProgram, func() string {
+		argspec.PositionalInput("gpg-program", 4, false, "GPG program", gpgProgram, func() string {
 			return suggestField(*gpgProgram, "gpg.program")
 		}),
-		argspec.PositionalInput("editor", 5, false, "Editor command (empty to skip)", editor, func() string {
+		argspec.PositionalInput("editor", 5, false, "Editor command", editor, func() string {
 			return suggestField(*editor, "core.editor")
 		}),
 	}}

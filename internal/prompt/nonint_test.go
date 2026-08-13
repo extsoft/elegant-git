@@ -11,7 +11,7 @@ func TestNonInteractiveStringFails(t *testing.T) {
 
 func TestNonInteractiveConfirmFalse(t *testing.T) {
 	p := NewNonInteractive()
-	ok, err := p.Confirm("apply?")
+	ok, err := p.Confirm("apply?", true)
 	if err != nil {
 		t.Fatal(err)
 	}

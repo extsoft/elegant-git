@@ -93,23 +93,23 @@ func createProfileInteractive(p prompt.Prompter, s *shared.State) (string, *shar
 	if err != nil {
 		return "", nil, err
 	}
-	userName, err := prompt.Skippable(p, "Git user.name", "", git.ConfigEffectiveLocal("user.name"))
+	userName, err := p.EditOrAccept("Git user.name", git.ConfigEffectiveLocal("user.name"))
 	if err != nil {
 		return "", nil, err
 	}
-	userEmail, err := prompt.Skippable(p, "Git user.email", "", git.ConfigEffectiveLocal("user.email"))
+	userEmail, err := p.EditOrAccept("Git user.email", git.ConfigEffectiveLocal("user.email"))
 	if err != nil {
 		return "", nil, err
 	}
-	signingKey, err := p.EditOrAccept("Signing key (empty to skip)", git.ConfigEffectiveLocal("user.signingkey"))
+	signingKey, err := p.Optional("Signing key", git.ConfigEffectiveLocal("user.signingkey"))
 	if err != nil {
 		return "", nil, err
 	}
-	gpgProgram, err := p.EditOrAccept("GPG program (empty to skip)", git.ConfigEffectiveLocal("gpg.program"))
+	gpgProgram, err := p.Optional("GPG program", git.ConfigEffectiveLocal("gpg.program"))
 	if err != nil {
 		return "", nil, err
 	}
-	editor, err := p.EditOrAccept("Editor command (empty to skip)", git.ConfigEffectiveLocal("core.editor"))
+	editor, err := p.Optional("Editor command", git.ConfigEffectiveLocal("core.editor"))
 	if err != nil {
 		return "", nil, err
 	}
@@ -142,7 +142,7 @@ func configureElegantRepoSettings(perRepo *memrepo.State, p prompt.Prompter) err
 	if prompt.NonInteractive(p) {
 		perRepo.DefaultBranch = def
 	} else {
-		v, err := p.String("What is the default branch?", def)
+		v, err := p.EditOrAccept("Default branch", def)
 		if err != nil {
 			return err
 		}
@@ -164,7 +164,7 @@ func configureElegantRepoSettings(perRepo *memrepo.State, p prompt.Prompter) err
 	if prompt.NonInteractive(p) {
 		perRepo.ProtectedBranches = prot
 	} else {
-		v, err := p.String("What are protected branches (split with space)?", protStr)
+		v, err := p.EditOrAccept("Protected branches", protStr)
 		if err != nil {
 			return err
 		}

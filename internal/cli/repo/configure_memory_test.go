@@ -40,7 +40,7 @@ type configureRecordingPrompter struct {
 func (p *configureRecordingPrompter) String(q, def string) (string, error) {
 	return def, nil
 }
-func (p *configureRecordingPrompter) Confirm(string) (bool, error) { return false, nil }
+func (p *configureRecordingPrompter) Confirm(string, bool) (bool, error) { return false, nil }
 func (p *configureRecordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
 }
@@ -48,7 +48,7 @@ func (p *configureRecordingPrompter) Pick(string, []prompt.Choice) (string, erro
 	return "", nil
 }
 func (p *configureRecordingPrompter) Required(string, string) error { return nil }
-func (p *configureRecordingPrompter) BatchChoice(string) (prompt.BatchDecision, error) {
+func (p *configureRecordingPrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
 	return prompt.BatchSkip, nil
 }
 func (p *configureRecordingPrompter) EditOrAccept(label, suggested string) (string, error) {
@@ -60,6 +60,19 @@ func (p *configureRecordingPrompter) EditOrAccept(label, suggested string) (stri
 		}
 	}
 	return suggested, nil
+}
+
+func (p *configureRecordingPrompter) Optional(string, suggested string) (string, error) {
+	if p.editIdx < len(p.editValues) {
+		v := p.editValues[p.editIdx]
+		p.editIdx++
+		return v, nil
+	}
+	return "", nil
+}
+
+func (p *configureRecordingPrompter) Closed(string, []string, string, bool) (string, error) {
+	return "", prompt.ErrNonInteractive
 }
 
 func TestResolveProfileCreateNewNonInteractive(t *testing.T) {

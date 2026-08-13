@@ -23,8 +23,8 @@ var newID = cmdid.ID{Command: "hook", Action: "new"}
 func hookNewSpec(commandID, hookType, location *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
 		argspec.PositionalInputWithComplete("command-id", 0, true, "Command id (e.g. work.start)", commandID, nil, sources.HookCommandIDs, true),
-		argspec.PositionalInputWithComplete("hook-type", 1, true, "Hook type (ahead or after)", hookType, nil, sources.HookTypes, true),
-		argspec.PositionalInputWithComplete("location", 2, true, "Hook location (personal or common)", location, nil, sources.HookLocations, true),
+		argspec.PositionalInputWithComplete("hook-type", 1, true, "Hook type", hookType, nil, sources.HookTypes, true).AsClosed(),
+		argspec.PositionalInputWithComplete("location", 2, true, "Hook location", location, nil, sources.HookLocations, true).AsClosed(),
 	}}
 }
 

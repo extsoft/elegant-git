@@ -3,7 +3,6 @@ package work
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/cli/completion"
@@ -13,17 +12,14 @@ import (
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/git"
 	"github.com/bees-hive/elegant-git/internal/pipe"
+	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/state"
 	"github.com/spf13/cobra"
 )
 
 var startID = cmdid.ID{Command: "work", Action: "start"}
 
-const startChangesPrompt = `There are uncommitted changes.
-[a] Add them to the new branch (default)
-[r] Reset (discard) local changes
-[c] Cancel
-Choice [a/r/c]: `
+var startChangeOptions = []string{"add", "reset", "cancel"}
 
 func newStartCommand() *cobra.Command {
 	var name, fromRef string
@@ -91,7 +87,7 @@ func startRunWithRefs(ctx context.Context, name, fromRef string) error {
 	case "cancel":
 		return fmt.Errorf("work start cancelled")
 	default:
-		return fmt.Errorf("invalid choice %q (use a, r, or c)", mode)
+		return fmt.Errorf("invalid choice %q (use add, reset, or cancel)", mode)
 	}
 }
 
@@ -99,16 +95,17 @@ func resolveStartChanges(ctx context.Context) (string, error) {
 	if !pipe.HasChanges() {
 		return "none", nil
 	}
-	if !cliruntime.StdinIsInteractive(ctx) {
+	p := prompt.FromContext(ctx)
+	if prompt.NonInteractive(p) {
 		return "stash", nil
 	}
-	answer, err := cliruntime.ReadLineAnswer(ctx, startChangesPrompt)
+	ans, err := p.Closed("There are uncommitted changes", startChangeOptions, "add", true)
 	if err != nil {
 		return "", err
 	}
-	mode, ok := parseStartChangesChoice(answer)
+	mode, ok := startChangeMode(ans)
 	if !ok {
-		return "", fmt.Errorf("invalid choice %q (use a, r, or c)", answer)
+		return "", fmt.Errorf("invalid choice %q (use add, reset, or cancel)", ans)
 	}
 	return mode, nil
 }
@@ -123,12 +120,20 @@ func resolveStartPoint(target string) string {
 }
 
 func parseStartChangesChoice(answer string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(answer)) {
-	case "", "a", "add", "keep", "move":
+	got, ok := prompt.MatchClosed(answer, startChangeOptions, "add")
+	if !ok {
+		return "", false
+	}
+	return startChangeMode(got)
+}
+
+func startChangeMode(ans string) (string, bool) {
+	switch ans {
+	case "add":
 		return "stash", true
-	case "r", "reset", "discard":
+	case "reset":
 		return "reset", true
-	case "c", "cancel", "quit", "q":
+	case "cancel":
 		return "cancel", true
 	default:
 		return "", false

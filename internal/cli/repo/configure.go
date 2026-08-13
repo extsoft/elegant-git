@@ -1,8 +1,6 @@
 package repo
 
 import (
-	"io"
-
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
@@ -49,7 +47,6 @@ func newConfigureCommand() *cobra.Command {
 
 func configureRun(cmd *cobra.Command, profileName string) error {
 	p := prompt.FromContext(cmd.Context())
-	reader := promptReader(cmd, p)
 	if updated, path, err := syncRegistryPath("", false); err != nil {
 		return err
 	} else if updated {
@@ -64,7 +61,7 @@ func configureRun(cmd *cobra.Command, profileName string) error {
 	if err := configureLocalGitInstallPost(); err != nil {
 		return err
 	}
-	if err := config.ConfigureSignature(reader); err != nil {
+	if err := config.ConfigureSignature(p); err != nil {
 		return err
 	}
 	text.Complete("Repository configuration complete.")
@@ -86,10 +83,6 @@ func configureLocalGitInstallPost() error {
 		return err
 	}
 	return config.AliasesConfiguration("--local")
-}
-
-func promptReader(cmd *cobra.Command, p prompt.Prompter) io.Reader {
-	return cliruntime.StdinFromContext(cmd.Context())
 }
 
 // ConfigureRun is exported for clone/init to call configure logic.

@@ -12,7 +12,7 @@ func (nonInteractive) String(string, string) (string, error) {
 	return "", ErrNonInteractive
 }
 
-func (nonInteractive) Confirm(string) (bool, error) {
+func (nonInteractive) Confirm(string, bool) (bool, error) {
 	return false, nil
 }
 
@@ -32,6 +32,14 @@ func (nonInteractive) EditOrAccept(string, suggested string) (string, error) {
 	return suggested, nil
 }
 
-func (nonInteractive) BatchChoice(string) (BatchDecision, error) {
+func (nonInteractive) Optional(string, suggested string) (string, error) {
+	return suggested, nil
+}
+
+func (nonInteractive) Closed(string, []string, string, bool) (string, error) {
+	return "", ErrNonInteractive
+}
+
+func (nonInteractive) BatchChoice(string, string) (BatchDecision, error) {
 	return BatchSkip, nil
 }

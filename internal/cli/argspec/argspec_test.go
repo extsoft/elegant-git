@@ -9,13 +9,19 @@ import (
 )
 
 type recordingPrompter struct {
-	strings    []string
-	editValues []string
-	pickValues []string
-	edits      []editCall
-	stringIdx  int
-	editIdx    int
-	pickIdx    int
+	strings      []string
+	editValues   []string
+	optValues    []string
+	pickValues   []string
+	closedValues []string
+	edits        []editCall
+	optionals    []editCall
+	closed       []string
+	stringIdx    int
+	editIdx      int
+	optIdx       int
+	pickIdx      int
+	closedIdx    int
 }
 
 type editCall struct {
@@ -31,7 +37,7 @@ func (r *recordingPrompter) String(question, defaultVal string) (string, error) 
 	return defaultVal, nil
 }
 
-func (r *recordingPrompter) Confirm(string) (bool, error) { return false, nil }
+func (r *recordingPrompter) Confirm(string, bool) (bool, error) { return false, nil }
 
 func (r *recordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
@@ -60,7 +66,33 @@ func (r *recordingPrompter) EditOrAccept(label, suggested string) (string, error
 	return suggested, nil
 }
 
-func (r *recordingPrompter) BatchChoice(string) (prompt.BatchDecision, error) {
+func (r *recordingPrompter) Optional(label, suggested string) (string, error) {
+	r.optionals = append(r.optionals, editCall{label, suggested})
+	if r.optIdx < len(r.optValues) {
+		v := r.optValues[r.optIdx]
+		r.optIdx++
+		return v, nil
+	}
+	return "", nil
+}
+
+func (r *recordingPrompter) Closed(question string, _ []string, def string, required bool) (string, error) {
+	r.closed = append(r.closed, question)
+	if r.closedIdx < len(r.closedValues) {
+		v := r.closedValues[r.closedIdx]
+		r.closedIdx++
+		return v, nil
+	}
+	if def != "" {
+		return def, nil
+	}
+	if !required {
+		return "", nil
+	}
+	return "", errors.New("no closed value")
+}
+
+func (r *recordingPrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
 	return prompt.BatchSkip, nil
 }
 
@@ -118,7 +150,7 @@ func TestResolveMissingRequiredInteractive(t *testing.T) {
 		PositionalInput("name", 0, true, "Branch name", &name, nil),
 		PositionalInput("from-ref", 1, false, "Start from ref", &from, func() string { return "main" }),
 	}}
-	p := &recordingPrompter{strings: []string{"feature"}, editValues: []string{"develop"}}
+	p := &recordingPrompter{strings: []string{"feature"}, optValues: []string{"develop"}}
 	if err := Resolve(context.Background(), p, nil, spec); err != nil {
 		t.Fatal(err)
 	}
@@ -195,6 +227,67 @@ func TestResolveOmitInteractiveKeepsCLIArg(t *testing.T) {
 	}
 	if p.pickIdx != 0 {
 		t.Fatalf("unexpected pick prompts: pickIdx=%d", p.pickIdx)
+	}
+}
+
+func TestResolveClosedNotPick(t *testing.T) {
+	var hookType string
+	complete := func(context.Context) ([]Choice, error) {
+		return []Choice{{Value: "ahead"}, {Value: "after"}}, nil
+	}
+	spec := Spec{Inputs: []Input{
+		PositionalInputWithComplete("hook-type", 0, true, "Hook type", &hookType, nil, complete, true).AsClosed(),
+	}}
+	p := &recordingPrompter{closedValues: []string{"after"}, pickValues: []string{"should-not-pick"}}
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if hookType != "after" {
+		t.Fatalf("hookType=%q", hookType)
+	}
+	if p.pickIdx != 0 {
+		t.Fatalf("expected closed list, got pickIdx=%d", p.pickIdx)
+	}
+	if len(p.closed) != 1 {
+		t.Fatalf("closed calls=%v", p.closed)
+	}
+}
+
+func TestResolveOptionalTextLeavesUnset(t *testing.T) {
+	var name, key string
+	spec := Spec{Inputs: []Input{
+		PositionalInput("name", 0, true, "Profile name", &name, nil),
+		PositionalInput("signing-key", 1, false, "Signing key", &key, func() string { return "ABC123" }),
+	}}
+	p := &recordingPrompter{strings: []string{"dz"}, optValues: []string{""}}
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if name != "dz" || key != "" {
+		t.Fatalf("name=%q key=%q", name, key)
+	}
+	if len(p.optionals) != 1 || p.optionals[0].suggested != "ABC123" {
+		t.Fatalf("optionals=%+v", p.optionals)
+	}
+	if len(p.edits) != 0 {
+		t.Fatalf("unexpected EditOrAccept: %+v", p.edits)
+	}
+}
+
+func TestResolveRequiredSuggestUsesEditOrAccept(t *testing.T) {
+	var name string
+	spec := Spec{Inputs: []Input{
+		PositionalInput("name", 0, true, "Profile name", &name, func() string { return "alice" }),
+	}}
+	p := &recordingPrompter{editValues: []string{""}}
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if name != "alice" {
+		t.Fatalf("name=%q", name)
+	}
+	if len(p.edits) != 1 || p.edits[0].suggested != "alice" {
+		t.Fatalf("edits=%+v", p.edits)
 	}
 }
 

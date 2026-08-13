@@ -31,7 +31,7 @@ func offerCreateProfileFromGlobal(cmd *cobra.Command) error {
 	if prompt.NonInteractive(p) {
 		return nil
 	}
-	ok, err := p.Confirm("Create a reusable profile from these global values?")
+	ok, err := p.Confirm("Create a reusable profile from these global values?", false)
 	if err != nil || !ok {
 		return err
 	}

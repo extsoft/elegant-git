@@ -36,7 +36,7 @@ func offerApplyToCurrentRepo(cmd *cobra.Command, s *shared.State, profileID stri
 	if _, err := memrepo.GitDir(); err != nil {
 		return nil
 	}
-	ok, err := p.Confirm(fmt.Sprintf(`Apply profile "%s" to current repository?`, prof.Name))
+	ok, err := p.Confirm(fmt.Sprintf(`Apply profile "%s" to current repository?`, prof.Name), true)
 	if err != nil || !ok {
 		return err
 	}
@@ -55,7 +55,7 @@ func offerApplyToCurrentRepo(cmd *cobra.Command, s *shared.State, profileID stri
 		if other != nil {
 			otherName = other.Name
 		}
-		ok, err := p.Confirm(fmt.Sprintf(`Override existing profile "%s"?`, otherName))
+		ok, err := p.Confirm(fmt.Sprintf(`Override existing profile "%s"?`, otherName), false)
 		if err != nil || !ok {
 			return err
 		}

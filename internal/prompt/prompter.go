@@ -27,12 +27,14 @@ var ErrUserCancelled = errors.New("input cancelled")
 // Prompter abstracts interactive CLI input.
 type Prompter interface {
 	String(question, defaultVal string) (string, error)
-	Confirm(question string) (bool, error)
+	Confirm(question string, defaultYes bool) (bool, error)
 	Choose(question string, options []string) (int, error)
 	Pick(label string, choices []Choice) (string, error)
 	Required(label, current string) error
 	EditOrAccept(label, suggested string) (string, error)
-	BatchChoice(question string) (BatchDecision, error)
+	Optional(label, suggested string) (string, error)
+	Closed(question string, options []string, defaultWord string, required bool) (string, error)
+	BatchChoice(question, defaultWord string) (BatchDecision, error)
 }
 
 // Skippable returns current when it equals suggested; otherwise EditOrAccept.

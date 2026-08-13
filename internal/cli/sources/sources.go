@@ -144,6 +144,11 @@ func CompletionShells(_ context.Context) ([]argspec.Choice, error) {
 	return staticChoices("bash", "zsh", "fish", "powershell"), nil
 }
 
+// ReleaseNotesLayouts returns simple/smart release notes layouts.
+func ReleaseNotesLayouts(_ context.Context) ([]argspec.Choice, error) {
+	return staticChoices("simple", "smart"), nil
+}
+
 // HookPaths returns existing hook script paths under repo and personal hook dirs.
 func HookPaths(_ context.Context) ([]argspec.Choice, error) {
 	dirs := []string{

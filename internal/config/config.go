@@ -2,9 +2,7 @@
 package config
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
 	"strings"
@@ -14,6 +12,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/git"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/bees-hive/elegant-git/internal/version"
 )
@@ -136,20 +135,20 @@ type ConfigField struct {
 }
 
 // BasicsConfiguration interactively sets user.name, user.email, core.editor.
-func BasicsConfiguration(scope string, onlyUnset bool, reader io.Reader) error {
-	return basicsConfiguration(scope, onlyUnset, reader, []ConfigField{
-		{"user.name", "What is your user name?", configGet(scope, "user.name")},
-		{"user.email", "What is your user email?", configGet(scope, "user.email")},
-		{"core.editor", "What is the command to launching an editor?", defaultEditor(scope)},
+func BasicsConfiguration(scope string, onlyUnset bool, p prompt.Prompter) error {
+	return basicsConfiguration(scope, onlyUnset, p, []ConfigField{
+		{"user.name", "Git user.name", configGet(scope, "user.name")},
+		{"user.email", "Git user.email", configGet(scope, "user.email")},
+		{"core.editor", "Editor command", defaultEditor(scope)},
 	})
 }
 
 // RepositoryBasicsConfiguration sets user and editor locally (profile flow handles identity).
-func RepositoryBasicsConfiguration(scope string, reader io.Reader) error {
-	return basicsConfiguration(scope, false, reader, []ConfigField{
-		{"user.name", "What is your user name?", configGet(scope, "user.name")},
-		{"user.email", "What is your user email?", configGet(scope, "user.email")},
-		{"core.editor", "What is the command to launching an editor?", defaultEditor(scope)},
+func RepositoryBasicsConfiguration(scope string, p prompt.Prompter) error {
+	return basicsConfiguration(scope, false, p, []ConfigField{
+		{"user.name", "Git user.name", configGet(scope, "user.name")},
+		{"user.email", "Git user.email", configGet(scope, "user.email")},
+		{"core.editor", "Editor command", defaultEditor(scope)},
 	})
 }
 
@@ -166,9 +165,8 @@ func MarkAcquired(_ string) error {
 	return RemoveObsoleteAcquired("--global", false)
 }
 
-func basicsConfiguration(scope string, onlyUnset bool, reader io.Reader, fields []ConfigField) error {
+func basicsConfiguration(scope string, onlyUnset bool, p prompt.Prompter, fields []ConfigField) error {
 	text.InfoBox("Configuring basics...")
-	notify := true
 	for _, f := range fields {
 		if onlyUnset {
 			if cur := configGet(scope, f.Key); cur != "" {
@@ -176,11 +174,7 @@ func basicsConfiguration(scope string, onlyUnset bool, reader io.Reader, fields 
 				continue
 			}
 		}
-		if notify {
-			text.InfoText("Please hit enter if you wish {default value}.")
-			notify = false
-		}
-		answer, err := ask(reader, f.Message, f.DefaultVal)
+		answer, err := ask(p, f.Message, f.DefaultVal, f.Key != "core.editor")
 		if err != nil {
 			return err
 		}
@@ -337,21 +331,14 @@ func ObsoleteConfigurationsRemoving(scope string) error {
 	return AliasesRemoving(scope, false)
 }
 
-func ask(reader io.Reader, message, defaultVal string) (string, error) {
-	prompt := message
-	if defaultVal != "" {
-		prompt = message + " {" + defaultVal + "}"
-	}
-	text.QuestionText(prompt + ": ")
-	line, err := bufio.NewReader(reader).ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	line = strings.TrimSpace(line)
-	if line == "" {
+func ask(p prompt.Prompter, message, defaultVal string, required bool) (string, error) {
+	if prompt.NonInteractive(p) {
 		return defaultVal, nil
 	}
-	return line, nil
+	if required {
+		return p.EditOrAccept(message, defaultVal)
+	}
+	return p.Optional(message, defaultVal)
 }
 
 func configGet(scope, key string) string {

@@ -1,18 +1,17 @@
 package config
 
 import (
-	"bufio"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/text"
 )
 
 // ConfigureSignature optionally sets GPG signing for the local repository.
-func ConfigureSignature(reader io.Reader) error {
+func ConfigureSignature(p prompt.Prompter) error {
 	if _, err := exec.LookPath("gpg"); err != nil {
 		return nil
 	}
@@ -36,13 +35,14 @@ func ConfigureSignature(reader io.Reader) error {
 	text.InfoText("    A330C91F8EC4BC7AECFA63E03AA5C34371567BD2")
 	text.InfoText("    uid                          Hubot")
 	text.InfoText("")
-	text.InfoText("If you don't want to configure signature, just hit Enter button.")
-	text.QuestionText("Please pass a key that has to sign objects of the current repository: ")
-	line, err := bufio.NewReader(reader).ReadString('\n')
-	if err != nil && err != io.EOF {
+	if prompt.NonInteractive(p) {
+		return nil
+	}
+	key, err := p.Optional("Signing key", "")
+	if err != nil {
 		return err
 	}
-	key := strings.TrimSpace(line)
+	key = strings.TrimSpace(key)
 	if key == "" {
 		text.InfoText("The signature is not configured as the empty key is provided.")
 		return nil

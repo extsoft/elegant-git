@@ -81,7 +81,7 @@ func (r *createRecordingPrompter) String(question, defaultVal string) (string, e
 	return defaultVal, nil
 }
 
-func (r *createRecordingPrompter) Confirm(string) (bool, error) { return false, nil }
+func (r *createRecordingPrompter) Confirm(string, bool) (bool, error) { return false, nil }
 
 func (r *createRecordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
@@ -98,6 +98,12 @@ func (r *createRecordingPrompter) EditOrAccept(label, suggested string) (string,
 	return suggested, nil
 }
 
-func (r *createRecordingPrompter) BatchChoice(string) (prompt.BatchDecision, error) {
+func (r *createRecordingPrompter) Optional(string, string) (string, error) { return "", nil }
+
+func (r *createRecordingPrompter) Closed(string, []string, string, bool) (string, error) {
+	return "", prompt.ErrNonInteractive
+}
+
+func (r *createRecordingPrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
 	return prompt.BatchSkip, nil
 }

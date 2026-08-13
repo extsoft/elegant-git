@@ -15,7 +15,7 @@ type fakePrompter struct {
 func (f fakePrompter) String(string, string) (string, error) {
 	return f.editVal, prompt.ErrNonInteractive
 }
-func (f fakePrompter) Confirm(string) (bool, error)         { return f.confirmYes, nil }
+func (f fakePrompter) Confirm(string, bool) (bool, error)   { return f.confirmYes, nil }
 func (f fakePrompter) Choose(string, []string) (int, error) { return 0, prompt.ErrNonInteractive }
 func (f fakePrompter) Pick(string, []prompt.Choice) (string, error) {
 	return "", prompt.ErrNonInteractive
@@ -27,7 +27,13 @@ func (f fakePrompter) EditOrAccept(string, suggested string) (string, error) {
 	}
 	return "", nil
 }
-func (f fakePrompter) BatchChoice(string) (prompt.BatchDecision, error) {
+func (f fakePrompter) Optional(string, suggested string) (string, error) {
+	return suggested, nil
+}
+func (f fakePrompter) Closed(string, []string, string, bool) (string, error) {
+	return "", prompt.ErrNonInteractive
+}
+func (f fakePrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
 	return prompt.BatchSkip, nil
 }
 

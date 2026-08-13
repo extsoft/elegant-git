@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/bees-hive/elegant-git/internal/text"
 	"golang.org/x/term"
 )
 
@@ -81,23 +82,24 @@ func pickSelectedValue(line string) string {
 }
 
 func (t *TTY) pickFallback(label string, choices []Choice) (string, error) {
-	filter, err := t.String(label, "")
-	if err != nil {
+	text.QuestionText(RequiredLine(label, "") + " ")
+	filter, err := t.reader().ReadString('\n')
+	if err != nil && err != io.EOF {
 		return "", err
 	}
+	filter = strings.TrimSpace(filter)
 	matches := filterChoices(choices, filter)
 	if len(matches) == 0 {
 		return "", fmt.Errorf("no match for %q", filter)
+	}
+	if len(matches) == 1 {
+		return matches[0].Value, nil
 	}
 	opts := make([]string, len(matches))
 	for i, c := range matches {
 		opts[i] = c.Value
 	}
-	n, err := t.Choose(label, opts)
-	if err != nil {
-		return "", err
-	}
-	return matches[n].Value, nil
+	return t.askClosed(label, opts, "", true)
 }
 
 func (t *TTY) pickInline(in *os.File, label string, choices []Choice) (string, error) {

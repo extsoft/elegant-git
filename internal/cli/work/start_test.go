@@ -33,9 +33,9 @@ func TestParseStartChangesChoice(t *testing.T) {
 		{"a", "stash", true},
 		{"add", "stash", true},
 		{"R", "reset", true},
-		{"discard", "reset", true},
+		{"reset", "reset", true},
 		{"c", "cancel", true},
-		{"quit", "cancel", true},
+		{"cancel", "cancel", true},
 		{"x", "", false},
 	}
 	for _, tc := range tests {
