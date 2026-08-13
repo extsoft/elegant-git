@@ -28,11 +28,11 @@ Notes: override with `--interactive` or `ELEGANT_GIT_INTERACTIVE=1`
 
 ### Optional input
 
-Command argument or flag declared non-required in an arg spec; reviewed in interactive mode only when at least one required input was missing.
+Positional argument declared non-required in an arg spec; reviewed in interactive mode only when at least one required input was missing.
 
 ### Required input
 
-Command argument or flag that must be set before the command’s main logic runs; missing values error in non-interactive mode.
+Positional argument that must be set before the command’s main logic runs; missing values error in non-interactive mode.
 
 ### Hook
 

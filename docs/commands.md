@@ -6,8 +6,8 @@
 
 Every command follows the same policy:
 
-1. When all **required** inputs are present (flags or positionals), the command runs with no argument prompts.
-2. In **interactive** mode, missing required inputs are prompted; then every **optional** input is offered for edit-or-accept (including flags already passed on the CLI).
+1. When all **required** inputs are present, the command runs with no argument prompts.
+2. In **interactive** mode, missing required inputs are prompted; then every **optional** input is offered for edit-or-accept (including values already passed on the CLI, unless all required arguments were given).
 3. In **non-interactive** mode, missing required inputs cause an error listing what is missing.
 
 Interactive mode is the default when stdin is a TTY. Non-interactive mode is used when `--non-interactive` or `ELEGANT_GIT_NON_INTERACTIVE=1` is set, when `CI` is set, or when stdin is not a TTY. Use `--interactive` or `ELEGANT_GIT_INTERACTIVE=1` to force prompts.
@@ -29,7 +29,7 @@ Workflow prompts inside commands (e.g. `git configure`, `repo configure`, uncomm
 | Command | Description |
 | --- | --- |
 | `profile status` | Shows the linked profile for the current repository (when inside a git work tree). |
-| `profile create` | Creates a profile (`--name`, `--user-name`, `--user-email` required in non-interactive mode; optional signing/editor flags). |
+| `profile create <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]` | Creates a profile. Required arguments are prompted when missing in interactive mode. |
 | `profile edit <name>` | Edits a profile transactionally: plan changes and repo targets, summary + single confirm, then commit to shared memory and selected repos. |
 | `profile delete [name]` | Deletes a profile only when no repositories are linked. |
 

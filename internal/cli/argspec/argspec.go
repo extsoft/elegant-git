@@ -305,28 +305,6 @@ func PositionalInputWithComplete(name string, index int, required bool, label st
 	return in
 }
 
-// FlagInput builds a flag input bound to ptr.
-func FlagInput(name, flagName string, required bool, label string, ptr *string, suggest func() string) Input {
-	return Input{
-		Name:        name,
-		Kind:        Flag,
-		Label:       label,
-		Required:    required,
-		FlagName:    flagName,
-		Get:         func() string { return *ptr },
-		Set:         func(v string) { *ptr = v },
-		Suggest:     suggest,
-		ValidateCLI: true,
-	}
-}
-
-// FlagInputWithComplete adds a completion source to a flag input.
-func FlagInputWithComplete(name, flagName string, required bool, label string, ptr *string, suggest func() string, complete CompleteFunc) Input {
-	in := FlagInput(name, flagName, required, label, ptr, suggest)
-	in.Complete = complete
-	return in
-}
-
 // IsMissingRequired reports whether err is ErrMissingRequired.
 func IsMissingRequired(err error) bool {
 	var mr *ErrMissingRequired
