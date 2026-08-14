@@ -22,6 +22,10 @@ const acceptWorkBranch = "__eg"
 var acceptID = cmdid.ID{Command: "work", Action: "accept"}
 var trackIDAccept = cmdid.ID{Command: "work", Action: "track"}
 
+var isAcceptHelperRebase = func() bool {
+	return state.IsThereActiveRebase() && state.RebasingBranch() == acceptWorkBranch
+}
+
 func newAcceptCommand() *cobra.Command {
 	var branch string
 	spec := acceptSpec(&branch)
@@ -54,17 +58,17 @@ func acceptRun(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 }
 
 func acceptLogic(cmd *cobra.Command, args []string, spec argspec.Spec) error {
+	if isAcceptHelperRebase() {
+		return git.Verbose("rebase", "--continue")
+	}
+	if state.IsThereActiveRebase() {
+		rb := state.RebasingBranch()
+		cliruntime.ExitWorkflowError(fmt.Sprintf("First, please complete current rebase which updates '%s' branch.", rb))
+	}
 	if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 		return err
 	}
 	branch := spec.Inputs[0].Get()
-	if state.IsThereActiveRebase() {
-		rb := state.RebasingBranch()
-		if rb == acceptWorkBranch {
-			return git.Verbose("rebase", "--continue")
-		}
-		cliruntime.ExitWorkflowError(fmt.Sprintf("First, please complete current rebase which updates '%s' branch.", rb))
-	}
 	if cliruntime.LocalBranchExists(branch) {
 		if err := git.Verbose("fetch", "--all"); err != nil {
 			return err

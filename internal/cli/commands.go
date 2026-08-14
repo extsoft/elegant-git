@@ -83,14 +83,19 @@ var commandGroups = []commandGroup{
 	}},
 }
 
-// AttachObjectGroup sets Run and HelpFunc so `git elegant <object>` shows that object's subcommands.
-func AttachObjectGroup(c *cobra.Command, object string) {
-	c.Run = func(cmd *cobra.Command, _ []string) {
-		writeObjectUsage(cmd.OutOrStdout(), object)
-	}
+// AttachObjectHelp sets HelpFunc so `git elegant <object> --help` lists actions.
+func AttachObjectHelp(c *cobra.Command, object string) {
 	c.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
 		writeObjectUsage(cmd.OutOrStdout(), object)
 	})
+}
+
+// AttachObjectGroup sets Run and HelpFunc so `git elegant <object>` shows that object's subcommands.
+func AttachObjectGroup(c *cobra.Command, object string) {
+	AttachObjectHelp(c, object)
+	c.Run = func(cmd *cobra.Command, _ []string) {
+		writeObjectUsage(cmd.OutOrStdout(), object)
+	}
 }
 
 func writeObjectUsage(w io.Writer, object string) {

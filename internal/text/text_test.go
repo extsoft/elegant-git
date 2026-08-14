@@ -19,6 +19,15 @@ func TestCommandTextNoTTYPlain(t *testing.T) {
 	}
 }
 
+func TestPlainText(t *testing.T) {
+	var buf bytes.Buffer
+	SetOutput(&buf)
+	PlainText("rebase in progress? no")
+	if got := buf.String(); got != "rebase in progress? no\n" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestInfoBoxPlain(t *testing.T) {
 	var buf bytes.Buffer
 	SetOutput(&buf)

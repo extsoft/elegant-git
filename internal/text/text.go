@@ -64,6 +64,11 @@ func CommandText(parts ...string) {
 	coloredText(formatBold, colorBlue, parts...)
 }
 
+// PlainText prints an unstyled message (terminal default color).
+func PlainText(parts ...string) {
+	fmt.Fprintln(out, strings.Join(parts, " "))
+}
+
 // InfoText prints a regular informational message.
 func InfoText(parts ...string) {
 	coloredText(formatNormal, colorGreen, parts...)

@@ -128,7 +128,7 @@ func init() {
 	rootCmd.AddCommand(hookCmd)
 
 	workCmd := workcmd.NewCommand()
-	AttachObjectGroup(workCmd, "work")
+	AttachObjectHelp(workCmd, "work")
 	rootCmd.AddCommand(workCmd)
 
 	releaseCmd := releasecmd.NewCommand()

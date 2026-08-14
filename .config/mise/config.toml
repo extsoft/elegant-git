@@ -5,7 +5,6 @@ hk = "1.40.0"
 pkl = "0.30.2"
 shellcheck = "0.10.0"
 shfmt = "3.11.0"
-usage = "3.2.0"
 
 [env]
 MISE_EXPERIMENTAL = "false"

@@ -27,6 +27,14 @@ Additionally, a user could force certain behaviours with modifiers:
 - `--non-interactive` instructs to execute the command as if it is run in a non-interactive environment.
 - `--interactive` instructs to execute the command as if it is run in an interactive environment (preferred).
 
+## Action Behaviour
+
+If a user runs `[binary] [object]` with no action:
+
+- Interactive mode — detect the action from context, or ask if more than one action fits. Detection per object:
+  - [work](005-work-actions.md)
+- Non-interactive mode — fail; an action is required.
+
 ## Argument Behaviour
 
 ### Interactive Mode
