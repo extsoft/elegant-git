@@ -148,17 +148,17 @@ func TestAskOptions(t *testing.T) {
 		{
 			name: "unique ahead",
 			snap: snapshot{UniqueCommits: true, HasUpstream: true, Ahead: 2},
-			want: []string{"polish", "push", "list", "quit"},
+			want: []string{"polish", "push", "accept", "list", "quit"},
 		},
 		{
 			name: "unique no upstream",
 			snap: snapshot{UniqueCommits: true},
-			want: []string{"polish", "push", "list", "quit"},
+			want: []string{"polish", "push", "accept", "list", "quit"},
 		},
 		{
 			name: "diverged",
 			snap: snapshot{HasUpstream: true, Ahead: 1, Behind: 2, UniqueCommits: true},
-			want: []string{"sync", "push", "list", "quit"},
+			want: []string{"sync", "push", "accept", "list", "quit"},
 		},
 		{
 			name: "detached remotes",
@@ -173,12 +173,12 @@ func TestAskOptions(t *testing.T) {
 		{
 			name: "idle feature remotes",
 			snap: snapshot{Remotes: true},
-			want: []string{"start", "list", "track", "quit"},
+			want: []string{"start", "accept", "list", "track", "quit"},
 		},
 		{
 			name: "idle feature no remotes",
 			snap: snapshot{},
-			want: []string{"start", "list", "quit"},
+			want: []string{"start", "accept", "list", "quit"},
 		},
 	}
 	for _, tc := range tests {
@@ -186,6 +186,18 @@ func TestAskOptions(t *testing.T) {
 			got := askOptions(tc.snap)
 			if !slices.Equal(got, tc.want) {
 				t.Fatalf("got %v want %v", got, tc.want)
+			}
+			choices := askChoices(tc.snap)
+			if len(choices) != len(tc.want) {
+				t.Fatalf("choices len=%d want %d", len(choices), len(tc.want))
+			}
+			for i, c := range choices {
+				if c.Value != tc.want[i] {
+					t.Fatalf("choice[%d]=%q want %q", i, c.Value, tc.want[i])
+				}
+				if workActionPurpose[c.Value] == "" || c.Description != workActionPurpose[c.Value] {
+					t.Fatalf("choice[%d] desc=%q", i, c.Description)
+				}
 			}
 		})
 	}

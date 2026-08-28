@@ -21,6 +21,12 @@ var startID = cmdid.ID{Command: "work", Action: "start"}
 
 var startChangeOptions = []string{"add", "reset", "cancel"}
 
+var startChangeChoices = []prompt.Choice{
+	{Value: "add", Description: "Keep changes and move them onto the new branch."},
+	{Value: "reset", Description: "Discard uncommitted changes."},
+	{Value: "cancel", Description: "Cancel work start."},
+}
+
 func newStartCommand() *cobra.Command {
 	var name, fromRef string
 	spec := startSpec(&name, &fromRef)
@@ -99,7 +105,7 @@ func resolveStartChanges(ctx context.Context) (string, error) {
 	if prompt.NonInteractive(p) {
 		return "stash", nil
 	}
-	ans, err := p.Closed("There are uncommitted changes", startChangeOptions, "add", true)
+	ans, err := p.Pick("There are uncommitted changes", startChangeChoices, "add")
 	if err != nil {
 		return "", err
 	}

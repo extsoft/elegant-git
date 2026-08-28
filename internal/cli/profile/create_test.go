@@ -87,7 +87,7 @@ func (r *createRecordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
 }
 
-func (r *createRecordingPrompter) Pick(string, []prompt.Choice) (string, error) {
+func (r *createRecordingPrompter) Pick(string, []prompt.Choice, string) (string, error) {
 	return "", prompt.ErrNonInteractive
 }
 

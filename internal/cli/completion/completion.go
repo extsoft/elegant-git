@@ -13,7 +13,7 @@ import (
 func NewCommand() *cobra.Command {
 	var shell string
 	spec := argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("shell", 0, true, "Completion shell", &shell, nil, sources.CompletionShells, true).AsClosed(),
+		argspec.PositionalInputWithComplete("shell", 0, true, "Completion shell", &shell, nil, sources.CompletionShells, true),
 	}}
 	c := &cobra.Command{
 		Use:   "completion [bash|zsh|fish|powershell]",

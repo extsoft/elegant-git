@@ -16,22 +16,25 @@ Elegant Git needs to match execution mode to the environment to ensure the best 
 
 Elegant Git picks a mode with this order (first match wins):
 
-1. `--interactive` or env `ELEGANT_GIT_INTERACTIVE` set to `1` or `true` — interactive.
-2. `--non-interactive` or env `ELEGANT_GIT_NON_INTERACTIVE` set to `1` or `true` — non-interactive.
-3. env `CI` set to `1` or `true` — non-interactive.
-4. stdin is not a terminal — non-interactive.
+1. stdin is not a terminal — non-interactive. Flags cannot override this.
+2. `--interactive` or env `ELEGANT_GIT_INTERACTIVE` set to `1` or `true` — interactive.
+3. `--non-interactive` or env `ELEGANT_GIT_NON_INTERACTIVE` set to `1` or `true` — non-interactive.
+4. env `CI` set to `1` or `true` — non-interactive.
 5. otherwise — interactive.
 
-Additionally, a user could force certain behaviours with modifiers:
+On a TTY, modifiers choose the mode:
 
-- `--non-interactive` instructs to execute the command as if it is run in a non-interactive environment.
-- `--interactive` instructs to execute the command as if it is run in an interactive environment (preferred).
+- `--non-interactive` runs without prompts.
+- `--interactive` forces prompts (overrides `CI` and `--non-interactive`).
+
+On a non-TTY stdin, the command is always non-interactive. `--interactive` is ignored.
 
 ## Action Behaviour
 
 If a user runs `[binary] [object]` with no action:
 
-- Interactive mode — detect the action from context, or ask if more than one action fits. Detection per object:
+- Interactive mode — detect the action from context, or ask if more than one action fits.
+  [How to print and ask](004-object-without-action.md). Detection per object:
   - [work](005-work-actions.md)
 - Non-interactive mode — fail; an action is required.
 
@@ -43,7 +46,7 @@ Missing required arguments are asked as [interactive questions](003-interactive-
 Optional arguments are asked only in that case, and only if they were not already given.
 Some optional arguments never ask.
 
-If an argument has completion options, a user should be able to pick them using [fuzzy matching](003-interactive-questions.md#fuzzy-matching).
+If an argument has completion options, a user should be able to pick them using the [picker](003-interactive-questions.md#picker).
 
 ### Non-interactive Mode
 

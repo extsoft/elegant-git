@@ -62,7 +62,7 @@ func (t *TTY) Confirm(question string, defaultYes bool) (bool, error) {
 	if defaultYes {
 		def = "yes"
 	}
-	ans, err := t.askClosed(question, yesNoOptions, def, true)
+	ans, err := t.Pick(question, []Choice{{Value: "yes"}, {Value: "no"}}, def)
 	if err != nil {
 		return false, err
 	}
@@ -136,7 +136,12 @@ func (t *TTY) Closed(question string, options []string, defaultWord string, requ
 }
 
 func (t *TTY) BatchChoice(question, defaultWord string) (BatchDecision, error) {
-	ans, err := t.askClosed(question, batchChoiceOptions, defaultWord, true)
+	ans, err := t.Pick(question, []Choice{
+		{Value: "yes"},
+		{Value: "no"},
+		{Value: "all"},
+		{Value: "skip"},
+	}, defaultWord)
 	if err != nil {
 		return BatchReject, err
 	}

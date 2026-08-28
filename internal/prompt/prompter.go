@@ -29,7 +29,7 @@ type Prompter interface {
 	String(question, defaultVal string) (string, error)
 	Confirm(question string, defaultYes bool) (bool, error)
 	Choose(question string, options []string) (int, error)
-	Pick(label string, choices []Choice) (string, error)
+	Pick(label string, choices []Choice, defaultWord string) (string, error)
 	Required(label, current string) error
 	EditOrAccept(label, suggested string) (string, error)
 	Optional(label, suggested string) (string, error)

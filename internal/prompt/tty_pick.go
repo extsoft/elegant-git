@@ -1,77 +1,46 @@
 package prompt
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/bees-hive/elegant-git/internal/text"
 	"golang.org/x/term"
 )
 
-const (
-	pickFzfHeight = "40%"
-	pickFzfLayout = "reverse"
-)
+const pickMinChoices = 2
 
-func (t *TTY) Pick(label string, choices []Choice) (string, error) {
+func (t *TTY) Pick(label string, choices []Choice, defaultWord string) (string, error) {
 	if len(choices) == 0 {
 		return "", fmt.Errorf("no choices for %s", label)
 	}
+	choices = normalizeChoices(choices)
+	if len(choices) < pickMinChoices {
+		return t.pickAsClosed(label, choices, defaultWord)
+	}
 	in, ok := t.in.(*os.File)
 	if !ok || !term.IsTerminal(int(in.Fd())) {
-		return t.pickFallback(label, choices)
+		return t.pickFallback(label, choices, defaultWord)
 	}
-	if fzfPath, err := exec.LookPath("fzf"); err == nil {
-		if val, err := t.pickFzf(fzfPath, label, choices); err == nil || err == ErrUserCancelled {
-			return val, err
-		}
-	}
-	return t.pickInline(in, label, choices)
+	return t.pickInline(in, label, choices, defaultWord)
 }
 
-func (t *TTY) pickFzf(fzfPath, label string, choices []Choice) (string, error) {
-	var stdin bytes.Buffer
-	for _, c := range choices {
-		if c.Description != "" {
-			fmt.Fprintf(&stdin, "%s\t%s\n", c.Value, c.Description)
-		} else {
-			fmt.Fprintln(&stdin, c.Value)
-		}
+func normalizeChoices(choices []Choice) []Choice {
+	out := make([]Choice, len(choices))
+	for i, c := range choices {
+		out[i] = Choice{Value: c.Value, Description: truncateDesc(c.Description, descMaxLen)}
 	}
+	return out
+}
 
-	args := []string{
-		"--height", pickFzfHeight,
-		"--layout", pickFzfLayout,
-		"--border",
-		"--prompt", label + "> ",
-		"--no-info",
-		"--delimiter", "\t",
-		"--with-nth", "1",
+func (t *TTY) pickAsClosed(label string, choices []Choice, defaultWord string) (string, error) {
+	opts := make([]string, len(choices))
+	for i, c := range choices {
+		opts[i] = c.Value
 	}
-
-	cmd := exec.Command(fzfPath, args...)
-	cmd.Stdin = &stdin
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	if err := cmd.Run(); err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			switch ee.ExitCode() {
-			case 130, 1:
-				return "", ErrUserCancelled
-			}
-		}
-		return "", err
-	}
-
-	selected := strings.TrimSpace(stdout.String())
-	if selected == "" {
-		return "", ErrUserCancelled
-	}
-	return pickSelectedValue(selected), nil
+	return t.askClosed(label, opts, defaultWord, true)
 }
 
 func pickSelectedValue(line string) string {
@@ -81,7 +50,7 @@ func pickSelectedValue(line string) string {
 	return line
 }
 
-func (t *TTY) pickFallback(label string, choices []Choice) (string, error) {
+func (t *TTY) pickFallback(label string, choices []Choice, defaultWord string) (string, error) {
 	text.QuestionText(RequiredLine(label, "") + " ")
 	filter, err := t.reader().ReadString('\n')
 	if err != nil && err != io.EOF {
@@ -95,22 +64,29 @@ func (t *TTY) pickFallback(label string, choices []Choice) (string, error) {
 	if len(matches) == 1 {
 		return matches[0].Value, nil
 	}
+	if len(matches) < pickMinChoices {
+		return t.pickAsClosed(label, matches, defaultWord)
+	}
 	opts := make([]string, len(matches))
 	for i, c := range matches {
 		opts[i] = c.Value
 	}
-	return t.askClosed(label, opts, "", true)
+	return t.askClosed(label, opts, defaultWord, true)
 }
 
-func (t *TTY) pickInline(in *os.File, label string, choices []Choice) (string, error) {
+func (t *TTY) pickInline(in *os.File, label string, choices []Choice, defaultWord string) (string, error) {
 	oldState, err := term.MakeRaw(int(in.Fd()))
 	if err != nil {
-		return t.pickFallback(label, choices)
+		return t.pickFallback(label, choices, defaultWord)
 	}
 	defer func() { _ = term.Restore(int(in.Fd()), oldState) }()
+	// Long prompts + placeholder wrap; logical-line CUU then reprints a new copy.
+	fmt.Fprint(t.out, "\033[?7l")
+	defer fmt.Fprint(t.out, "\033[?7h")
+	flushWriter(t.out)
 
 	filter := ""
-	cursor := 0
+	cursor := indexOfChoice(choices, defaultWord)
 	prevLines := 0
 
 	for {
@@ -122,8 +98,16 @@ func (t *TTY) pickInline(in *os.File, label string, choices []Choice) (string, e
 		}
 
 		visible, sel := visibleChoices(matches, cursor)
-		lines := buildPickScreen(label, filter, visible, sel)
-		writePickScreen(t.out, lines, prevLines)
+		lines, cursorCol := buildPickScreen(pickScreenInput{
+			Label:      label,
+			Filter:     filter,
+			Visible:    visible,
+			Sel:        sel,
+			ValueWidth: valueColumnWidth(matches),
+			Filtered:   len(matches),
+			Total:      len(choices),
+		})
+		writePickScreen(t.out, lines, prevLines, label, filter, cursorCol)
 		prevLines = len(lines)
 
 		key, err := readPickKey(in)
@@ -161,70 +145,123 @@ func (t *TTY) pickInline(in *os.File, label string, choices []Choice) (string, e
 	}
 }
 
-func buildPickScreen(label, filter string, visible []Choice, sel int) []string {
-	prompt := label + "> "
-	if filter == "" {
-		prompt += "_"
-	} else {
-		prompt += filter
+func indexOfChoice(choices []Choice, value string) int {
+	if value == "" {
+		return 0
 	}
-	lines := []string{prompt}
-	if len(visible) == 0 {
-		lines = append(lines, "  (no matches)")
-	} else {
-		for i, c := range visible {
-			lines = append(lines, formatPickLine(i == sel, c))
+	for i, c := range choices {
+		if c.Value == value {
+			return i
 		}
 	}
-	return lines
+	return 0
 }
 
-func writePickScreen(out io.Writer, lines []string, prevLines int) {
-	if prevLines > 0 {
-		fmt.Fprint(out, "\033[", prevLines, "A")
+type pickScreenInput struct {
+	Label      string
+	Filter     string
+	Visible    []Choice
+	Sel        int
+	ValueWidth int
+	Filtered   int
+	Total      int
+	Multi      bool
+	Selected   int // multi-select count; omitted from status when Multi is false
+}
+
+func buildPickScreen(in pickScreenInput) (lines []string, cursorCol int) {
+	prompt := in.Label + ": " + in.Filter
+	cursorCol = len(prompt) + 1
+	lines = []string{prompt, pickStatusLine(in)}
+	if len(in.Visible) == 0 {
+		lines = append(lines, "  (no matches)")
+	} else {
+		for i, c := range in.Visible {
+			lines = append(lines, formatPickLine(i == in.Sel, false, c, in.ValueWidth))
+		}
 	}
+	return lines, cursorCol
+}
+
+func pickStatusLine(in pickScreenInput) string {
+	status := fmt.Sprintf("%d of %d", in.Filtered, in.Total)
+	if in.Multi {
+		status += fmt.Sprintf(" (%d selected)", in.Selected)
+	}
+	return status + " " + strings.Repeat("─", pickRuleWidth)
+}
+
+func paintPickPrompt(line, label, filter string) string {
+	prefix := label + ": "
+	if !strings.HasPrefix(line, prefix) {
+		return line
+	}
+	out := "\033[1;34m" + prefix + "\033[m"
+	if filter != "" {
+		return out + line[len(prefix):]
+	}
+	return out + "\033[3m" + pickPlaceholderSingle + "\033[m"
+}
+
+func writePickScreen(out io.Writer, lines []string, prevLines int, label, filter string, cursorCol int) {
+	// Cursor is on the prompt row. Erase from here down so wrapped leftovers
+	// from a previous frame cannot stack. Wrap is off during pickInline.
+	fmt.Fprint(out, "\r\033[J")
 	for i, line := range lines {
-		if i < prevLines {
-			fmt.Fprint(out, "\r\033[K", line)
-		} else {
-			fmt.Fprintln(out, line)
+		painted := line
+		if i == 0 {
+			painted = paintPickPrompt(line, label, filter)
 		}
+		fmt.Fprint(out, painted, "\r\n")
 	}
+	extra := 0
 	if prevLines > len(lines) {
-		for i := len(lines); i < prevLines; i++ {
-			fmt.Fprint(out, "\r\033[K")
-			if i+1 < prevLines {
-				fmt.Fprintln(out)
-			}
+		extra = prevLines - len(lines)
+		for i := 0; i < extra; i++ {
+			fmt.Fprint(out, "\r\n")
 		}
 	}
+	if up := len(lines) + extra; up > 0 {
+		fmt.Fprintf(out, "\033[%dA", up)
+	}
+	if cursorCol > 0 {
+		fmt.Fprintf(out, "\033[%dG", cursorCol)
+	}
+	flushWriter(out)
+}
+
+func erasePickBlock(out io.Writer, lines int) {
+	if lines <= 0 {
+		return
+	}
+	for i := 0; i < lines; i++ {
+		fmt.Fprint(out, "\r\033[2K")
+		if i+1 < lines {
+			fmt.Fprint(out, "\r\n")
+		}
+	}
+	if lines > 1 {
+		fmt.Fprintf(out, "\033[%dA", lines-1)
+	}
+	fmt.Fprint(out, "\r")
 }
 
 func finalizePickScreen(out io.Writer, label, value string, prevLines int) {
-	if prevLines == 0 {
-		fmt.Fprintf(out, "%s> %s\n", label, value)
-		return
-	}
-	fmt.Fprint(out, "\033[", prevLines, "A")
-	for i := 0; i < prevLines; i++ {
-		fmt.Fprint(out, "\r\033[K")
-		if i+1 < prevLines {
-			fmt.Fprintln(out)
-		}
-	}
-	fmt.Fprintf(out, "%s> %s\n", label, value)
+	erasePickBlock(out, prevLines)
+	fmt.Fprintf(out, "\r\033[1;34m%s: \033[m%s\r\n\r\n", label, value)
+	flushWriter(out)
 }
 
 func clearPickScreen(out io.Writer, lines int) {
-	if lines == 0 {
-		return
-	}
-	fmt.Fprint(out, "\033[", lines, "A")
-	for i := 0; i < lines; i++ {
-		fmt.Fprint(out, "\r\033[K")
-		if i+1 < lines {
-			fmt.Fprintln(out)
-		}
+	erasePickBlock(out, lines)
+	fmt.Fprint(out, "\r\033[2K\r\n")
+	flushWriter(out)
+}
+
+func flushWriter(out io.Writer) {
+	type flusher interface{ Flush() error }
+	if f, ok := out.(flusher); ok {
+		_ = f.Flush()
 	}
 }
 

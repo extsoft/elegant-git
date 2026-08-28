@@ -46,8 +46,6 @@ type Input struct {
 	ValidateCLI bool // when false, CLI args skip completion membership (interactive-only)
 	// OmitInteractive skips prompting for an optional input when unset (empty means "all").
 	OmitInteractive bool
-	// Closed uses a closed-list question instead of fuzzy Pick when Complete is set.
-	Closed bool
 }
 
 // Spec is the full argument specification for a command.
@@ -188,9 +186,6 @@ func allRequiredPositionalsFromCLI(args []string, spec Spec) bool {
 
 func resolveValue(ctx context.Context, p prompt.Prompter, in Input, suggested string) (string, error) {
 	if in.Complete != nil {
-		if in.Closed {
-			return closedFromComplete(ctx, p, in, suggested)
-		}
 		return pickFromComplete(ctx, p, in, suggested)
 	}
 	if in.Required {
@@ -222,44 +217,6 @@ func validateResolved(in Input, val string) (string, error) {
 	return val, nil
 }
 
-func closedFromComplete(ctx context.Context, p prompt.Prompter, in Input, suggested string) (string, error) {
-	choices, err := in.Complete(ctx)
-	if err != nil {
-		return "", err
-	}
-	if len(choices) == 0 {
-		return "", &ErrEmptySource{Name: in.Name}
-	}
-	opts := make([]string, len(choices))
-	for i, c := range choices {
-		opts[i] = c.Value
-	}
-	def := ""
-	if in.Required && suggested != "" && memberOf(choices, suggested) {
-		def = suggested
-	}
-	val, err := p.Closed(promptFor(in), opts, def, in.Required)
-	if err != nil {
-		return "", err
-	}
-	val = strings.TrimSpace(val)
-	if val == "" {
-		if in.Required {
-			return "", fmt.Errorf("%s is required", in.Name)
-		}
-		return "", nil
-	}
-	if !memberOf(choices, val) {
-		return "", fmt.Errorf("%s: %q is not a valid choice", in.Name, val)
-	}
-	if in.Validate != nil {
-		if vErr := in.Validate(val); vErr != nil {
-			return "", vErr
-		}
-	}
-	return val, nil
-}
-
 func pickFromComplete(ctx context.Context, p prompt.Prompter, in Input, suggested string) (string, error) {
 	choices, err := in.Complete(ctx)
 	if err != nil {
@@ -271,7 +228,7 @@ func pickFromComplete(ctx context.Context, p prompt.Prompter, in Input, suggeste
 	promptChoices := toPromptChoices(choices)
 	var lastVal string
 	for attempt := 0; attempt < maxPickRetries; attempt++ {
-		val, err := p.Pick(in.Label, promptChoices)
+		val, err := p.Pick(in.Label, promptChoices, suggested)
 		if err != nil {
 			if errors.Is(err, prompt.ErrUserCancelled) {
 				if suggested != "" && memberOf(choices, suggested) {
@@ -359,12 +316,6 @@ func PositionalInputWithComplete(name string, index int, required bool, label st
 	in := PositionalInput(name, index, required, label, ptr, suggest)
 	in.Complete = complete
 	in.ValidateCLI = validateCLI
-	return in
-}
-
-// AsClosed marks a completion input as a small closed list (not fuzzy Pick).
-func (in Input) AsClosed() Input {
-	in.Closed = true
 	return in
 }
 

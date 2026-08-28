@@ -20,7 +20,7 @@ var notesID = cmdid.ID{Command: "release", Action: "notes"}
 
 func releaseNotesSpec(layout, fromRef, toRef *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("layout", 0, false, "Release notes layout", layout, func() string { return "simple" }, sources.ReleaseNotesLayouts, false).AsClosed(),
+		argspec.PositionalInputWithComplete("layout", 0, false, "Release notes layout", layout, func() string { return "simple" }, sources.ReleaseNotesLayouts, false),
 		argspec.PositionalInputWithComplete("from-ref", 1, false, "From ref", fromRef, nil, sources.Refs, true),
 		argspec.PositionalInputWithComplete("to-ref", 2, false, "To ref", toRef, func() string { return "HEAD" }, sources.Refs, true),
 	}}

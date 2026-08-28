@@ -8,40 +8,83 @@ import (
 )
 
 func TestResolveModePrecedence(t *testing.T) {
-	t.Setenv("CI", "true")
-	t.Setenv("ELEGANT_GIT_NON_INTERACTIVE", "1")
-	cfg := ModeConfig{ForceInteractive: true}
-	if got := ResolveMode(cfg); got != ModeInteractive {
-		t.Fatalf("ForceInteractive: got %v", got)
+	yes, no := true, false
+	tests := []struct {
+		name string
+		cfg  ModeConfig
+		env  map[string]string
+		want InteractionMode
+	}{
+		{
+			name: "non-tty wins over ForceInteractive",
+			cfg:  ModeConfig{ForceInteractive: true, TTY: &no},
+			want: ModeNonInteractive,
+		},
+		{
+			name: "non-tty wins over ELEGANT_GIT_INTERACTIVE",
+			cfg:  ModeConfig{TTY: &no},
+			env:  map[string]string{"ELEGANT_GIT_INTERACTIVE": "1"},
+			want: ModeNonInteractive,
+		},
+		{
+			name: "non-tty stdin reader is non-interactive",
+			cfg:  ModeConfig{Stdin: strings.NewReader("")},
+			env:  map[string]string{"ELEGANT_GIT_INTERACTIVE": "1"},
+			want: ModeNonInteractive,
+		},
+		{
+			name: "tty ForceInteractive beats CI and non-interactive",
+			cfg:  ModeConfig{ForceInteractive: true, TTY: &yes},
+			env: map[string]string{
+				"CI":                          "true",
+				"ELEGANT_GIT_NON_INTERACTIVE": "1",
+			},
+			want: ModeInteractive,
+		},
+		{
+			name: "tty ELEGANT_GIT_INTERACTIVE beats non-interactive env",
+			cfg:  ModeConfig{TTY: &yes},
+			env: map[string]string{
+				"ELEGANT_GIT_INTERACTIVE":     "1",
+				"ELEGANT_GIT_NON_INTERACTIVE": "1",
+			},
+			want: ModeInteractive,
+		},
+		{
+			name: "tty ForceNonInteractive",
+			cfg:  ModeConfig{ForceNonInteractive: true, TTY: &yes},
+			want: ModeNonInteractive,
+		},
+		{
+			name: "tty ELEGANT_GIT_NON_INTERACTIVE",
+			cfg:  ModeConfig{TTY: &yes},
+			env:  map[string]string{"ELEGANT_GIT_NON_INTERACTIVE": "1"},
+			want: ModeNonInteractive,
+		},
+		{
+			name: "tty CI",
+			cfg:  ModeConfig{TTY: &yes},
+			env:  map[string]string{"CI": "true"},
+			want: ModeNonInteractive,
+		},
+		{
+			name: "tty default interactive",
+			cfg:  ModeConfig{TTY: &yes},
+			want: ModeInteractive,
+		},
 	}
-
-	t.Setenv("ELEGANT_GIT_INTERACTIVE", "1")
-	t.Setenv("ELEGANT_GIT_NON_INTERACTIVE", "1")
-	if got := ResolveMode(ModeConfig{}); got != ModeInteractive {
-		t.Fatalf("ELEGANT_GIT_INTERACTIVE: got %v", got)
-	}
-
-	t.Setenv("ELEGANT_GIT_INTERACTIVE", "")
-	cfg = ModeConfig{ForceNonInteractive: true}
-	if got := ResolveMode(cfg); got != ModeNonInteractive {
-		t.Fatalf("ForceNonInteractive: got %v", got)
-	}
-
-	t.Setenv("ELEGANT_GIT_INTERACTIVE", "")
-	t.Setenv("ELEGANT_GIT_NON_INTERACTIVE", "1")
-	if got := ResolveMode(ModeConfig{}); got != ModeNonInteractive {
-		t.Fatalf("ELEGANT_GIT_NON_INTERACTIVE: got %v", got)
-	}
-
-	t.Setenv("ELEGANT_GIT_NON_INTERACTIVE", "")
-	t.Setenv("CI", "true")
-	if got := ResolveMode(ModeConfig{Stdin: strings.NewReader("")}); got != ModeNonInteractive {
-		t.Fatalf("CI: got %v", got)
-	}
-
-	t.Setenv("CI", "")
-	if got := ResolveMode(ModeConfig{Stdin: strings.NewReader("")}); got != ModeNonInteractive {
-		t.Fatalf("non-tty stdin: got %v", got)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("CI", "")
+			t.Setenv("ELEGANT_GIT_INTERACTIVE", "")
+			t.Setenv("ELEGANT_GIT_NON_INTERACTIVE", "")
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			if got := ResolveMode(tc.cfg); got != tc.want {
+				t.Fatalf("got %v want %v", got, tc.want)
+			}
+		})
 	}
 }
 

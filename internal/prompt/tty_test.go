@@ -135,9 +135,10 @@ func TestConfirmDefaultNo(t *testing.T) {
 	if ok {
 		t.Fatal("expected false")
 	}
-	want := ClosedLine("Proceed?", yesNoOptions, "no") + " "
-	if q.String() != want {
-		t.Fatalf("got %q want %q", q.String(), want)
+	filter := RequiredLine("Proceed?", "") + " "
+	closed := ClosedLine("Proceed?", yesNoOptions, "no") + " "
+	if q.String() != filter+closed {
+		t.Fatalf("got %q want %q", q.String(), filter+closed)
 	}
 }
 
@@ -165,19 +166,11 @@ func TestConfirmWordAndLetter(t *testing.T) {
 	}
 }
 
-func TestConfirmInvalidReasks(t *testing.T) {
-	q := captureQuestions(t)
-	p := NewTTY(strings.NewReader("x\ny\n"), &bytes.Buffer{})
-	ok, err := p.Confirm("Proceed?", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !ok {
-		t.Fatal("expected true")
-	}
-	line := ClosedLine("Proceed?", yesNoOptions, "no") + " "
-	if q.String() != line+line {
-		t.Fatalf("got %q want two prompts", q.String())
+func TestConfirmInvalidFilterErrors(t *testing.T) {
+	p := NewTTY(strings.NewReader("x\n"), &bytes.Buffer{})
+	_, err := p.Confirm("Proceed?", false)
+	if err == nil {
+		t.Fatal("expected error for no match")
 	}
 }
 
@@ -204,7 +197,7 @@ func TestBatchChoiceWordsAndLetters(t *testing.T) {
 		{"all\n", BatchApplyAll},
 		{"a\n", BatchApplyAll},
 		{"skip\n", BatchSkip},
-		{"s\n", BatchSkip},
+		{"sk\n", BatchSkip},
 	}
 	for _, tc := range tests {
 		p := NewTTY(strings.NewReader(tc.in), &bytes.Buffer{})
@@ -220,7 +213,7 @@ func TestBatchChoiceWordsAndLetters(t *testing.T) {
 
 func TestBatchChoiceEmptyNoDefaultReasks(t *testing.T) {
 	q := captureQuestions(t)
-	p := NewTTY(strings.NewReader("\nskip\n"), &bytes.Buffer{})
+	p := NewTTY(strings.NewReader("\n\nskip\n"), &bytes.Buffer{})
 	d, err := p.BatchChoice("Apply to repo?", "")
 	if err != nil {
 		t.Fatal(err)
@@ -228,9 +221,10 @@ func TestBatchChoiceEmptyNoDefaultReasks(t *testing.T) {
 	if d != BatchSkip {
 		t.Fatalf("got %v", d)
 	}
-	line := ClosedLine("Apply to repo?", batchChoiceOptions, "") + " "
-	if q.String() != line+line {
-		t.Fatalf("got %q want two prompts", q.String())
+	filter := RequiredLine("Apply to repo?", "") + " "
+	closed := ClosedLine("Apply to repo?", batchChoiceOptions, "") + " "
+	if q.String() != filter+closed+closed {
+		t.Fatalf("got %q want filter then two closed", q.String())
 	}
 }
 
@@ -264,7 +258,7 @@ func TestClosedOptionalEmpty(t *testing.T) {
 func TestPickFallbackFilterThenClosed(t *testing.T) {
 	q := captureQuestions(t)
 	p := NewTTY(strings.NewReader("m\nmain\n"), &bytes.Buffer{})
-	got, err := p.Pick("Start from ref", []Choice{{Value: "main"}, {Value: "master"}, {Value: "develop"}})
+	got, err := p.Pick("Start from ref", []Choice{{Value: "main"}, {Value: "master"}, {Value: "develop"}}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,9 +272,20 @@ func TestPickFallbackFilterThenClosed(t *testing.T) {
 	}
 }
 
+func TestPickTwoChoicesClosedDefault(t *testing.T) {
+	p := NewTTY(strings.NewReader("\n"), &bytes.Buffer{})
+	got, err := p.Pick("Start from ref", []Choice{{Value: "main"}, {Value: "develop"}}, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "main" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestPickFallbackSingleMatch(t *testing.T) {
 	p := NewTTY(strings.NewReader("dev\n"), &bytes.Buffer{})
-	got, err := p.Pick("Start from ref", []Choice{{Value: "main"}, {Value: "develop"}})
+	got, err := p.Pick("Start from ref", []Choice{{Value: "main"}, {Value: "develop"}, {Value: "master"}}, "")
 	if err != nil {
 		t.Fatal(err)
 	}

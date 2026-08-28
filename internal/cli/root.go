@@ -76,7 +76,7 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&workflows.Skip, "no-workflows", false, "disables available workflows")
 	rootCmd.PersistentFlags().BoolVar(&nonInteractive, "non-interactive", false, "disable prompts; fail when required input is missing")
-	rootCmd.PersistentFlags().BoolVar(&forceInteractive, "interactive", false, "force prompts even when stdin is not a TTY or CI is set")
+	rootCmd.PersistentFlags().BoolVar(&forceInteractive, "interactive", false, "force prompts on a TTY (overrides CI and --non-interactive)")
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		if err := guardInvocationDepth(); err != nil {
 			return err

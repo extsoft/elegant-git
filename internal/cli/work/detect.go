@@ -9,6 +9,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/git"
 	"github.com/bees-hive/elegant-git/internal/pipe"
+	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/state"
 )
 
@@ -157,6 +158,19 @@ func evenOrNoUpstream(s snapshot) bool {
 	return s.Ahead == 0 && s.Behind == 0
 }
 
+var workActionPurpose = map[string]string{
+	"start":  "Creates a new branch.",
+	"save":   "Commits current modifications.",
+	"amend":  "Amends the last commit.",
+	"list":   "Prints HEAD state.",
+	"polish": "Rebases HEAD interactively.",
+	"sync":   "Actualizes the branch with upstream commits.",
+	"push":   "Publishes HEAD to a remote repository.",
+	"track":  "Checks out a remote-tracking branch.",
+	"accept": "Adds modifications to the default development branch.",
+	"quit":   "Leave without another action.",
+}
+
 func askOptions(s snapshot) []string {
 	if s.Detached {
 		if s.Remotes {
@@ -168,14 +182,23 @@ func askOptions(s snapshot) []string {
 		return []string{"start", "track", "accept", "list", "quit"}
 	}
 	if s.HasUpstream && s.Ahead > 0 && s.Behind > 0 {
-		return []string{"sync", "push", "list", "quit"}
+		return []string{"sync", "push", "accept", "list", "quit"}
 	}
 	if s.UniqueCommits && (!s.HasUpstream || s.Ahead > 0) {
-		return []string{"polish", "push", "list", "quit"}
+		return []string{"polish", "push", "accept", "list", "quit"}
 	}
-	opts := []string{"start", "list"}
+	opts := []string{"start", "accept", "list"}
 	if s.Remotes {
 		opts = append(opts, "track")
 	}
 	return append(opts, "quit")
+}
+
+func askChoices(s snapshot) []prompt.Choice {
+	opts := askOptions(s)
+	out := make([]prompt.Choice, len(opts))
+	for i, action := range opts {
+		out[i] = prompt.Choice{Value: action, Description: workActionPurpose[action]}
+	}
+	return out
 }

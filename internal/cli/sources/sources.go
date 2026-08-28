@@ -29,8 +29,8 @@ func Refs(_ context.Context) ([]argspec.Choice, error) {
 	fetchRemotes()
 	var out []argspec.Choice
 	out = append(out, forEachRefChoices("refs/heads", "%(refname:short)\t%(upstream:short)")...)
-	out = append(out, forEachRefChoices("refs/remotes", "%(refname:short)\t%(objectname:short)")...)
-	out = append(out, forEachRefChoices("refs/tags", "%(refname:short)\ttag")...)
+	out = append(out, forEachRefChoices("refs/remotes", "%(refname:short)")...)
+	out = append(out, forEachRefChoices("refs/tags", "%(refname:short)")...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
 	return out, nil
 }
@@ -45,7 +45,7 @@ func LocalBranches(_ context.Context) ([]argspec.Choice, error) {
 // RemoteBranches returns remote-tracking branch refs (origin/foo).
 func RemoteBranches(_ context.Context) ([]argspec.Choice, error) {
 	fetchRemotes()
-	choices := forEachRefChoices("refs/remotes", "%(refname:short)\t%(objectname:short)")
+	choices := forEachRefChoices("refs/remotes", "%(refname:short)")
 	sort.Slice(choices, func(i, j int) bool { return choices[i].Value < choices[j].Value })
 	return choices, nil
 }

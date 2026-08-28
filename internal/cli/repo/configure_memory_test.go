@@ -44,7 +44,7 @@ func (p *configureRecordingPrompter) Confirm(string, bool) (bool, error) { retur
 func (p *configureRecordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
 }
-func (p *configureRecordingPrompter) Pick(string, []prompt.Choice) (string, error) {
+func (p *configureRecordingPrompter) Pick(string, []prompt.Choice, string) (string, error) {
 	return "", nil
 }
 func (p *configureRecordingPrompter) Required(string, string) error { return nil }

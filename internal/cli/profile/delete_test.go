@@ -102,7 +102,7 @@ func (p *deleteRecordingPrompter) BatchChoice(string, string) (prompt.BatchDecis
 func (p *deleteRecordingPrompter) EditOrAccept(string, string) (string, error) {
 	return "", nil
 }
-func (p *deleteRecordingPrompter) Pick(string, []prompt.Choice) (string, error) {
+func (p *deleteRecordingPrompter) Pick(string, []prompt.Choice, string) (string, error) {
 	if p.pickIdx < len(p.pickValues) {
 		v := p.pickValues[p.pickIdx]
 		p.pickIdx++

@@ -20,7 +20,7 @@ func (nonInteractive) Choose(string, []string) (int, error) {
 	return -1, ErrNonInteractive
 }
 
-func (nonInteractive) Pick(string, []Choice) (string, error) {
+func (nonInteractive) Pick(string, []Choice, string) (string, error) {
 	return "", ErrNonInteractive
 }
 

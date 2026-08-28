@@ -43,7 +43,7 @@ func (r *recordingPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
 }
 
-func (r *recordingPrompter) Pick(string, []prompt.Choice) (string, error) {
+func (r *recordingPrompter) Pick(string, []prompt.Choice, string) (string, error) {
 	if r.pickIdx < len(r.pickValues) {
 		v := r.pickValues[r.pickIdx]
 		r.pickIdx++
@@ -230,25 +230,25 @@ func TestResolveOmitInteractiveKeepsCLIArg(t *testing.T) {
 	}
 }
 
-func TestResolveClosedNotPick(t *testing.T) {
+func TestResolveTwoChoicesUsesPick(t *testing.T) {
 	var hookType string
 	complete := func(context.Context) ([]Choice, error) {
 		return []Choice{{Value: "ahead"}, {Value: "after"}}, nil
 	}
 	spec := Spec{Inputs: []Input{
-		PositionalInputWithComplete("hook-type", 0, true, "Hook type", &hookType, nil, complete, true).AsClosed(),
+		PositionalInputWithComplete("hook-type", 0, true, "Hook type", &hookType, nil, complete, true),
 	}}
-	p := &recordingPrompter{closedValues: []string{"after"}, pickValues: []string{"should-not-pick"}}
+	p := &recordingPrompter{pickValues: []string{"after"}, closedValues: []string{"should-not-closed"}}
 	if err := Resolve(context.Background(), p, nil, spec); err != nil {
 		t.Fatal(err)
 	}
 	if hookType != "after" {
 		t.Fatalf("hookType=%q", hookType)
 	}
-	if p.pickIdx != 0 {
-		t.Fatalf("expected closed list, got pickIdx=%d", p.pickIdx)
+	if p.pickIdx != 1 {
+		t.Fatalf("expected pick, got pickIdx=%d", p.pickIdx)
 	}
-	if len(p.closed) != 1 {
+	if len(p.closed) != 0 {
 		t.Fatalf("closed calls=%v", p.closed)
 	}
 }

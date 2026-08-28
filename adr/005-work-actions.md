@@ -6,9 +6,9 @@
 `git elegant work`. The work object is day-to-day branch workflow: `start`,
 `save`, `amend`, `list`, `polish`, `sync`, `push`, `track`, `accept`.
 
-When the action is omitted, pick one from git state, or ask with a
-[closed list](003-interactive-questions.md#closed-list). Non-interactive mode
-always requires an action.
+When the action is omitted, pick one from git state, or
+[ask](004-object-without-action.md#ask). Non-interactive mode always requires
+an action.
 
 ## Lifecycle
 
@@ -82,47 +82,21 @@ stateDiagram-v2
 5. Clean, even with upstream, and no unique commits — `list`, then ask.
 6. Otherwise ask.
 
-Print each check in order, then the decision. Stop after the first matching rule.
-
-```text
-==>> Detection action...
-rebase in progress? no
-on protected branch 'main'? yes
-uncommitted changes? yes
-selected: git elegant work start
-```
-
-```text
-==>> Detection action...
-rebase in progress? no
-on protected branch 'feat'? no
-uncommitted changes? no
-behind upstream only? no (ahead 2, behind 0)
-unique commits vs source? yes
-selected: ask
-What next? [polish/push/list/quit] (press enter to 'quit'):
-```
-
-The header uses the same green `==>>` / blue title styling as command lines. Check and
-decision lines use the terminal default color.
-
-After auto `list` or `sync`, print `selected: ask` once (do not re-print the checks).
+Print and ask: [Detection](004-object-without-action.md#detection),
+[Ask](004-object-without-action.md#ask).
 
 ## Ask
 
-Closed list of actions that still make sense, plus `quit`. Default is always
-`quit`.
-
-```text
-What next? [start/save/push/list/quit] (press enter to 'quit'):
-```
-
 Typical sets:
 
-- On protected, clean — `[start/track/accept/list/quit]`
+- On protected, clean — `start` / `track` / `accept` / `list` / `quit`
 - On feature, unique commits, no upstream or ahead of upstream —
-  `[polish/push/list/quit]`
-- On feature, diverged from upstream — `[sync/push/list/quit]`
-- Detached HEAD — `[start/track/quit]`
+  `polish` / `push` / `accept` / `list` / `quit`
+- On feature, diverged from upstream — `sync` / `push` / `accept` / `list` / `quit`
+- On feature, idle — `start` / `accept` / `list` / `track` / `quit`
+- Detached HEAD — `start` / `track` / `quit`
+
+On a feature branch, ask `accept` uses HEAD (does not pick a branch). On a
+protected branch, `accept` still asks which branch to take.
 
 `amend` is never auto-detected; it is always an explicit action.

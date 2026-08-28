@@ -24,7 +24,7 @@ Avoid: conflating with workflow prompts inside configure/migrate commands
 
 CLI mode where required missing inputs fail without prompts; auto-detected from non-TTY stdin, `CI`, env, or `--non-interactive`.
 
-Notes: override with `--interactive` or `ELEGANT_GIT_INTERACTIVE=1`
+Notes: on a TTY, `--interactive` or `ELEGANT_GIT_INTERACTIVE=1` forces prompts; non-TTY stdin is always non-interactive.
 
 ### Optional input
 

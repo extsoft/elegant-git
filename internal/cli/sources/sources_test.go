@@ -54,11 +54,15 @@ func TestCompletionShells(t *testing.T) {
 func TestRemoteBranchesFetchesFirst(t *testing.T) {
 	m := git.NewMemoryRunner()
 	m.Repo.Remotes = []string{"origin"}
-	m.Outputs["for-each-ref --format=%(refname:short)\t%(objectname:short) refs/remotes"] = "origin/main\tabc"
+	m.Outputs["for-each-ref --format=%(refname:short) refs/remotes"] = "origin/main"
 	git.Use(m)
 
-	if _, err := RemoteBranches(context.Background()); err != nil {
+	choices, err := RemoteBranches(context.Background())
+	if err != nil {
 		t.Fatal(err)
+	}
+	if len(choices) != 1 || choices[0].Value != "origin/main" || choices[0].Description != "" {
+		t.Fatalf("got %+v", choices)
 	}
 	fetchIdx, refIdx := -1, -1
 	for i, c := range m.Calls {
@@ -80,6 +84,27 @@ func TestRemoteBranchesFetchesFirst(t *testing.T) {
 	}
 	if fetchIdx > refIdx {
 		t.Fatalf("fetch=%d after for-each-ref=%d", fetchIdx, refIdx)
+	}
+}
+
+func TestLocalBranchesIncludeUpstreamDescription(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Outputs["for-each-ref --format=%(refname:short)\t%(upstream:short) refs/heads"] = "feat\torigin/feat\nmain\t"
+	git.Use(m)
+
+	choices, err := LocalBranches(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byValue := map[string]string{}
+	for _, c := range choices {
+		byValue[c.Value] = c.Description
+	}
+	if byValue["feat"] != "origin/feat" {
+		t.Fatalf("feat desc=%q", byValue["feat"])
+	}
+	if byValue["main"] != "" {
+		t.Fatalf("main desc=%q", byValue["main"])
 	}
 }
 

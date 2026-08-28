@@ -21,7 +21,7 @@ func TestRemoteBranchesMatching(t *testing.T) {
 
 func TestTrackLogicPromptsAfterFetch(t *testing.T) {
 	m := git.NewMemoryRunner()
-	m.Outputs["for-each-ref --format=%(refname:short)\t%(objectname:short) refs/remotes"] = "origin/OPS-2114\tabc"
+	m.Outputs["for-each-ref --format=%(refname:short) refs/remotes"] = "origin/OPS-2114"
 	m.Outputs["for-each-ref --format=%(refname:short) refs/remotes"] = "origin/OPS-2114"
 	git.Use(m)
 
@@ -126,7 +126,7 @@ func (p *trackRecordingPrompter) BatchChoice(string, string) (prompt.BatchDecisi
 	return prompt.BatchSkip, nil
 }
 
-func (p *trackRecordingPrompter) Pick(label string, _ []prompt.Choice) (string, error) {
+func (p *trackRecordingPrompter) Pick(label string, _ []prompt.Choice, _ string) (string, error) {
 	p.picks = append(p.picks, label)
 	if p.pickIdx < len(p.pickValues) {
 		v := p.pickValues[p.pickIdx]

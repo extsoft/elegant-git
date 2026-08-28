@@ -125,7 +125,7 @@ func resolveRemotePattern(ctx context.Context, p prompt.Prompter, pattern string
 	for i, c := range choices {
 		promptChoices[i] = prompt.Choice{Value: c.Value, Description: c.Description}
 	}
-	val, err := p.Pick("Remote branch name or pattern", promptChoices)
+	val, err := p.Pick("Remote branch name or pattern", promptChoices, "")
 	if err != nil {
 		return "", err
 	}

@@ -30,14 +30,18 @@ func runSession(cmd *cobra.Command, inspectFn func() snapshot) error {
 
 func askOnce(cmd *cobra.Command, snap snapshot) error {
 	p := prompt.FromContext(cmd.Context())
-	ans, err := p.Closed("What next?", askOptions(snap), "quit", true)
+	ans, err := p.Pick("What now", askChoices(snap), "quit")
 	if err != nil {
 		return err
 	}
 	if ans == "" || ans == "quit" {
 		return nil
 	}
-	return dispatchAction(cmd, ans)
+	var args []string
+	if ans == "accept" && !snap.Protected && !snap.Detached && snap.Branch != "" {
+		args = []string{snap.Branch}
+	}
+	return dispatchAction(cmd, ans, args...)
 }
 
 func printEval(steps []string) {
@@ -47,7 +51,7 @@ func printEval(steps []string) {
 	}
 }
 
-func dispatch(cmd *cobra.Command, action string) error {
+func dispatch(cmd *cobra.Command, action string, args ...string) error {
 	if action == "quit" {
 		return nil
 	}
@@ -62,7 +66,7 @@ func dispatch(cmd *cobra.Command, action string) error {
 	sub.SetOut(cmd.OutOrStdout())
 	sub.SetErr(cmd.ErrOrStderr())
 	if sub.RunE != nil {
-		return sub.RunE(sub, nil)
+		return sub.RunE(sub, args)
 	}
 	if sub.Run != nil {
 		sub.Run(sub, nil)

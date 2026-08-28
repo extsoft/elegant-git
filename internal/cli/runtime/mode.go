@@ -21,10 +21,16 @@ type ModeConfig struct {
 	ForceInteractive    bool
 	ForceNonInteractive bool
 	Stdin               io.Reader
+	// TTY overrides stdin terminal detection when non-nil.
+	TTY *bool
 }
 
-// ResolveMode picks interactive vs non-interactive using plan precedence.
+// ResolveMode picks interactive vs non-interactive. Non-TTY stdin always
+// wins; flags and CI apply only when stdin is a TTY.
 func ResolveMode(cfg ModeConfig) InteractionMode {
+	if !cfg.isTTY() {
+		return ModeNonInteractive
+	}
 	if cfg.ForceInteractive || envTruthy("ELEGANT_GIT_INTERACTIVE") {
 		return ModeInteractive
 	}
@@ -34,10 +40,14 @@ func ResolveMode(cfg ModeConfig) InteractionMode {
 	if envTruthy("CI") {
 		return ModeNonInteractive
 	}
-	if !stdinIsTTY(cfg.Stdin) {
-		return ModeNonInteractive
-	}
 	return ModeInteractive
+}
+
+func (cfg ModeConfig) isTTY() bool {
+	if cfg.TTY != nil {
+		return *cfg.TTY
+	}
+	return stdinIsTTY(cfg.Stdin)
 }
 
 // PrompterForMode returns the prompter for the resolved mode.

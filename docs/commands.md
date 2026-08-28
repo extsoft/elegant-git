@@ -10,16 +10,14 @@ Every command follows the same policy:
 2. In **interactive** mode, missing required arguments are asked as one-line questions; then every **optional** argument is offered (including values already passed on the CLI, unless all required arguments were given).
 3. In **non-interactive** mode, missing required arguments cause an error listing what is missing.
 
-A question is one line: `<prompt> [<suggested>] (<action on enter>):`. Parts are omitted when they do not apply.
+A question is one line when there are 0–1 options: `<prompt> [<suggested>] (<action on enter>):`. Parts are omitted when they do not apply. With 2 or more options, use the [picker](../adr/003-interactive-questions.md#picker).
 
 - Required with a suggestion: `Git user.name [Alice] (press enter to accept):`
 - Optional with a suggestion: `Signing key [ABC123]:` (empty Enter leaves it unset)
 - Optional with no suggestion: `Signing key (press enter to skip):`
 - Required with no suggestion: `Profile name:` (empty Enter asks again)
-- Yes/no: `Proceed? [yes/no] (press enter to 'yes'):` (`y`/`n` or the full word)
-- Repeat over many: `Apply to repo? [yes/no/all/skip] (press enter to 'no'):`
 
-Interactive mode is the default when stdin is a TTY. Non-interactive mode is used when `--non-interactive` or `ELEGANT_GIT_NON_INTERACTIVE=1` is set, when `CI` is set, or when stdin is not a TTY. Use `--interactive` or `ELEGANT_GIT_INTERACTIVE=1` to force prompts.
+Interactive mode is the default when stdin is a TTY. Non-TTY stdin is always non-interactive. On a TTY, `--non-interactive` / `ELEGANT_GIT_NON_INTERACTIVE=1` or `CI` disable prompts; `--interactive` / `ELEGANT_GIT_INTERACTIVE=1` forces prompts (overrides `CI` and `--non-interactive`).
 
 Workflow prompts inside commands (for example `git configure`, `repo configure`, uncommitted changes during `work start`) use the same question line and honor `--interactive` / `--non-interactive`.
 
@@ -105,7 +103,7 @@ Hooks live under `.config/elegant-git/hooks/<command>-<action>-{ahead,after}` (r
 
 - `--no-workflows` — disables ahead/after hooks
 - `--non-interactive` — disables argument prompts; fails when required input is missing (also `ELEGANT_GIT_NON_INTERACTIVE=1`, `CI`, or non-TTY stdin)
-- `--interactive` — forces argument prompts even when stdin is not a TTY or `CI` is set (also `ELEGANT_GIT_INTERACTIVE=1`)
+- `--interactive` — on a TTY, forces prompts (overrides `CI` and `--non-interactive`; also `ELEGANT_GIT_INTERACTIVE=1`). Ignored when stdin is not a TTY.
 - `--version` — prints version
 
 ## Shell completion

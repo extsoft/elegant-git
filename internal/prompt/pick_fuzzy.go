@@ -5,7 +5,13 @@ import (
 	"unicode"
 )
 
-const pickMaxVisible = 6
+const (
+	pickMaxVisible        = 6
+	descMaxLen            = 70
+	pickRuleWidth         = 20
+	pickPlaceholderSingle = "select one option; enter to confirm"
+	pickPlaceholderMulti  = "select one or more; space to select, enter to confirm"
+)
 
 func filterChoices(choices []Choice, query string) []Choice {
 	query = strings.TrimSpace(query)
@@ -38,13 +44,49 @@ func fuzzyMatch(query, target string) bool {
 	return qi == len(q)
 }
 
-func formatPickLine(selected bool, c Choice) string {
-	prefix := "  "
-	if selected {
-		prefix = "> "
+func truncateDesc(s string, max int) string {
+	s = strings.TrimSpace(s)
+	if max <= 0 || len(s) <= max {
+		return s
 	}
-	line := prefix + c.Value
+	if max <= 3 {
+		return s[:max]
+	}
+	return s[:max-3] + "..."
+}
+
+func valueColumnWidth(choices []Choice) int {
+	w := 0
+	for _, c := range choices {
+		if n := len(c.Value); n > w {
+			w = n
+		}
+	}
+	return w
+}
+
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
+}
+
+func formatPickLine(current, selected bool, c Choice, valueWidth int) string {
+	var prefix string
+	switch {
+	case current && selected:
+		prefix = ">*"
+	case current:
+		prefix = "> "
+	case selected:
+		prefix = "* "
+	default:
+		prefix = "  "
+	}
+	line := prefix + padRight(c.Value, valueWidth)
 	if c.Description != "" {
+		// Spaces for display columns; tabs expand unpredictably and break redraw.
 		line += "  " + c.Description
 	}
 	return line
