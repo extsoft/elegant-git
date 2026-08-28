@@ -40,13 +40,19 @@ func offerApplyToCurrentRepo(cmd *cobra.Command, s *shared.State, workspaceID st
 	if err != nil || !ok {
 		return err
 	}
+	_, err = applyToCurrentRepo(cmd, s, workspaceID, ws)
+	return err
+}
+
+func applyToCurrentRepo(cmd *cobra.Command, s *shared.State, workspaceID string, ws *shared.Workspace) (bool, error) {
+	p := prompt.FromContext(cmd.Context())
 	repoID, err := repoid.EnsureLocal()
 	if err != nil {
-		return err
+		return false, err
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
-		return err
+		return false, err
 	}
 	cwd, _ = filepath.Abs(cwd)
 	if existing, _ := shared.GetRepo(s, repoID); existing != nil && existing.WorkspaceID != "" && existing.WorkspaceID != workspaceID {
@@ -56,29 +62,39 @@ func offerApplyToCurrentRepo(cmd *cobra.Command, s *shared.State, workspaceID st
 			otherName = other.Name
 		}
 		ok, err := p.Confirm(fmt.Sprintf(`Override existing workspace "%s"?`, otherName), false)
-		if err != nil || !ok {
-			return err
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, nil
 		}
 	}
 	repoName := filepath.Base(cwd)
 	origin := strings.TrimSpace(git.OutputOK("config", "--get", "remote.origin.url"))
+	// Apply identity before registry mutation so a failed apply does not dirty shared state.
+	if err := shared.ApplyWorkspace(ws, p, &shared.Apply{Force: true}); err != nil {
+		return false, err
+	}
 	if err := shared.UpsertRepo(s, shared.UpsertRepoInput{
 		ID: repoID, Name: repoName, WorkspaceID: workspaceID, CurrentPath: cwd, OriginURL: origin,
 	}); err != nil {
-		return err
+		return false, err
 	}
 	gitDir, err := memrepo.GitDir()
 	if err != nil {
-		return err
+		return false, err
 	}
 	perRepo, err := memrepo.Load(gitDir)
 	if err != nil {
-		return err
+		return false, err
 	}
 	perRepo.RepoID = repoID
 	perRepo.WorkspaceID = workspaceID
-	if err := shared.ApplyWorkspace(ws, p, nil); err != nil {
-		return err
+	if err := CaptureNamespace(s, workspaceID, ws, origin, p); err != nil {
+		return false, err
 	}
-	return memrepo.Save(gitDir, perRepo)
+	if err := memrepo.Save(gitDir, perRepo); err != nil {
+		return false, err
+	}
+	return true, nil
 }

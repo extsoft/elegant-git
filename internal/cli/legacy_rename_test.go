@@ -30,6 +30,26 @@ func TestLegacyProfileAliasRecordsDeprecation(t *testing.T) {
 	}
 }
 
+func TestLegacyWorkspaceCreateAliasRecordsDeprecation(t *testing.T) {
+	bin := buildTestBinary(t)
+	dir := t.TempDir()
+	state := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(state, []byte(`{"schema_version":2,"workspaces":{},"repositories":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bin, "--non-interactive", "workspace", "create", "dz", "D", "d@x.com")
+	cmd.Env = append(os.Environ(), "ELEGANT_GIT_STATE_FILE="+state)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	_ = cmd.Run()
+	if !strings.Contains(stderr.String(), "deprecated") || !strings.Contains(stderr.String(), "workspace create") {
+		t.Fatalf("expected workspace create deprecation warning, stderr=%q", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "workspace new") {
+		t.Fatalf("expected workspace new replacement hint, stderr=%q", stderr.String())
+	}
+}
+
 func TestLegacyMemoryProfilesAliasParsesFormat(t *testing.T) {
 	bin := buildTestBinary(t)
 	dir := t.TempDir()

@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	pickMaxVisible        = 6
+	pickMaxVisible        = 10
 	descMaxLen            = 70
 	pickRuleWidth         = 20
 	pickPlaceholderSingle = "select one option; enter to confirm"

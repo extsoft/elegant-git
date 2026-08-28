@@ -191,16 +191,27 @@ func (m *MemoryRunner) VerboseOp(processor func(string), args ...string) error {
 func (m *MemoryRunner) VerboseOpLines(lineFn func(string), args ...string) error {
 	m.record(args, true)
 	text.CommandText(append([]string{"git"}, args...)...)
+	return m.emitLines(lineFn, args)
+}
+
+func (m *MemoryRunner) StreamLines(lineFn func(string), args ...string) error {
+	m.record(args, true)
+	return m.emitLines(lineFn, args)
+}
+
+func (m *MemoryRunner) emitLines(lineFn func(string), args []string) error {
 	out, err := m.simulate(args)
-	if err != nil {
-		return err
+	if out == "" {
+		if canned, ok := m.canned(args); ok {
+			out = canned
+		}
 	}
 	for _, line := range strings.Split(out, "\n") {
-		if line != "" {
+		if line != "" && lineFn != nil {
 			lineFn(line)
 		}
 	}
-	return nil
+	return err
 }
 
 func (m *MemoryRunner) Output(args ...string) (string, error) {

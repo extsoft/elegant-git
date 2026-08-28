@@ -25,6 +25,24 @@ func TestFuzzyMatch(t *testing.T) {
 	}
 }
 
+func TestVisibleChoicesCapsAtTen(t *testing.T) {
+	choices := make([]Choice, 15)
+	for i := range choices {
+		choices[i] = Choice{Value: fmt.Sprintf("o%d", i)}
+	}
+	visible, sel := visibleChoices(choices, 0)
+	if len(visible) != pickMaxVisible || pickMaxVisible != 10 {
+		t.Fatalf("visible=%d pickMaxVisible=%d", len(visible), pickMaxVisible)
+	}
+	if sel != 0 || visible[0].Value != "o0" {
+		t.Fatalf("sel=%d first=%q", sel, visible[0].Value)
+	}
+	visible, sel = visibleChoices(choices, 14)
+	if len(visible) != 10 || sel != 9 || visible[9].Value != "o14" {
+		t.Fatalf("end window: len=%d sel=%d last=%q", len(visible), sel, visible[len(visible)-1].Value)
+	}
+}
+
 func TestFilterChoices(t *testing.T) {
 	choices := []Choice{
 		{Value: "main"},

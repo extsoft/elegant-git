@@ -22,10 +22,10 @@ func ApplyWorkspace(ws *Workspace, prompter prompt.Prompter, a *Apply) error {
 	if a.Skip {
 		return nil
 	}
-	if err := applyKey("user.name", ws.UserName, true, prompter, a); err != nil {
+	if err := applyKey("user.name", "Git user.name", ws.UserName, true, prompter, a); err != nil {
 		return err
 	}
-	if err := applyKey("user.email", ws.UserEmail, true, prompter, a); err != nil {
+	if err := applyKey("user.email", "Git user.email", ws.UserEmail, true, prompter, a); err != nil {
 		return err
 	}
 	if err := applyOptionalKey("user.signingkey", ws.SigningKey, "Signing key", prompter, a); err != nil {
@@ -37,7 +37,7 @@ func ApplyWorkspace(ws *Workspace, prompter prompt.Prompter, a *Apply) error {
 	return applyOptionalKey("core.editor", ws.Editor, "Editor command", prompter, a)
 }
 
-func applyKey(key, value string, required bool, prompter prompt.Prompter, a *Apply) error {
+func applyKey(key, label, value string, required bool, prompter prompt.Prompter, a *Apply) error {
 	current := gitLocal(key)
 	if a.Skip {
 		return nil
@@ -54,7 +54,7 @@ func applyKey(key, value string, required bool, prompter prompt.Prompter, a *App
 	if a.Force {
 		return git.ConfigLocalSet(key, value)
 	}
-	v, err := prompter.EditOrAccept(key, value)
+	v, err := prompter.EditOrAccept(label, value)
 	if err != nil {
 		return err
 	}

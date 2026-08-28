@@ -6,6 +6,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
@@ -34,7 +35,21 @@ func createSpec(name, userName, userEmail, signingKey, gpgProgram, editor *strin
 	}}
 }
 
-func newCreateCommand() *cobra.Command {
+func newNewCommand() *cobra.Command {
+	return newCreateCommandNamed("new")
+}
+
+func newLegacyCreateCommand() *cobra.Command {
+	c := newCreateCommandNamed("create")
+	c.Hidden = true
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[deprecation.SurfaceAnnotation] = "workspace create"
+	return c
+}
+
+func newCreateCommandNamed(use string) *cobra.Command {
 	var (
 		name       string
 		userName   string
@@ -45,7 +60,7 @@ func newCreateCommand() *cobra.Command {
 	)
 	spec := createSpec(&name, &userName, &userEmail, &signingKey, &gpgProgram, &editor)
 	c := &cobra.Command{
-		Use:   "create <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]",
+		Use:   use + " <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]",
 		Short: "Create a workspace",
 		Long:  "Creates a Git workspace in shared memory. Required fields can be passed as arguments or prompted interactively.",
 		RunE: func(cmd *cobra.Command, args []string) error {

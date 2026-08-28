@@ -12,6 +12,7 @@ import (
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 
@@ -78,14 +79,16 @@ func showRepository(w io.Writer, s *shared.State, r *shared.Repository) error {
 			fmt.Fprintf(w, "  - %s\n", p)
 		}
 	}
-	if prof, err := shared.GetWorkspace(s, r.WorkspaceID); err == nil {
+	if r.WorkspaceID == "" {
+		fmt.Fprintln(w, "workspace: (not linked)")
+	} else if prof, err := shared.GetWorkspace(s, r.WorkspaceID); err == nil {
 		fmt.Fprintln(w, "workspace:")
 		fmt.Fprintf(w, "  name:         %s\n", prof.Name)
 		fmt.Fprintf(w, "  user.name:    %s\n", prof.UserName)
 		fmt.Fprintf(w, "  user.email:   %s\n", prof.UserEmail)
-		fmt.Fprintf(w, "  signing key:  %s\n", showOptional(prof.SigningKey))
-		fmt.Fprintf(w, "  gpg program:  %s\n", showOptional(prof.GPGProgram))
-		fmt.Fprintf(w, "  editor:       %s\n", showOptional(prof.Editor))
+		fmt.Fprintf(w, "  signing key:  %s\n", text.OrUnset(prof.SigningKey))
+		fmt.Fprintf(w, "  gpg program:  %s\n", text.OrUnset(prof.GPGProgram))
+		fmt.Fprintf(w, "  editor:       %s\n", text.OrUnset(prof.Editor))
 	} else {
 		fmt.Fprintln(w, "workspace: (missing from shared memory)")
 	}
@@ -108,8 +111,11 @@ func showRepository(w io.Writer, s *shared.State, r *shared.Repository) error {
 	return nil
 }
 
-func workspaceName(s *shared.State, profileID string) string {
-	if p, err := shared.GetWorkspace(s, profileID); err == nil {
+func workspaceName(s *shared.State, workspaceID string) string {
+	if workspaceID == "" {
+		return "(none)"
+	}
+	if p, err := shared.GetWorkspace(s, workspaceID); err == nil {
 		return p.Name
 	}
 	return ""

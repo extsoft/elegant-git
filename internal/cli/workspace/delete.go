@@ -1,11 +1,14 @@
 package workspace
 
 import (
+	"fmt"
+
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
 	"github.com/bees-hive/elegant-git/internal/cli/completion"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/bees-hive/elegant-git/internal/prompt"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
@@ -18,11 +21,12 @@ func deleteSpec(name *string) argspec.Spec {
 
 func newDeleteCommand() *cobra.Command {
 	var name string
+	var yes bool
 	spec := deleteSpec(&name)
 	c := &cobra.Command{
-		Use:   "delete [name]",
+		Use:   "delete <name>",
 		Short: "Delete a workspace",
-		Long:  "Deletes a workspace from shared memory when no repositories are linked to it. When name is omitted, choose from existing workspaces.",
+		Long:  "Deletes a workspace from shared memory. Linked repositories stay in the registry with their workspace_id cleared; their git config and files are left untouched. Pass --yes to skip the confirmation prompt.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
@@ -31,11 +35,18 @@ func newDeleteCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			id, _, err := shared.GetWorkspaceByName(s, name)
+			id, ws, err := shared.GetWorkspaceByName(s, name)
 			if err != nil {
 				return err
 			}
+			p := prompt.FromContext(cmd.Context())
+			if err := deleteSummaryConfirm(cmd, s, id, ws, yes, p); err != nil {
+				return err
+			}
 			if err := shared.DeleteWorkspace(s, id); err != nil {
+				return err
+			}
+			if err := shared.Validate(s); err != nil {
 				return err
 			}
 			if err := shared.Save(s); err != nil {
@@ -45,7 +56,40 @@ func newDeleteCommand() *cobra.Command {
 			return nil
 		},
 	}
+	c.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
 	c.SetHelpFunc(cliruntime.CommandHelp)
 	completion.Attach(c, spec)
 	return c
+}
+
+func deleteSummaryConfirm(cmd *cobra.Command, s *shared.State, id string, ws *shared.Workspace, yes bool, p prompt.Prompter) error {
+	_ = id
+	fmt.Fprintf(cmd.OutOrStdout(), "Workspace %q will be deleted.\n", ws.Name)
+	fmt.Fprintf(cmd.OutOrStdout(), "  user.name:  %s\n", ws.UserName)
+	fmt.Fprintf(cmd.OutOrStdout(), "  user.email: %s\n", ws.UserEmail)
+
+	linked := append([]string(nil), ws.LinkedRepos...)
+	if len(linked) > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "\nUnlinks %d repository (-ies). Their git config and files are left untouched:\n", len(linked))
+		for _, repoID := range linked {
+			repo, err := shared.GetRepo(s, repoID)
+			if err != nil {
+				fmt.Fprintf(cmd.OutOrStdout(), "  - %s\n", repoID)
+				continue
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "  - %s    %s\n", repo.Name, repo.CurrentPath)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "Run `git elegant repo configure <workspace>` in each to link it elsewhere.")
+	}
+	fmt.Fprintln(cmd.OutOrStdout())
+
+	if yes {
+		return nil
+	}
+	if prompt.NonInteractive(p) {
+		return fmt.Errorf("confirmation required; pass --yes to delete without prompting")
+	}
+	defaultYes := len(linked) == 0
+	ok, err := p.Confirm("Delete?", defaultYes)
+	return errIfNotOK(ok, err)
 }

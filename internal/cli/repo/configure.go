@@ -55,14 +55,17 @@ func configureRun(cmd *cobra.Command, workspaceName string) error {
 	if err := configureLocalGitInstallPre(); err != nil {
 		return err
 	}
-	if err := configureWithMemory(cmd, workspaceName); err != nil {
+	assigned, err := configureWithMemory(cmd, workspaceName)
+	if err != nil {
 		return err
 	}
 	if err := configureLocalGitInstallPost(); err != nil {
 		return err
 	}
-	if err := config.ConfigureSignature(p); err != nil {
-		return err
+	if !assigned {
+		if err := config.ConfigureSignature(p); err != nil {
+			return err
+		}
 	}
 	text.Complete("Repository configuration complete.")
 	return nil

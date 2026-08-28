@@ -9,6 +9,7 @@ import (
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/repoid"
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/bees-hive/elegant-git/internal/version"
 )
 
@@ -66,56 +67,6 @@ func PrintGitStatus(w io.Writer) error {
 // PrintRepoStatus prints per-repo memory and registry for the current repository.
 func PrintRepoStatus(w io.Writer) error {
 	return printRepoState(w)
-}
-
-// PrintWorkspaceStatus prints the linked workspace for the current repository.
-func PrintWorkspaceStatus(w io.Writer) error {
-	gitDir, gitErr := memrepo.GitDir()
-	if gitErr != nil {
-		fmt.Fprintln(w, "repository: (not inside a git work tree)")
-		return nil
-	}
-
-	s, err := shared.Load()
-	if err != nil {
-		return err
-	}
-
-	repoID, _ := repoid.ReadLocal()
-	if repoID == "" {
-		fmt.Fprintln(w, "linked workspace: (not set; run repo configure)")
-		return nil
-	}
-
-	reg, err := shared.GetRepo(s, repoID)
-	if err != nil {
-		fmt.Fprintf(w, "linked workspace: repo-id %s not in registry\n", repoID)
-		return nil
-	}
-
-	prof, err := shared.GetWorkspace(s, reg.WorkspaceID)
-	if err != nil {
-		fmt.Fprintf(w, "linked workspace: id %s (missing from shared memory)\n", reg.WorkspaceID)
-		return nil
-	}
-
-	printWorkspaceFields(w, "", reg.WorkspaceID, prof)
-	printLinkedRepos(w, s, prof, "")
-
-	perRepo, err := memrepo.Load(gitDir)
-	if err != nil {
-		return err
-	}
-	if perRepo.WorkspaceID != "" && perRepo.WorkspaceID != reg.WorkspaceID {
-		if alt, err := shared.GetWorkspace(s, perRepo.WorkspaceID); err == nil {
-			fmt.Fprintln(w)
-			fmt.Fprintln(w, "per-repo memory workspace:")
-			printWorkspaceFields(w, "  ", perRepo.WorkspaceID, alt)
-		} else {
-			fmt.Fprintf(w, "\nper-repo memory workspace_id: %s\n", perRepo.WorkspaceID)
-		}
-	}
-	return nil
 }
 
 func printGitState(w io.Writer) error {
@@ -178,7 +129,9 @@ func printRepoState(w io.Writer) error {
 			if reg.OriginURL != "" {
 				fmt.Fprintf(w, "  origin: %s\n", reg.OriginURL)
 			}
-			if prof, err := shared.GetWorkspace(s, reg.WorkspaceID); err == nil {
+			if reg.WorkspaceID == "" {
+				fmt.Fprintln(w, "  linked workspace: (not linked)")
+			} else if prof, err := shared.GetWorkspace(s, reg.WorkspaceID); err == nil {
 				fmt.Fprintf(w, "  linked workspace: %s\n", prof.Name)
 			} else {
 				fmt.Fprintf(w, "  workspace id: %s (missing from shared memory)\n", reg.WorkspaceID)
@@ -219,45 +172,12 @@ func printRepoState(w io.Writer) error {
 	return nil
 }
 
-func printWorkspaceFields(w io.Writer, prefix, id string, p *shared.Workspace) {
-	fmt.Fprintf(w, "%sname:         %s\n", prefix, p.Name)
-	fmt.Fprintf(w, "%sid:           %s\n", prefix, id)
-	fmt.Fprintf(w, "%suser.name:    %s\n", prefix, p.UserName)
-	fmt.Fprintf(w, "%suser.email:   %s\n", prefix, p.UserEmail)
-	fmt.Fprintf(w, "%ssigning key:  %s\n", prefix, showOptional(p.SigningKey))
-	fmt.Fprintf(w, "%sgpg program:  %s\n", prefix, showOptional(p.GPGProgram))
-	fmt.Fprintf(w, "%seditor:       %s\n", prefix, showOptional(p.Editor))
-}
-
-func printLinkedRepos(w io.Writer, s *shared.State, p *shared.Workspace, prefix string) {
-	if len(p.LinkedRepos) == 0 {
-		fmt.Fprintf(w, "%slinked repos: (none)\n", prefix)
-		return
-	}
-	fmt.Fprintf(w, "%slinked repos: %d\n", prefix, len(p.LinkedRepos))
-	for _, repoID := range p.LinkedRepos {
-		repo, err := shared.GetRepo(s, repoID)
-		if err != nil {
-			fmt.Fprintf(w, "%s  - %s\n", prefix, repoID)
-			continue
-		}
-		fmt.Fprintf(w, "%s  - %s    %s\n", prefix, repo.Name, repo.CurrentPath)
-	}
-}
-
 func printGitIdentity(w io.Writer, prefix string, get func(string) string) {
-	fmt.Fprintf(w, "%suser.name:    %s\n", prefix, showOptional(get("user.name")))
-	fmt.Fprintf(w, "%suser.email:   %s\n", prefix, showOptional(get("user.email")))
-	fmt.Fprintf(w, "%ssigning key:  %s\n", prefix, showOptional(get("user.signingkey")))
-	fmt.Fprintf(w, "%sgpg program:  %s\n", prefix, showOptional(get("gpg.program")))
-	fmt.Fprintf(w, "%seditor:       %s\n", prefix, showOptional(get("core.editor")))
-}
-
-func showOptional(v string) string {
-	if v == "" {
-		return "(unset)"
-	}
-	return v
+	fmt.Fprintf(w, "%suser.name:    %s\n", prefix, text.OrUnset(get("user.name")))
+	fmt.Fprintf(w, "%suser.email:   %s\n", prefix, text.OrUnset(get("user.email")))
+	fmt.Fprintf(w, "%ssigning key:  %s\n", prefix, text.OrUnset(get("user.signingkey")))
+	fmt.Fprintf(w, "%sgpg program:  %s\n", prefix, text.OrUnset(get("gpg.program")))
+	fmt.Fprintf(w, "%seditor:       %s\n", prefix, text.OrUnset(get("core.editor")))
 }
 
 func fileStatusLine(path string) string {

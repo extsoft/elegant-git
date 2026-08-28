@@ -11,6 +11,7 @@ type Runner interface {
 	Verbose(args ...string) error
 	VerboseOp(processor func(string), args ...string) error
 	VerboseOpLines(lineFn func(string), args ...string) error
+	StreamLines(lineFn func(string), args ...string) error
 	Output(args ...string) (string, error)
 	OutputOK(args ...string) string
 }
@@ -49,6 +50,11 @@ func VerboseOp(processor func(string), args ...string) error {
 // VerboseOpLines prints git output line-by-line and calls lineFn per line (no full-buffer capture).
 func VerboseOpLines(lineFn func(string), args ...string) error {
 	return current.VerboseOpLines(lineFn, args...)
+}
+
+// StreamLines runs git without printing CommandText or stdout; each output line is passed to lineFn.
+func StreamLines(lineFn func(string), args ...string) error {
+	return current.StreamLines(lineFn, args...)
 }
 
 // Output runs git quietly and returns combined stdout/stderr.

@@ -46,10 +46,13 @@ var commandGroups = []commandGroup{
 		{action: "migrate", purpose: "Migrates global aliases and acquired marker."},
 	}},
 	{object: "workspace", title: "manage git workspaces", commands: []subCommandSpec{
-		{action: "status", purpose: "Shows the linked workspace for the current repository."},
-		{action: "create", purpose: "Creates a workspace."},
+		{action: "list", purpose: "Lists workspaces or shows one workspace's details."},
+		{action: "new", purpose: "Creates a workspace."},
+		{action: "link", purpose: "Links the current repository to a workspace."},
 		{action: "edit", purpose: "Edits a workspace and optionally applies it to linked repos."},
-		{action: "delete", purpose: "Deletes a workspace."},
+		{action: "delete", purpose: "Deletes a workspace and unlinks its repositories."},
+		{action: "status", purpose: "Shows the linked workspace for the current repository."},
+		{action: "fetch", purpose: "Fetches remotes for repositories linked to a workspace."},
 	}},
 	{object: "repo", title: "manage repositories", commands: []subCommandSpec{
 		{action: "status", purpose: "Shows repository memory and registry state for the current repository."},

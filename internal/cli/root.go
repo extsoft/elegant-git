@@ -148,16 +148,21 @@ func isUnknownCommand(err error) bool {
 }
 
 func recordDeprecatedSurface(cmd *cobra.Command) {
+	replacements := map[string]string{
+		"memory profiles":  "memory workspaces",
+		"workspace create": "workspace new",
+	}
 	for c := cmd; c != nil; c = c.Parent() {
 		surface := c.Annotations[deprecation.SurfaceAnnotation]
 		if surface == "" {
 			continue
 		}
-		replacement := "workspace"
-		if surface == "memory profiles" {
-			replacement = "memory workspaces"
-		} else if strings.HasPrefix(surface, "profile") {
-			replacement = strings.Replace(surface, "profile", "workspace", 1)
+		replacement, ok := replacements[surface]
+		if !ok {
+			replacement = "workspace"
+			if strings.HasPrefix(surface, "profile") {
+				replacement = strings.Replace(surface, "profile", "workspace", 1)
+			}
 		}
 		deprecation.RecordRenamedSurface(surface, replacement, "git elegant repo migrate")
 		return

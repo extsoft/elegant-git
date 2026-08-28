@@ -228,19 +228,30 @@ func TestBatchChoiceEmptyNoDefaultReasks(t *testing.T) {
 	}
 }
 
-func TestOptionalLeavesUnset(t *testing.T) {
+func TestOptionalAcceptsSuggestion(t *testing.T) {
 	q := captureQuestions(t)
 	p := NewTTY(strings.NewReader("\n"), &bytes.Buffer{})
 	got, err := p.Optional("Signing key", "ABC123")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "" {
+	if got != "ABC123" {
 		t.Fatalf("got %q", got)
 	}
 	want := OptionalLine("Signing key", "ABC123") + " "
 	if q.String() != want {
 		t.Fatalf("got %q want %q", q.String(), want)
+	}
+}
+
+func TestOptionalSkipWhenUnset(t *testing.T) {
+	p := NewTTY(strings.NewReader("\n"), &bytes.Buffer{})
+	got, err := p.Optional("Signing key", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Fatalf("got %q", got)
 	}
 }
 

@@ -33,6 +33,10 @@ func (r *pruneOnFetchRunner) VerboseOpLines(lineFn func(string), args ...string)
 	return r.inner.VerboseOpLines(lineFn, args...)
 }
 
+func (r *pruneOnFetchRunner) StreamLines(lineFn func(string), args ...string) error {
+	return r.inner.StreamLines(lineFn, args...)
+}
+
 func (r *pruneOnFetchRunner) Output(args ...string) (string, error) {
 	return r.inner.Output(args...)
 }

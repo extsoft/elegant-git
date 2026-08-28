@@ -56,17 +56,21 @@ func TestRelinkUpdatesIndex(t *testing.T) {
 	}
 }
 
-func TestDeleteWorkspaceRequiresUnlink(t *testing.T) {
+func TestDeleteWorkspaceUnlinksAndKeepsRepos(t *testing.T) {
 	s := emptyState()
 	id, _ := CreateWorkspace(s, CreateWorkspaceInput{Name: "x", UserName: "X", UserEmail: "x@test"})
 	_ = UpsertRepo(s, UpsertRepoInput{ID: "r1", Name: "r", WorkspaceID: id, CurrentPath: "/a"})
-	if err := DeleteWorkspace(s, id); err == nil {
-		t.Fatal("expected error")
-	}
-	if err := DeleteRepo(s, "r1"); err != nil {
+	if err := DeleteWorkspace(s, id); err != nil {
 		t.Fatal(err)
 	}
-	if err := DeleteWorkspace(s, id); err != nil {
+	repo, err := GetRepo(s, "r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repo.WorkspaceID != "" {
+		t.Fatalf("workspace_id=%q", repo.WorkspaceID)
+	}
+	if err := Validate(s); err != nil {
 		t.Fatal(err)
 	}
 }

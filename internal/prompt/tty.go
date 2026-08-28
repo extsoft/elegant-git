@@ -123,12 +123,7 @@ func (t *TTY) EditOrAccept(label, suggested string) (string, error) {
 }
 
 func (t *TTY) Optional(label, suggested string) (string, error) {
-	text.QuestionText(OptionalLine(label, suggested) + " ")
-	line, err := t.reader().ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	return strings.TrimSpace(line), nil
+	return t.EditOrAccept(label, suggested)
 }
 
 func (t *TTY) Closed(question string, options []string, defaultWord string, required bool) (string, error) {

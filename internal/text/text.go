@@ -106,3 +106,11 @@ func Complete(parts ...string) {
 func ErrorBox(parts ...string) {
 	boxText(func(p ...string) { ErrorText(p...) }, parts...)
 }
+
+// OrUnset returns v, or "(unset)" when v is empty.
+func OrUnset(v string) string {
+	if v == "" {
+		return "(unset)"
+	}
+	return v
+}

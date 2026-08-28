@@ -66,7 +66,11 @@ func syncRun(cmd *cobra.Command, all bool) error {
 		}
 		prof, err := shared.GetWorkspace(s, repo.WorkspaceID)
 		if err != nil {
-			text.ErrorText("repo " + repo.Name + ": workspace missing")
+			if repo.WorkspaceID == "" {
+				text.InfoText("repo " + repo.Name + ": no workspace linked; skip")
+			} else {
+				text.ErrorText("repo " + repo.Name + ": workspace missing")
+			}
 			continue
 		}
 		apply := &shared.Apply{Force: applyAll}

@@ -32,6 +32,7 @@ type Workspace struct {
 	SigningKey  string   `json:"signing_key,omitempty"`
 	Editor      string   `json:"editor,omitempty"`
 	GPGProgram  string   `json:"gpg_program,omitempty"`
+	Namespaces  []string `json:"namespaces,omitempty"`
 	LinkedRepos []string `json:"linked_repos"`
 }
 
@@ -189,6 +190,9 @@ func Validate(s *State) error {
 	}
 	for repoID, repo := range s.Repositories {
 		if repo == nil {
+			continue
+		}
+		if repo.WorkspaceID == "" {
 			continue
 		}
 		ws, ok := s.Workspaces[repo.WorkspaceID]

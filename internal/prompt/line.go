@@ -24,14 +24,13 @@ func RequiredLine(prompt, suggestion string) string {
 }
 
 // OptionalLine formats an optional text question (ADR 003).
-// With a suggestion: `<prompt> [value]:` (empty Enter leaves unset).
-// Without: `<prompt> (press enter to skip):`
+// With a suggestion: `<prompt> [value] (press enter to accept):`.
+// Without: `<prompt> (press enter to skip):`.
 func OptionalLine(prompt, suggestion string) string {
-	action := ""
-	if suggestion == "" {
-		action = enterSkip
+	if suggestion != "" {
+		return RequiredLine(prompt, suggestion)
 	}
-	return questionLine(prompt, suggestion, action)
+	return questionLine(prompt, "", enterSkip)
 }
 
 // ClosedLine formats a closed-list question (ADR 003).

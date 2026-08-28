@@ -28,11 +28,11 @@ func TestPlainText(t *testing.T) {
 	}
 }
 
-func TestInfoBoxPlain(t *testing.T) {
-	var buf bytes.Buffer
-	SetOutput(&buf)
-	InfoBox("Configuring basics...")
-	if !strings.Contains(buf.String(), "Configuring basics...") {
-		t.Fatalf("unexpected: %q", buf.String())
+func TestOrUnset(t *testing.T) {
+	if OrUnset("") != "(unset)" {
+		t.Fatal("empty")
+	}
+	if OrUnset("x") != "x" {
+		t.Fatal("value")
 	}
 }

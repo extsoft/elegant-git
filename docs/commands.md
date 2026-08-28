@@ -13,7 +13,7 @@ Every command follows the same policy:
 A question is one line when there are 0–1 options: `<prompt> [<suggested>] (<action on enter>):`. Parts are omitted when they do not apply. With 2 or more options, use the [picker](../adr/003-interactive-questions.md#picker).
 
 - Required with a suggestion: `Git user.name [Alice] (press enter to accept):`
-- Optional with a suggestion: `Signing key [ABC123]:` (empty Enter leaves it unset)
+- Optional with a suggestion: `Signing key [ABC123] (press enter to accept):`
 - Optional with no suggestion: `Signing key (press enter to skip):`
 - Required with no suggestion: `Workspace name:` (empty Enter asks again)
 
@@ -35,10 +35,14 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 
 | Command | Description |
 | --- | --- |
-| `workspace status` | Shows the linked workspace for the current repository (when inside a git work tree). |
-| `workspace create <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]` | Creates a workspace. Required arguments are prompted when missing in interactive mode. |
+| `workspace` | With no action: prints detection checks, then asks What now (interactive). Non-interactive mode requires an action. |
+| `workspace list [name]` | Lists workspaces (`--format=table\|json`). With a name, shows full details for that workspace. |
+| `workspace new <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]` | Creates a workspace. Required arguments are prompted when missing in interactive mode. Optionally applies to the current repository on confirmation and offers to remember that repository's namespace. |
+| `workspace link <name>` | Links the current repository to an existing workspace (prompts for name when omitted in interactive mode). Applies identity and may capture the origin namespace. |
 | `workspace edit <name>` | Edits a workspace transactionally: plan changes and repo targets, summary + single confirm, then commit to shared memory and selected repos. |
-| `workspace delete [name]` | Deletes a workspace only when no repositories are linked. |
+| `workspace delete <name> [--yes]` | Deletes a workspace after explaining what will happen and asking for confirmation. Linked repositories stay in the registry with `workspace_id` cleared; their git config and files are untouched. `--yes` skips the prompt; non-interactive mode requires `--yes`. |
+| `workspace status` | Shows the linked workspace for the current repository (when inside a git work tree). |
+| `workspace fetch [name]` | Runs `git fetch --all --tags --prune` in every repository linked to the workspace (prunes stale remote-tracking branches). Exits non-zero if any repository fails. On a TTY: progress bar, processed-repo list, ephemeral logs for the current fetch. When name is omitted, uses the workspace linked to the current repository. |
 
 ### git
 
@@ -52,8 +56,8 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 
 | Command | Description |
 | --- | --- |
-| `repo configure <workspace>` | Configures the current local repository. |
-| `repo clone <repository> <workspace> [<directory>]` | Clones a remote repository and configures it. |
+| `repo configure <workspace>` | Configures the current local repository. Signature setup is skipped whenever a workspace is assigned — including when that workspace has no signing key (change signing via `workspace edit`). |
+| `repo clone <repository> [<workspace>] [<directory>]` | Clones a remote repository and configures it. When workspace is omitted, suggests one from the repository namespace (`<domain>/<owner>`). |
 | `repo init <workspace>` | Initializes a new repository and configures it. |
 | `repo status` | Shows per-repo memory, registry linkage, branch settings, and local git identity for the current repository. |
 | `repo sync` | Re-applies workspace settings (`--all` for every managed repo; `[yes/no/all/skip]` per repo). |

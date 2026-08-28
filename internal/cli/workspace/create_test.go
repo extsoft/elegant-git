@@ -42,7 +42,7 @@ func TestCreateSpecMissingRequiredNonInteractive(t *testing.T) {
 }
 
 func TestCreateHelp(t *testing.T) {
-	c := newCreateCommand()
+	c := newNewCommand()
 	var buf bytes.Buffer
 	c.SetOut(&buf)
 	c.SetArgs([]string{"--help"})
@@ -52,7 +52,7 @@ func TestCreateHelp(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		"Usage:",
-		"create <name> <user-name> <user-email>",
+		"new <name> <user-name> <user-email>",
 		"Creates a Git workspace",
 	} {
 		if !strings.Contains(out, want) {
@@ -98,7 +98,9 @@ func (r *createRecordingPrompter) EditOrAccept(label, suggested string) (string,
 	return suggested, nil
 }
 
-func (r *createRecordingPrompter) Optional(string, string) (string, error) { return "", nil }
+func (r *createRecordingPrompter) Optional(_ string, suggested string) (string, error) {
+	return suggested, nil
+}
 
 func (r *createRecordingPrompter) Closed(string, []string, string, bool) (string, error) {
 	return "", prompt.ErrNonInteractive

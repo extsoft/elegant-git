@@ -54,11 +54,19 @@ Imports legacy elegant-git data; scope depends on the CLI object prefix.
 
 ### Workspace
 
-Reusable git identity bundle stored in shared memory (`user_name`, `user_email`, and optional signing, editor, gpg fields).
+Reusable git identity bundle stored in shared memory (`user_name`, `user_email`, and optional signing, editor, gpg, and `namespaces` fields).
 
-Notes: stable id is a UUID map key (`workspace_id` in JSON); `name` is the display label; CLI object `workspace` manages create/edit/delete/status.
+Notes: stable id is a UUID map key (`workspace_id` in JSON); `name` is the display label; CLI object `workspace` manages list/new/link/edit/delete/status/fetch (bare `workspace` detects context then asks); `namespaces` holds confirmed `<domain>/<owner>` values used to suggest a workspace on `repo clone`.
 
 Aliases: profile (deprecated), identity profile
+
+### Namespace
+
+Normalized `<domain>/<owner...>` prefix of a git remote URL, stored on a workspace for clone-time suggestion.
+
+Notes: derived from any origin format (HTTPS, SSH, SCP-like, `git://`); owner is every path segment except the last (the repository name); the same namespace may appear on several workspaces.
+
+Avoid: “source” (collides with `internal/cli/sources` completion providers and repo-memory `BranchSources`); conflating with a git remote named `origin`
 
 ### Release
 

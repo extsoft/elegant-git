@@ -90,15 +90,15 @@ func workspaceEditPlan(_ *cobra.Command, s *shared.State, id string, ws *shared.
 		if err != nil {
 			return nil, err
 		}
-		planned.SigningKey, err = p.Optional("Signing key", ws.SigningKey)
+		planned.SigningKey, err = p.Optional("Signing key", suggestField(ws.SigningKey, "user.signingkey"))
 		if err != nil {
 			return nil, err
 		}
-		planned.GPGProgram, err = p.Optional("GPG program", ws.GPGProgram)
+		planned.GPGProgram, err = p.Optional("GPG program", suggestField(ws.GPGProgram, "gpg.program"))
 		if err != nil {
 			return nil, err
 		}
-		planned.Editor, err = p.Optional("Editor command", ws.Editor)
+		planned.Editor, err = p.Optional("Editor command", suggestField(ws.Editor, "core.editor"))
 		if err != nil {
 			return nil, err
 		}

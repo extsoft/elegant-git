@@ -178,97 +178,6 @@ func TestPrintRepoStatusLinkedProfileNameOnly(t *testing.T) {
 	}
 }
 
-func TestPrintWorkspaceStatusBranches(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
-	git.Use(git.NewMemoryRunner())
-
-	var buf bytes.Buffer
-	if err := PrintWorkspaceStatus(&buf); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(buf.String(), "not inside a git work tree") {
-		t.Fatalf("got:\n%s", buf.String())
-	}
-
-	gitDir := filepath.Join(dir, "r", ".git")
-	repoRoot := filepath.Join(dir, "r")
-	if err := os.MkdirAll(gitDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	m := git.NewMemoryRunner()
-	m.Outputs["rev-parse --git-dir"] = gitDir
-	git.Use(m)
-
-	buf.Reset()
-	if err := PrintWorkspaceStatus(&buf); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(buf.String(), "linked workspace: (not set") {
-		t.Fatalf("got:\n%s", buf.String())
-	}
-
-	m.Repo.LocalConfig["elegant-git.repo-id"] = "repo-1"
-	s := seedState(t, "prof-1", "work", "Worker", "w@x.com", "repo-1", "myrepo", repoRoot)
-	if err := shared.Save(s); err != nil {
-		t.Fatal(err)
-	}
-
-	buf.Reset()
-	if err := PrintWorkspaceStatus(&buf); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	for _, want := range []string{"name:         work", "user.name:    Worker", "linked repos:"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("missing %q in:\n%s", want, out)
-		}
-	}
-
-	m.Repo.LocalConfig["elegant-git.repo-id"] = "missing"
-	buf.Reset()
-	if err := PrintWorkspaceStatus(&buf); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(buf.String(), "not in registry") {
-		t.Fatalf("got:\n%s", buf.String())
-	}
-}
-
-func TestPrintWorkspaceStatusPerRepoOverride(t *testing.T) {
-	dir := t.TempDir()
-	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
-	gitDir := filepath.Join(dir, "r", ".git")
-	repoRoot := filepath.Join(dir, "r")
-	if err := os.MkdirAll(gitDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(gitDir, "elegant-git", "state.json"))
-
-	m := git.NewMemoryRunner()
-	m.Outputs["rev-parse --git-dir"] = gitDir
-	m.Repo.LocalConfig["elegant-git.repo-id"] = "repo-1"
-	git.Use(m)
-
-	s := seedState(t, "prof-1", "work", "Worker", "w@x.com", "repo-1", "myrepo", repoRoot)
-	s.Workspaces["prof-2"] = &shared.Workspace{Name: "alt", UserName: "Alt", UserEmail: "a@x.com", LinkedRepos: []string{}}
-	if err := shared.Save(s); err != nil {
-		t.Fatal(err)
-	}
-	if err := memrepo.Save(gitDir, &memrepo.State{WorkspaceID: "prof-2"}); err != nil {
-		t.Fatal(err)
-	}
-
-	var buf bytes.Buffer
-	if err := PrintWorkspaceStatus(&buf); err != nil {
-		t.Fatal(err)
-	}
-	out := buf.String()
-	if !strings.Contains(out, "per-repo memory workspace:") || !strings.Contains(out, "name:         alt") {
-		t.Fatalf("got:\n%s", out)
-	}
-}
-
 func TestReposWithProfile(t *testing.T) {
 	s := &shared.State{
 		Repositories: map[string]*shared.Repository{
@@ -279,15 +188,6 @@ func TestReposWithProfile(t *testing.T) {
 	}
 	if n := reposWithWorkspace(s); n != 1 {
 		t.Fatalf("got %d want 1", n)
-	}
-}
-
-func TestShowOptional(t *testing.T) {
-	if showOptional("") != "(unset)" {
-		t.Fatal("empty")
-	}
-	if showOptional("x") != "x" {
-		t.Fatal("value")
 	}
 }
 

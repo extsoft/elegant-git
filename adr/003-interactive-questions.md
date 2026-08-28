@@ -27,7 +27,7 @@ Omit a part when it does not apply. Separate parts with a single space.
 ### Action on enter
 
 - Required with a suggestion: `(press enter to accept)` — empty Enter takes that value.
-- Optional with a suggestion: no enter action. Empty Enter leaves the value unset.
+- Optional with a suggestion: `(press enter to accept)` — empty Enter takes that value.
 - Optional with no suggestion: `(press enter to skip)`.
 - Required with no suggestion: no enter action. Empty Enter is invalid; ask again.
 
@@ -41,13 +41,13 @@ Workspace name: some name
 
 ### Optional text
 
-The value may stay empty. A suggestion is shown without an enter action.
-Without a suggestion, Enter skips.
+The value may stay empty when nothing is suggested. A configured value is
+shown as a suggestion; empty Enter records it.
 
 ```text
 Signing key (press enter to skip):
-Signing key [ABC123]:
-Editor command [vim]: nano
+Signing key [ABC123] (press enter to accept):
+Editor command [vim] (press enter to accept): nano
 ```
 
 ## Picker
@@ -119,6 +119,7 @@ accepts every selected option. Defaults start selected.
 | List | Description |
 | --- | --- |
 | `work` “What now” | Action purpose (e.g. start → “Creates a new branch.”). `quit` → “Leave without another action.” |
+| `workspace` “What now” | Action purpose (e.g. link → “Links the current repository to a workspace.”). `quit` → “Leave without another action.” |
 | Local branches | Upstream remote-tracking ref when set (`feat` → `origin/feat`); else none |
 | Remote-only lists | None |
 | Refs / branch union | Locals as above; remotes and tags option-only |

@@ -41,6 +41,14 @@ func (RealRunner) VerboseOp(processor func(string), args ...string) error {
 
 func (RealRunner) VerboseOpLines(lineFn func(string), args ...string) error {
 	text.CommandText(append([]string{"git"}, args...)...)
+	return streamGitLines(true, lineFn, args...)
+}
+
+func (RealRunner) StreamLines(lineFn func(string), args ...string) error {
+	return streamGitLines(false, lineFn, args...)
+}
+
+func streamGitLines(echo bool, lineFn func(string), args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Stdin = os.Stdin
 	pr, pw := io.Pipe()
@@ -54,8 +62,12 @@ func (RealRunner) VerboseOpLines(lineFn func(string), args ...string) error {
 		sc := bufio.NewScanner(pr)
 		for sc.Scan() {
 			line := sc.Text()
-			fmt.Fprintln(os.Stdout, line)
-			lineFn(line)
+			if echo {
+				fmt.Fprintln(os.Stdout, line)
+			}
+			if lineFn != nil {
+				lineFn(line)
+			}
 		}
 		scanErr = sc.Err()
 	}()

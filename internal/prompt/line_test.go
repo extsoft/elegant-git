@@ -22,8 +22,8 @@ func TestOptionalLine(t *testing.T) {
 		prompt, suggestion, want string
 	}{
 		{"Signing key", "", "Signing key (press enter to skip):"},
-		{"Signing key", "ABC123", "Signing key [ABC123]:"},
-		{"Editor command", "vim", "Editor command [vim]:"},
+		{"Signing key", "ABC123", "Signing key [ABC123] (press enter to accept):"},
+		{"Editor command", "vim", "Editor command [vim] (press enter to accept):"},
 	}
 	for _, tc := range tests {
 		if got := OptionalLine(tc.prompt, tc.suggestion); got != tc.want {
