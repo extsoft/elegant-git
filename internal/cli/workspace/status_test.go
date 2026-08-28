@@ -1,4 +1,4 @@
-package profile
+package workspace
 
 import (
 	"bytes"
@@ -49,7 +49,7 @@ func TestStatusCommandNoRepoID(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "linked profile: (not set") {
+	if !strings.Contains(buf.String(), "linked workspace: (not set") {
 		t.Fatalf("got:\n%s", buf.String())
 	}
 }
@@ -68,8 +68,8 @@ func TestStatusCommandLinkedProfile(t *testing.T) {
 	git.Use(m)
 
 	s, _ := shared.Load()
-	s.Profiles["prof-1"] = &shared.Profile{Name: "work", UserName: "Worker", UserEmail: "w@x.com", LinkedRepos: []string{"repo-1"}}
-	s.Repositories["repo-1"] = &shared.Repository{Name: "myrepo", ProfileID: "prof-1", CurrentPath: repoRoot}
+	s.Workspaces["prof-1"] = &shared.Workspace{Name: "work", UserName: "Worker", UserEmail: "w@x.com", LinkedRepos: []string{"repo-1"}}
+	s.Repositories["repo-1"] = &shared.Repository{Name: "myrepo", WorkspaceID: "prof-1", CurrentPath: repoRoot}
 	if err := shared.Save(s); err != nil {
 		t.Fatal(err)
 	}

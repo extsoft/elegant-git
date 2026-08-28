@@ -1,4 +1,4 @@
-package profile
+package workspace
 
 import (
 	"fmt"
@@ -29,27 +29,27 @@ type repoTarget struct {
 }
 
 type editPlan struct {
-	profileID string
-	diff      []fieldChange
-	planned   shared.Profile
-	apply     []repoTarget
-	skip      []repoTarget
-	missing   []repoTarget
+	workspaceID string
+	diff        []fieldChange
+	planned     shared.Workspace
+	apply       []repoTarget
+	skip        []repoTarget
+	missing     []repoTarget
 }
 
-func profileEditSpec(name *string) argspec.Spec {
+func workspaceEditSpec(name *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("name", 0, true, "Profile name", name, nil, sources.Profiles, true),
+		argspec.PositionalInputWithComplete("name", 0, true, "Workspace name", name, nil, sources.Workspaces, true),
 	}}
 }
 
 func newEditCommand() *cobra.Command {
-	var profileName string
-	spec := profileEditSpec(&profileName)
+	var workspaceName string
+	spec := workspaceEditSpec(&workspaceName)
 	c := &cobra.Command{
 		Use:   "edit <name>",
-		Short: "Edit a profile",
-		Long:  "Edits profile fields and optionally applies changes to linked repositories.",
+		Short: "Edit a workspace",
+		Long:  "Edits workspace fields and optionally applies changes to linked repositories.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
@@ -58,19 +58,19 @@ func newEditCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			id, prof, err := shared.GetProfileByName(s, profileName)
+			id, ws, err := shared.GetWorkspaceByName(s, workspaceName)
 			if err != nil {
 				return err
 			}
 			p := prompt.FromContext(cmd.Context())
-			plan, err := profileEditPlan(cmd, s, id, prof, p)
+			plan, err := workspaceEditPlan(cmd, s, id, ws, p)
 			if err != nil {
 				return err
 			}
-			if err := profileEditSummaryConfirm(plan, p); err != nil {
+			if err := workspaceEditSummaryConfirm(plan, p); err != nil {
 				return err
 			}
-			return profileEditCommit(cmd, s, plan, p)
+			return workspaceEditCommit(cmd, s, plan, p)
 		},
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
@@ -78,40 +78,40 @@ func newEditCommand() *cobra.Command {
 	return c
 }
 
-func profileEditPlan(_ *cobra.Command, s *shared.State, id string, prof *shared.Profile, p prompt.Prompter) (*editPlan, error) {
-	planned := *prof
+func workspaceEditPlan(_ *cobra.Command, s *shared.State, id string, ws *shared.Workspace, p prompt.Prompter) (*editPlan, error) {
+	planned := *ws
 	var err error
 	if !prompt.NonInteractive(p) {
-		planned.UserName, err = p.EditOrAccept("Git user.name", prof.UserName)
+		planned.UserName, err = p.EditOrAccept("Git user.name", ws.UserName)
 		if err != nil {
 			return nil, err
 		}
-		planned.UserEmail, err = p.EditOrAccept("Git user.email", prof.UserEmail)
+		planned.UserEmail, err = p.EditOrAccept("Git user.email", ws.UserEmail)
 		if err != nil {
 			return nil, err
 		}
-		planned.SigningKey, err = p.Optional("Signing key", prof.SigningKey)
+		planned.SigningKey, err = p.Optional("Signing key", ws.SigningKey)
 		if err != nil {
 			return nil, err
 		}
-		planned.GPGProgram, err = p.Optional("GPG program", prof.GPGProgram)
+		planned.GPGProgram, err = p.Optional("GPG program", ws.GPGProgram)
 		if err != nil {
 			return nil, err
 		}
-		planned.Editor, err = p.Optional("Editor command", prof.Editor)
+		planned.Editor, err = p.Optional("Editor command", ws.Editor)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	plan := &editPlan{
-		profileID: id,
-		planned:   planned,
-		diff:      buildFieldDiff(prof, &planned),
+		workspaceID: id,
+		planned:     planned,
+		diff:        buildFieldDiff(ws, &planned),
 	}
 
 	decisions := map[string]bool{}
-	remaining := append([]string(nil), prof.LinkedRepos...)
+	remaining := append([]string(nil), ws.LinkedRepos...)
 	currentRepoID := ""
 	if gitDir, err := memrepo.GitDir(); err == nil {
 		if perRepo, err := memrepo.Load(gitDir); err == nil && perRepo.RepoID != "" {
@@ -120,7 +120,7 @@ func profileEditPlan(_ *cobra.Command, s *shared.State, id string, prof *shared.
 			currentRepoID = rid
 		}
 	}
-	if currentRepoID != "" && containsString(prof.LinkedRepos, currentRepoID) {
+	if currentRepoID != "" && containsString(ws.LinkedRepos, currentRepoID) {
 		repo, _ := shared.GetRepo(s, currentRepoID)
 		repoName := currentRepoID
 		if repo != nil {
@@ -171,7 +171,7 @@ func profileEditPlan(_ *cobra.Command, s *shared.State, id string, prof *shared.
 		}
 	}
 
-	for _, repoID := range prof.LinkedRepos {
+	for _, repoID := range ws.LinkedRepos {
 		repo, err := shared.GetRepo(s, repoID)
 		if err != nil {
 			continue
@@ -190,7 +190,7 @@ func profileEditPlan(_ *cobra.Command, s *shared.State, id string, prof *shared.
 	return plan, nil
 }
 
-func buildFieldDiff(before, after *shared.Profile) []fieldChange {
+func buildFieldDiff(before, after *shared.Workspace) []fieldChange {
 	show := func(v string) string {
 		if v == "" {
 			return "(unset)"
@@ -217,9 +217,9 @@ func buildFieldDiff(before, after *shared.Profile) []fieldChange {
 	return diff
 }
 
-func profileEditSummaryConfirm(plan *editPlan, p prompt.Prompter) error {
+func workspaceEditSummaryConfirm(plan *editPlan, p prompt.Prompter) error {
 	fmt.Println()
-	fmt.Printf("Profile %q changes:\n", plan.planned.Name)
+	fmt.Printf("Workspace %q changes:\n", plan.planned.Name)
 	if len(plan.diff) == 0 {
 		fmt.Println("  (no field changes)")
 	} else {
@@ -262,27 +262,27 @@ func errIfNotOK(ok bool, err error) error {
 	return nil
 }
 
-func profileEditCommit(cmd *cobra.Command, s *shared.State, plan *editPlan, p prompt.Prompter) error {
-	prof, err := shared.GetProfile(s, plan.profileID)
+func workspaceEditCommit(cmd *cobra.Command, s *shared.State, plan *editPlan, p prompt.Prompter) error {
+	ws, err := shared.GetWorkspace(s, plan.workspaceID)
 	if err != nil {
 		return err
 	}
-	in := shared.UpdateProfileInput{
+	in := shared.UpdateWorkspaceInput{
 		UserName:   &plan.planned.UserName,
 		UserEmail:  &plan.planned.UserEmail,
 		SigningKey: &plan.planned.SigningKey,
 		Editor:     &plan.planned.Editor,
 		GPGProgram: &plan.planned.GPGProgram,
 	}
-	if err := shared.UpdateProfile(s, plan.profileID, in); err != nil {
+	if err := shared.UpdateWorkspace(s, plan.workspaceID, in); err != nil {
 		return err
 	}
 	if err := shared.Save(s); err != nil {
 		return err
 	}
-	prof = &plan.planned
-	if saved, _ := shared.GetProfile(s, plan.profileID); saved != nil {
-		prof.LinkedRepos = saved.LinkedRepos
+	ws = &plan.planned
+	if saved, _ := shared.GetWorkspace(s, plan.workspaceID); saved != nil {
+		ws.LinkedRepos = saved.LinkedRepos
 	}
 
 	wd, _ := os.Getwd()
@@ -295,7 +295,7 @@ func profileEditCommit(cmd *cobra.Command, s *shared.State, plan *editPlan, p pr
 			failed++
 			continue
 		}
-		if err := shared.ApplyProfile(prof, p, force); err != nil {
+		if err := shared.ApplyWorkspace(ws, p, force); err != nil {
 			text.ErrorText("repo " + t.name + ": " + err.Error())
 			failed++
 			continue

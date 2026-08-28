@@ -52,13 +52,13 @@ Avoid: conflating with shared/repo memory stores or test types `MemoryRunner` / 
 
 Imports legacy elegant-git data; scope depends on the CLI object prefix.
 
-### Profile
+### Workspace
 
 Reusable git identity bundle stored in shared memory (`user_name`, `user_email`, and optional signing, editor, gpg fields).
 
-Notes: stable id is a UUID map key (`profile_id` in JSON); `name` is the display label; CLI object `profile` manages create/edit/delete/status.
+Notes: stable id is a UUID map key (`workspace_id` in JSON); `name` is the display label; CLI object `workspace` manages create/edit/delete/status.
 
-Aliases: identity profile
+Aliases: profile (deprecated), identity profile
 
 ### Release
 
@@ -72,7 +72,7 @@ Avoid: using “repo” when you mean the **Repository** entity in shared memory
 
 ### Repo memory
 
-Per-repository elegant-git store at `<git-dir>/elegant-git/state.json` (`profile_id`, `default_branch`, `protected_branches`).
+Per-repository elegant-git store at `<git-dir>/elegant-git/state.json` (`workspace_id`, `default_branch`, `protected_branches`).
 
 Aliases: per-repo memory (deprecated wording)
 
@@ -82,14 +82,14 @@ Avoid: “git config” for default or protected branches
 
 ### Repository
 
-A git working copy tracked in shared memory (`profile_id`, `current_path`, `path_history`, optional `origin_url`).
+A git working copy tracked in shared memory (`workspace_id`, `current_path`, `path_history`, optional `origin_url`).
 
 Notes: stable id is UUID (`elegant-git.repo-id` in local git config, `repo_id` in repo memory); `name` is the display label; entries live in the `Repositories` map in shared memory (listed via `memory repositories`).
 Avoid: “managed repository”; unqualified “repository” when meaning any clone
 
 ### Shared memory
 
-User-level elegant-git store at `$XDG_CONFIG_HOME/elegant-git/state.json` (profiles and the repository registry).
+User-level elegant-git store at `$XDG_CONFIG_HOME/elegant-git/state.json` (workspaces and the repository registry).
 
 Aliases: shared state
 
@@ -101,7 +101,7 @@ Avoid: “memory” alone; “config file” when meaning git config
 
 Action name shared by two CLI objects with different meaning.
 
-Notes: `repo sync` re-applies linked profile settings to one or all tracked repositories; `work sync` actualizes the current branch with upstream commits.
+Notes: `repo sync` re-applies linked workspace settings to one or all tracked repositories; `work sync` actualizes the current branch with upstream commits.
 
 ### Work
 

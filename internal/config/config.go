@@ -143,7 +143,7 @@ func BasicsConfiguration(scope string, onlyUnset bool, p prompt.Prompter) error 
 	})
 }
 
-// RepositoryBasicsConfiguration sets user and editor locally (profile flow handles identity).
+// RepositoryBasicsConfiguration sets user and editor locally (workspace flow handles identity).
 func RepositoryBasicsConfiguration(scope string, p prompt.Prompter) error {
 	return basicsConfiguration(scope, false, p, []ConfigField{
 		{"user.name", "Git user.name", configGet(scope, "user.name")},

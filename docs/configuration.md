@@ -5,7 +5,7 @@ levels of configurations (see below) that can be applied to a Git repository (lo
 and/or to a Git installation globally (global configuration). So,
 
 - the local configuration applies by running [`git elegant repo configure`](commands.md#repo)
-  and configures the current Git repository (profile linkage, per-repo memory, optional local
+  and configures the current Git repository (workspace linkage, per-repo memory, optional local
   standards and aliases)
 - the global configuration applies by running [`git elegant git configure`](commands.md#git)
   and uses `git config --global <key> <value>` for Git installation-wide settings
@@ -89,16 +89,16 @@ For now, only `gpg` is supported. If you need other tools, please [create a new 
 
 # Memory
 
-Elegant Git stores profiles and repository metadata outside plain `git config`:
+Elegant Git stores workspaces and repository metadata outside plain `git config`:
 
-- **Shared memory:** `$XDG_CONFIG_HOME/elegant-git/state.json` (override: `ELEGANT_GIT_STATE_FILE`). Holds profiles (`name`, `user_name`, `user_email`, optional `signing_key`, `editor`, `gpg_program`, `linked_repos`) and a registry of managed repositories (`profile_id`, `current_path`, `path_history`, `origin_url`).
-- **Per-repo memory:** `<repo>/.git/elegant-git/state.json` (override: `ELEGANT_GIT_REPO_STATE_FILE`). Holds `profile_id`, `default_branch`, and `protected_branches`.
+- **Shared memory:** `$XDG_CONFIG_HOME/elegant-git/state.json` (override: `ELEGANT_GIT_STATE_FILE`). Holds workspaces (`name`, `user_name`, `user_email`, optional `signing_key`, `editor`, `gpg_program`, `linked_repos`) and a registry of managed repositories (`workspace_id`, `current_path`, `path_history`, `origin_url`). Schema version 2. Older files (v1 `profiles` / `profile_id`) are auto-migrated on load: a `state.json.bak` backup is written first, then the file is rewritten. Restore with `mv state.json.bak state.json` if needed.
+- **Per-repo memory:** `<repo>/.git/elegant-git/state.json` (override: `ELEGANT_GIT_REPO_STATE_FILE`). Holds `workspace_id`, `default_branch`, and `protected_branches`.
 
-`repo configure` links the current repository to a profile, writes `user.name` / `user.email` into `.git/config`, and prompts before applying optional profile fields (`signing_key`, `editor`, `gpg_program`). Values already matching the profile are skipped without prompts. Every `git config` set or unset is logged before execution. Elegant-git-specific branch settings live only in per-repo memory; legacy `elegant-git.default-branch` and `elegant-git.protected-branches` keys are removed from `.git/config` after migration (logged unsets).
+`repo configure` links the current repository to a workspace, writes `user.name` / `user.email` into `.git/config`, and prompts before applying optional workspace fields (`signing_key`, `editor`, `gpg_program`). Values already matching the workspace are skipped without prompts. Every `git config` set or unset is logged before execution. Elegant-git-specific branch settings live only in per-repo memory; legacy `elegant-git.default-branch` and `elegant-git.protected-branches` keys are removed from `.git/config` after migration (logged unsets).
 
-Profiles can be created three ways: `git configure` (offer after global setup), `repo configure` (picker: existing profile, `[Create new]`, or `[Use settings from this repository]` when the repo already has `user.name` and `user.email`), or `profile create` (manual; suggests from local then global git config).
+Workspaces can be created three ways: `git configure` (offer after global setup), `repo configure` (picker: existing workspace, `[Create new]`, or `[Use settings from this repository]` when the repo already has `user.name` and `user.email`), or `workspace create` (manual; suggests from local then global git config).
 
-`profile edit` is transactional: collect field edits and per-repo apply decisions, show one summary, confirm once, then save shared memory and apply to selected repositories.
+`workspace edit` is transactional: collect field edits and per-repo apply decisions, show one summary, confirm once, then save shared memory and apply to selected repositories.
 
 # Custom keys
 

@@ -9,7 +9,8 @@ func NewCommand() *cobra.Command {
 		Short: "Inspect elegant-git memory stores",
 	}
 	c.AddCommand(newStatusCommand())
-	c.AddCommand(newProfilesCommand())
+	c.AddCommand(newWorkspacesCommand())
+	c.AddCommand(newLegacyProfilesCommand())
 	c.AddCommand(newRepositoriesCommand())
 	return c
 }

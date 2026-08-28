@@ -15,7 +15,7 @@ A question is one line when there are 0–1 options: `<prompt> [<suggested>] (<a
 - Required with a suggestion: `Git user.name [Alice] (press enter to accept):`
 - Optional with a suggestion: `Signing key [ABC123]:` (empty Enter leaves it unset)
 - Optional with no suggestion: `Signing key (press enter to skip):`
-- Required with no suggestion: `Profile name:` (empty Enter asks again)
+- Required with no suggestion: `Workspace name:` (empty Enter asks again)
 
 Interactive mode is the default when stdin is a TTY. Non-TTY stdin is always non-interactive. On a TTY, `--non-interactive` / `ELEGANT_GIT_NON_INTERACTIVE=1` or `CI` disable prompts; `--interactive` / `ELEGANT_GIT_INTERACTIVE=1` forces prompts (overrides `CI` and `--non-interactive`).
 
@@ -27,24 +27,24 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 
 | Command | Description |
 | --- | --- |
-| `memory status` | Summarizes shared memory paths, profile/repository counts, and current repository hint. |
-| `memory profiles` | Lists profiles (`--format=table\|json`). `memory profiles <name>` shows full details for one profile. |
-| `memory repositories` | Lists managed repositories (`name`, profile, path). `memory repositories <name-or-path>` shows full details for one. |
+| `memory status` | Summarizes shared memory paths, workspace/repository counts, and current repository hint. |
+| `memory workspaces` | Lists workspaces (`--format=table\|json`). `memory workspaces <name>` shows full details for one workspace. |
+| `memory repositories` | Lists managed repositories (`name`, workspace, path). `memory repositories <name-or-path>` shows full details for one. |
 
-### profile
+### workspace
 
 | Command | Description |
 | --- | --- |
-| `profile status` | Shows the linked profile for the current repository (when inside a git work tree). |
-| `profile create <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]` | Creates a profile. Required arguments are prompted when missing in interactive mode. |
-| `profile edit <name>` | Edits a profile transactionally: plan changes and repo targets, summary + single confirm, then commit to shared memory and selected repos. |
-| `profile delete [name]` | Deletes a profile only when no repositories are linked. |
+| `workspace status` | Shows the linked workspace for the current repository (when inside a git work tree). |
+| `workspace create <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]` | Creates a workspace. Required arguments are prompted when missing in interactive mode. |
+| `workspace edit <name>` | Edits a workspace transactionally: plan changes and repo targets, summary + single confirm, then commit to shared memory and selected repos. |
+| `workspace delete [name]` | Deletes a workspace only when no repositories are linked. |
 
 ### git
 
 | Command | Description |
 | --- | --- |
-| `git configure` | Configures your Git installation (global); offers to create a profile from global values. |
+| `git configure` | Configures your Git installation (global); offers to create a workspace from global values. |
 | `git status` | Shows global Git installation and shared memory state (not the same as native `git status`). |
 | `git migrate` | Migrates global aliases and legacy `elegant-git.acquired` into shared memory. |
 
@@ -52,11 +52,11 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 
 | Command | Description |
 | --- | --- |
-| `repo configure <profile>` | Configures the current local repository. |
-| `repo clone <repository> <profile> [<directory>]` | Clones a remote repository and configures it. |
-| `repo init <profile>` | Initializes a new repository and configures it. |
+| `repo configure <workspace>` | Configures the current local repository. |
+| `repo clone <repository> <workspace> [<directory>]` | Clones a remote repository and configures it. |
+| `repo init <workspace>` | Initializes a new repository and configures it. |
 | `repo status` | Shows per-repo memory, registry linkage, branch settings, and local git identity for the current repository. |
-| `repo sync` | Re-applies profile settings (`--all` for every managed repo; `[yes/no/all/skip]` per repo). |
+| `repo sync` | Re-applies workspace settings (`--all` for every managed repo; `[yes/no/all/skip]` per repo). |
 | `repo prune` | Removes useless local branches. |
 | `repo migrate` | Migrates local aliases, hooks, and elegant-git settings into memory. |
 

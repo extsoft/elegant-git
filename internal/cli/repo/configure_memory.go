@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func configureWithMemory(cmd *cobra.Command, profileName string) error {
+func configureWithMemory(cmd *cobra.Command, workspaceName string) error {
 	p := prompt.FromContext(cmd.Context())
 	repoID, err := repoid.EnsureLocal()
 	if err != nil {
@@ -42,7 +42,7 @@ func configureWithMemory(cmd *cobra.Command, profileName string) error {
 	}
 	perRepo.RepoID = repoID
 
-	profileID, prof, err := resolveProfile(sharedState, profileName, p)
+	workspaceID, ws, err := resolveWorkspace(sharedState, workspaceName, p)
 	if err != nil {
 		return err
 	}
@@ -50,13 +50,13 @@ func configureWithMemory(cmd *cobra.Command, profileName string) error {
 	repoName := filepath.Base(cwd)
 	origin := strings.TrimSpace(git.OutputOK("config", "--get", "remote.origin.url"))
 	if err := shared.UpsertRepo(sharedState, shared.UpsertRepoInput{
-		ID: repoID, Name: repoName, ProfileID: profileID, CurrentPath: cwd, OriginURL: origin,
+		ID: repoID, Name: repoName, WorkspaceID: workspaceID, CurrentPath: cwd, OriginURL: origin,
 	}); err != nil {
 		return err
 	}
 
-	perRepo.ProfileID = profileID
-	if err := shared.ApplyProfile(prof, p, &shared.Apply{Force: true}); err != nil {
+	perRepo.WorkspaceID = workspaceID
+	if err := shared.ApplyWorkspace(ws, p, &shared.Apply{Force: true}); err != nil {
 		return err
 	}
 
@@ -73,23 +73,23 @@ func configureWithMemory(cmd *cobra.Command, profileName string) error {
 	return shared.Save(sharedState)
 }
 
-func resolveProfile(s *shared.State, profileName string, p prompt.Prompter) (string, *shared.Profile, error) {
-	if profileName == sources.ProfileCreateNew {
+func resolveWorkspace(s *shared.State, workspaceName string, p prompt.Prompter) (string, *shared.Workspace, error) {
+	if workspaceName == sources.WorkspaceCreateNew {
 		if prompt.NonInteractive(p) {
-			return "", nil, fmt.Errorf("profile creation requires interactive mode")
+			return "", nil, fmt.Errorf("workspace creation requires interactive mode")
 		}
-		return createProfileInteractive(p, s)
+		return createWorkspaceInteractive(p, s)
 	}
-	id, prof, err := shared.GetProfileByName(s, profileName)
+	id, ws, err := shared.GetWorkspaceByName(s, workspaceName)
 	if err != nil {
-		return "", nil, fmt.Errorf("profile %q: %w", profileName, err)
+		return "", nil, fmt.Errorf("workspace %q: %w", workspaceName, err)
 	}
-	return id, prof, nil
+	return id, ws, nil
 }
 
-func createProfileInteractive(p prompt.Prompter, s *shared.State) (string, *shared.Profile, error) {
+func createWorkspaceInteractive(p prompt.Prompter, s *shared.State) (string, *shared.Workspace, error) {
 	emailHint := git.ConfigEffectiveLocal("user.email")
-	name, err := p.EditOrAccept("Profile name", defaultProfileName(emailHint))
+	name, err := p.EditOrAccept("Workspace name", defaultWorkspaceName(emailHint))
 	if err != nil {
 		return "", nil, err
 	}
@@ -113,17 +113,17 @@ func createProfileInteractive(p prompt.Prompter, s *shared.State) (string, *shar
 	if err != nil {
 		return "", nil, err
 	}
-	id, err := shared.CreateProfile(s, shared.CreateProfileInput{
+	id, err := shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
 		Name: name, UserName: userName, UserEmail: userEmail,
 		SigningKey: signingKey, Editor: editor, GPGProgram: gpgProgram,
 	})
 	if err != nil {
 		return "", nil, err
 	}
-	return id, s.Profiles[id], nil
+	return id, s.Workspaces[id], nil
 }
 
-func defaultProfileName(email string) string {
+func defaultWorkspaceName(email string) string {
 	if i := strings.Index(email, "@"); i > 0 {
 		return email[:i]
 	}

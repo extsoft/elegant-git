@@ -19,7 +19,7 @@ func newSyncCommand() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "sync",
-		Short: "Re-apply profile settings to repositories",
+		Short: "Re-apply workspace settings to repositories",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cliruntime.RunWithWorkflows(cmd, syncID, func() error {
 				return syncRun(cmd, all)
@@ -64,9 +64,9 @@ func syncRun(cmd *cobra.Command, all bool) error {
 		if err != nil {
 			continue
 		}
-		prof, err := shared.GetProfile(s, repo.ProfileID)
+		prof, err := shared.GetWorkspace(s, repo.WorkspaceID)
 		if err != nil {
-			text.ErrorText("repo " + repo.Name + ": profile missing")
+			text.ErrorText("repo " + repo.Name + ": workspace missing")
 			continue
 		}
 		apply := &shared.Apply{Force: applyAll}
@@ -91,7 +91,7 @@ func syncRun(cmd *cobra.Command, all bool) error {
 			text.ErrorText("repo " + repo.Name + ": path missing: " + repo.CurrentPath)
 			continue
 		}
-		if err := shared.ApplyProfile(prof, p, apply); err != nil {
+		if err := shared.ApplyWorkspace(prof, p, apply); err != nil {
 			return err
 		}
 		text.InfoText("Synced " + repo.Name)

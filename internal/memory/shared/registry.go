@@ -12,17 +12,17 @@ import (
 type UpsertRepoInput struct {
 	ID          string
 	Name        string
-	ProfileID   string
+	WorkspaceID string
 	CurrentPath string
 	OriginURL   string
 }
 
 // UpsertRepo creates or updates a repository registry entry.
 func UpsertRepo(s *State, in UpsertRepoInput) error {
-	if in.ProfileID == "" {
-		return fmt.Errorf("profile_id is required")
+	if in.WorkspaceID == "" {
+		return fmt.Errorf("workspace_id is required")
 	}
-	if _, err := GetProfile(s, in.ProfileID); err != nil {
+	if _, err := GetWorkspace(s, in.WorkspaceID); err != nil {
 		return err
 	}
 	id := in.ID
@@ -46,17 +46,17 @@ func UpsertRepo(s *State, in UpsertRepoInput) error {
 		return err
 	}
 	existing, ok := s.Repositories[id]
-	if ok && existing != nil && existing.ProfileID != "" && existing.ProfileID != in.ProfileID {
-		unlinkRepo(s, id, existing.ProfileID)
+	if ok && existing != nil && existing.WorkspaceID != "" && existing.WorkspaceID != in.WorkspaceID {
+		unlinkRepo(s, id, existing.WorkspaceID)
 	}
 	s.Repositories[id] = &Repository{
 		Name:        in.Name,
-		ProfileID:   in.ProfileID,
+		WorkspaceID: in.WorkspaceID,
 		CurrentPath: path,
 		PathHistory: pathHistory(existing),
 		OriginURL:   in.OriginURL,
 	}
-	linkRepo(s, id, in.ProfileID)
+	linkRepo(s, id, in.WorkspaceID)
 	return nil
 }
 
@@ -67,22 +67,22 @@ func pathHistory(existing *Repository) []string {
 	return existing.PathHistory
 }
 
-func linkRepo(s *State, repoID, profileID string) {
-	p := s.Profiles[profileID]
-	if p == nil {
+func linkRepo(s *State, repoID, workspaceID string) {
+	ws := s.Workspaces[workspaceID]
+	if ws == nil {
 		return
 	}
-	if !containsString(p.LinkedRepos, repoID) {
-		p.LinkedRepos = append(p.LinkedRepos, repoID)
+	if !containsString(ws.LinkedRepos, repoID) {
+		ws.LinkedRepos = append(ws.LinkedRepos, repoID)
 	}
 }
 
-func unlinkRepo(s *State, repoID, profileID string) {
-	p := s.Profiles[profileID]
-	if p == nil {
+func unlinkRepo(s *State, repoID, workspaceID string) {
+	ws := s.Workspaces[workspaceID]
+	if ws == nil {
 		return
 	}
-	p.LinkedRepos = removeString(p.LinkedRepos, repoID)
+	ws.LinkedRepos = removeString(ws.LinkedRepos, repoID)
 }
 
 // GetRepo returns a repository by id.
@@ -130,20 +130,20 @@ func ListRepos(s *State) map[string]*Repository {
 	return s.Repositories
 }
 
-// Relink changes which profile owns a repository.
-func Relink(s *State, repoID, newProfileID string) error {
+// Relink changes which workspace owns a repository.
+func Relink(s *State, repoID, newWorkspaceID string) error {
 	repo, err := GetRepo(s, repoID)
 	if err != nil {
 		return err
 	}
-	if _, err := GetProfile(s, newProfileID); err != nil {
+	if _, err := GetWorkspace(s, newWorkspaceID); err != nil {
 		return err
 	}
-	old := repo.ProfileID
-	repo.ProfileID = newProfileID
-	if old != newProfileID {
+	old := repo.WorkspaceID
+	repo.WorkspaceID = newWorkspaceID
+	if old != newWorkspaceID {
 		unlinkRepo(s, repoID, old)
-		linkRepo(s, repoID, newProfileID)
+		linkRepo(s, repoID, newWorkspaceID)
 	}
 	return nil
 }
@@ -168,7 +168,7 @@ func DeleteRepo(s *State, repoID string) error {
 	if err != nil {
 		return err
 	}
-	unlinkRepo(s, repoID, repo.ProfileID)
+	unlinkRepo(s, repoID, repo.WorkspaceID)
 	delete(s.Repositories, repoID)
 	return nil
 }

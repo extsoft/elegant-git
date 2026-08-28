@@ -1,4 +1,4 @@
-package profile
+package workspace
 
 import (
 	"fmt"
@@ -13,8 +13,8 @@ import (
 
 func createSpec(name, userName, userEmail, signingKey, gpgProgram, editor *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInput("name", 0, true, "Profile name", name, func() string {
-			return defaultProfileName(suggestField(*userEmail, "user.email"))
+		argspec.PositionalInput("name", 0, true, "Workspace name", name, func() string {
+			return defaultWorkspaceName(suggestField(*userEmail, "user.email"))
 		}),
 		argspec.PositionalInput("user-name", 1, true, "Git user.name", userName, func() string {
 			return suggestField(*userName, "user.name")
@@ -46,14 +46,14 @@ func newCreateCommand() *cobra.Command {
 	spec := createSpec(&name, &userName, &userEmail, &signingKey, &gpgProgram, &editor)
 	c := &cobra.Command{
 		Use:   "create <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]",
-		Short: "Create a profile",
-		Long:  "Creates a Git user profile in shared memory. Required fields can be passed as arguments or prompted interactively.",
+		Short: "Create a workspace",
+		Long:  "Creates a Git workspace in shared memory. Required fields can be passed as arguments or prompted interactively.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
 			}
 			if name == "" {
-				return fmt.Errorf("profile name is required")
+				return fmt.Errorf("workspace name is required")
 			}
 			if userName == "" || userEmail == "" {
 				return fmt.Errorf("user name and email are required")
@@ -62,7 +62,7 @@ func newCreateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			id, err := shared.CreateProfile(s, shared.CreateProfileInput{
+			id, err := shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
 				Name: name, UserName: userName, UserEmail: userEmail,
 				SigningKey: signingKey, Editor: editor, GPGProgram: gpgProgram,
 			})
@@ -72,14 +72,14 @@ func newCreateCommand() *cobra.Command {
 			if err := shared.Save(s); err != nil {
 				return err
 			}
-			prof, _ := shared.GetProfile(s, id)
-			if err := offerApplyToCurrentRepo(cmd, s, id, prof); err != nil {
+			ws, _ := shared.GetWorkspace(s, id)
+			if err := offerApplyToCurrentRepo(cmd, s, id, ws); err != nil {
 				return err
 			}
 			if err := shared.Save(s); err != nil {
 				return err
 			}
-			text.InfoText(fmt.Sprintf("Created profile %s (%s)", name, id))
+			text.InfoText(fmt.Sprintf("Created workspace %s (%s)", name, id))
 			return nil
 		},
 	}

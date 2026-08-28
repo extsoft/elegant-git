@@ -8,6 +8,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/cli/legacy"
 	"github.com/bees-hive/elegant-git/internal/config"
 	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
@@ -49,10 +50,27 @@ func migrateGlobal(dryRun bool) error {
 	if err := config.MigrateAcquiredValue("--global"); err != nil {
 		return err
 	}
+	if !dryRun {
+		if err := migrateSharedMemorySchema(); err != nil {
+			return err
+		}
+	}
 	if dryRun {
 		text.Complete("Global migration complete (dry run).")
 	} else {
 		text.Complete("Global migration complete.")
 	}
 	return nil
+}
+
+func migrateSharedMemorySchema() error {
+	s, err := shared.Load()
+	if err != nil {
+		return err
+	}
+	if !shared.LastLoadHadLegacyKeys() {
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, "  shared memory: rewriting profiles/profile_id -> workspaces/workspace_id")
+	return shared.Save(s)
 }

@@ -23,14 +23,14 @@ func TestSyncRegistryPathUpdatesMovedRepo(t *testing.T) {
 
 	repoID := "repo-1"
 	s, _ := shared.Load()
-	profID, err := shared.CreateProfile(s, shared.CreateProfileInput{
+	profID, err := shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
 		Name: "p", UserName: "u", UserEmail: "u@example.com",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := shared.UpsertRepo(s, shared.UpsertRepoInput{
-		ID: repoID, Name: "demo", ProfileID: profID, CurrentPath: oldPath,
+		ID: repoID, Name: "demo", WorkspaceID: profID, CurrentPath: oldPath,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestSyncRegistryPathUsesCWDWhenPathEmpty(t *testing.T) {
 
 	repoID := "repo-1"
 	s, _ := shared.Load()
-	profID, err := shared.CreateProfile(s, shared.CreateProfileInput{
+	profID, err := shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
 		Name: "p", UserName: "u", UserEmail: "u@example.com",
 	})
 	if err != nil {
@@ -117,7 +117,7 @@ func TestSyncRegistryPathUsesCWDWhenPathEmpty(t *testing.T) {
 	}
 	oldPath := filepath.Join(dir, "elsewhere")
 	if err := shared.UpsertRepo(s, shared.UpsertRepoInput{
-		ID: repoID, Name: "demo", ProfileID: profID, CurrentPath: oldPath,
+		ID: repoID, Name: "demo", WorkspaceID: profID, CurrentPath: oldPath,
 	}); err != nil {
 		t.Fatal(err)
 	}

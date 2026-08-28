@@ -59,7 +59,7 @@ func configureRun(cmd *cobra.Command) error {
 	if err := config.AliasesConfiguration("--global"); err != nil {
 		return err
 	}
-	if err := offerCreateProfileFromGlobal(cmd); err != nil {
+	if err := offerCreateWorkspaceFromGlobal(cmd); err != nil {
 		return err
 	}
 	text.Complete("Global Git configuration complete.")

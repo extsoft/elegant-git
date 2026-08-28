@@ -21,7 +21,7 @@ func TestStatusCommandOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Profiles["p"] = &shared.Profile{Name: "p", UserName: "P", UserEmail: "p@x.com", LinkedRepos: []string{}}
+	s.Workspaces["p"] = &shared.Workspace{Name: "p", UserName: "P", UserEmail: "p@x.com", LinkedRepos: []string{}}
 	if err := shared.Save(s); err != nil {
 		t.Fatal(err)
 	}
@@ -43,6 +43,6 @@ func TestStatusCommandOutput(t *testing.T) {
 		}
 	}
 	if strings.Contains(out, "profiles:\n") {
-		t.Fatal("should not dump profiles section")
+		t.Fatal("should not dump workspaces section")
 	}
 }

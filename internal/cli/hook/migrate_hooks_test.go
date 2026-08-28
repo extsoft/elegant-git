@@ -24,7 +24,7 @@ func TestMigrateHooksMovesExtraFilesAndRemovesWorkflows(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ws := runtime.Workspace{RepoRoot: root}
+	ws := runtime.RepoLayout{RepoRoot: root}
 	newPaths, oldPaths, err := MigrateHooks(ws, false, false)
 	if err != nil {
 		t.Fatal(err)

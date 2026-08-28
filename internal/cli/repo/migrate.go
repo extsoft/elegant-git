@@ -11,6 +11,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/git"
 	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
 	"github.com/bees-hive/elegant-git/internal/memory/repoid"
+	"github.com/bees-hive/elegant-git/internal/memory/shared"
 	"github.com/bees-hive/elegant-git/internal/runtime"
 	"github.com/bees-hive/elegant-git/internal/text"
 	"github.com/spf13/cobra"
@@ -54,7 +55,7 @@ func migrateLocal(dryRun bool) error {
 			return err
 		}
 	}
-	ws := runtime.Workspace{RepoRoot: "."}
+	ws := runtime.RepoLayout{RepoRoot: "."}
 	newPaths, oldPaths, err := hookcmd.MigrateHooks(ws, true, dryRun)
 	if err != nil {
 		return err
@@ -66,6 +67,9 @@ func migrateLocal(dryRun bool) error {
 			}
 		}
 		if err := migrateRepoMemory(); err != nil {
+			return err
+		}
+		if err := migrateSharedMemorySchema(); err != nil {
 			return err
 		}
 		text.SuggestGitAddCommit(newPaths, oldPaths, "Migrate Elegant Git hooks")
@@ -101,5 +105,18 @@ func migrateRepoMemory() error {
 	if err := memrepo.UnsetLegacyElegantGitKeys(); err != nil {
 		return err
 	}
+	// Always save so v1 profile_id is rewritten to workspace_id when present.
 	return memrepo.Save(gitDir, perRepo)
+}
+
+func migrateSharedMemorySchema() error {
+	s, err := shared.Load()
+	if err != nil {
+		return err
+	}
+	if !shared.LastLoadHadLegacyKeys() {
+		return nil
+	}
+	fmt.Fprintln(os.Stdout, "  shared memory: rewriting profiles/profile_id -> workspaces/workspace_id")
+	return shared.Save(s)
 }

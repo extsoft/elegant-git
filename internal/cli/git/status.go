@@ -9,7 +9,7 @@ func newStatusCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show global Git installation and shared memory state",
-		Long:  "Prints global Git configuration, elegant-git memory paths, and profile/repository counts.",
+		Long:  "Prints global Git configuration, elegant-git memory paths, and workspace/repository counts.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return memorycmd.PrintGitStatus(cmd.OutOrStdout())
 		},

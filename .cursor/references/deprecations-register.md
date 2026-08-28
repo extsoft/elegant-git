@@ -12,4 +12,5 @@
 | DEP-008 | 2026-05-22 | hook dispatch: acquire-repository, obtain-work from clone/init/accept | repo.configure, work.track + legacy hooks | migrate hooks | 2027-01-31 | active |
 | DEP-009 | 2026-05-22 | config: elegant-git.acquired=true | shared memory `acquired_version` | `git elegant git migrate` / `git elegant repo migrate` | 2027-01-31 | active |
 | DEP-010 | 2026-05-24 | config: elegant-git.default-branch, elegant-git.protected-branches in `.git/config` | per-repo memory `.git/elegant-git/state.json` | `git elegant repo configure` / `git elegant repo migrate` | 2027-01-31 | active |
-| DEP-011 | 2026-05-24 | commands: `profile list`, `repo list`, `hook list` | `memory profiles`, `memory repositories`, `hook status` | use replacement commands | 2027-01-31 | active |
+| DEP-011 | 2026-05-24 | commands: `workspace list`, `repo list`, `hook list` | `memory workspaces`, `memory repositories`, `hook status` | use replacement commands | 2027-01-31 | active |
+| DEP-012 | 2026-08-28 | commands: `profile *`, `memory profiles`; shared/per-repo memory keys `profiles`, `profile_id` | `workspace *`, `memory workspaces`, `workspaces`, `workspace_id` | `git elegant repo migrate` / `git elegant git migrate` | 2027-06-30 | active |

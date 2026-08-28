@@ -13,7 +13,7 @@ import (
 func TestStatusListEmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	var buf bytes.Buffer
-	if err := statusList(runtime.Workspace{RepoRoot: root}, &buf); err != nil {
+	if err := statusList(runtime.RepoLayout{RepoRoot: root}, &buf); err != nil {
 		t.Fatal(err)
 	}
 	if buf.Len() != 0 {
@@ -45,7 +45,7 @@ func TestStatusListFindsHookFiles(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := statusList(runtime.Workspace{RepoRoot: root}, &buf); err != nil {
+	if err := statusList(runtime.RepoLayout{RepoRoot: root}, &buf); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")

@@ -1,4 +1,4 @@
-package profile
+package workspace
 
 import (
 	"github.com/bees-hive/elegant-git/internal/cli/argspec"
@@ -12,7 +12,7 @@ import (
 
 func deleteSpec(name *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("name", 0, true, "Profile name", name, nil, sources.Profiles, true),
+		argspec.PositionalInputWithComplete("name", 0, true, "Workspace name", name, nil, sources.Workspaces, true),
 	}}
 }
 
@@ -21,8 +21,8 @@ func newDeleteCommand() *cobra.Command {
 	spec := deleteSpec(&name)
 	c := &cobra.Command{
 		Use:   "delete [name]",
-		Short: "Delete a profile",
-		Long:  "Deletes a profile from shared memory when no repositories are linked to it. When name is omitted, choose from existing profiles.",
+		Short: "Delete a workspace",
+		Long:  "Deletes a workspace from shared memory when no repositories are linked to it. When name is omitted, choose from existing workspaces.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
@@ -31,17 +31,17 @@ func newDeleteCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			id, _, err := shared.GetProfileByName(s, name)
+			id, _, err := shared.GetWorkspaceByName(s, name)
 			if err != nil {
 				return err
 			}
-			if err := shared.DeleteProfile(s, id); err != nil {
+			if err := shared.DeleteWorkspace(s, id); err != nil {
 				return err
 			}
 			if err := shared.Save(s); err != nil {
 				return err
 			}
-			text.InfoText("Deleted profile " + name)
+			text.InfoText("Deleted workspace " + name)
 			return nil
 		},
 	}

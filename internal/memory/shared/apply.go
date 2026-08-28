@@ -5,15 +5,15 @@ import (
 	"github.com/bees-hive/elegant-git/internal/prompt"
 )
 
-// Apply controls how ApplyProfile writes keys during propagation.
+// Apply controls how ApplyWorkspace writes keys during propagation.
 type Apply struct {
 	Force bool
 	Skip  bool
 }
 
-// ApplyProfile writes profile identity into local git config.
-func ApplyProfile(p *Profile, prompter prompt.Prompter, a *Apply) error {
-	if p == nil {
+// ApplyWorkspace writes workspace identity into local git config.
+func ApplyWorkspace(ws *Workspace, prompter prompt.Prompter, a *Apply) error {
+	if ws == nil {
 		return nil
 	}
 	if a == nil {
@@ -22,19 +22,19 @@ func ApplyProfile(p *Profile, prompter prompt.Prompter, a *Apply) error {
 	if a.Skip {
 		return nil
 	}
-	if err := applyKey("user.name", p.UserName, true, prompter, a); err != nil {
+	if err := applyKey("user.name", ws.UserName, true, prompter, a); err != nil {
 		return err
 	}
-	if err := applyKey("user.email", p.UserEmail, true, prompter, a); err != nil {
+	if err := applyKey("user.email", ws.UserEmail, true, prompter, a); err != nil {
 		return err
 	}
-	if err := applyOptionalKey("user.signingkey", p.SigningKey, "Signing key", prompter, a); err != nil {
+	if err := applyOptionalKey("user.signingkey", ws.SigningKey, "Signing key", prompter, a); err != nil {
 		return err
 	}
-	if err := applyOptionalKey("gpg.program", p.GPGProgram, "GPG program", prompter, a); err != nil {
+	if err := applyOptionalKey("gpg.program", ws.GPGProgram, "GPG program", prompter, a); err != nil {
 		return err
 	}
-	return applyOptionalKey("core.editor", p.Editor, "Editor command", prompter, a)
+	return applyOptionalKey("core.editor", ws.Editor, "Editor command", prompter, a)
 }
 
 func applyKey(key, value string, required bool, prompter prompt.Prompter, a *Apply) error {

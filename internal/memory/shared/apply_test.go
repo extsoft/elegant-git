@@ -37,11 +37,11 @@ func (f fakePrompter) BatchChoice(string, string) (prompt.BatchDecision, error) 
 	return prompt.BatchSkip, nil
 }
 
-func TestApplyProfileRequiredKeys(t *testing.T) {
+func TestApplyWorkspaceRequiredKeys(t *testing.T) {
 	m := git.NewMemoryRunner()
 	git.Use(m)
-	prof := &Profile{UserName: "Jane", UserEmail: "jane@example.com", SigningKey: "ABC"}
-	if err := ApplyProfile(prof, fakePrompter{}, nil); err != nil {
+	prof := &Workspace{UserName: "Jane", UserEmail: "jane@example.com", SigningKey: "ABC"}
+	if err := ApplyWorkspace(prof, fakePrompter{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if m.Repo.LocalConfig["user.name"] != "Jane" {
@@ -52,14 +52,14 @@ func TestApplyProfileRequiredKeys(t *testing.T) {
 	}
 }
 
-func TestApplyProfileAutoSkipWhenEqual(t *testing.T) {
+func TestApplyWorkspaceAutoSkipWhenEqual(t *testing.T) {
 	m := git.NewMemoryRunner()
 	m.Repo.LocalConfig["user.name"] = "Jane"
 	m.Repo.LocalConfig["user.email"] = "jane@example.com"
 	git.Use(m)
-	prof := &Profile{UserName: "Jane", UserEmail: "jane@example.com"}
+	prof := &Workspace{UserName: "Jane", UserEmail: "jane@example.com"}
 	before := len(m.Calls)
-	if err := ApplyProfile(prof, fakePrompter{}, nil); err != nil {
+	if err := ApplyWorkspace(prof, fakePrompter{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range m.Calls[before:] {
@@ -69,11 +69,11 @@ func TestApplyProfileAutoSkipWhenEqual(t *testing.T) {
 	}
 }
 
-func TestApplyProfileForceWritesOptional(t *testing.T) {
+func TestApplyWorkspaceForceWritesOptional(t *testing.T) {
 	m := git.NewMemoryRunner()
 	git.Use(m)
-	prof := &Profile{UserName: "J", UserEmail: "j@e.com", SigningKey: "KEY"}
-	if err := ApplyProfile(prof, fakePrompter{}, &Apply{Force: true}); err != nil {
+	prof := &Workspace{UserName: "J", UserEmail: "j@e.com", SigningKey: "KEY"}
+	if err := ApplyWorkspace(prof, fakePrompter{}, &Apply{Force: true}); err != nil {
 		t.Fatal(err)
 	}
 	if m.Repo.LocalConfig["user.signingkey"] != "KEY" {
@@ -81,11 +81,11 @@ func TestApplyProfileForceWritesOptional(t *testing.T) {
 	}
 }
 
-func TestApplyProfileSkipHalts(t *testing.T) {
+func TestApplyWorkspaceSkipHalts(t *testing.T) {
 	m := git.NewMemoryRunner()
 	git.Use(m)
-	prof := &Profile{UserName: "Jane", UserEmail: "jane@example.com"}
-	if err := ApplyProfile(prof, fakePrompter{}, &Apply{Skip: true}); err != nil {
+	prof := &Workspace{UserName: "Jane", UserEmail: "jane@example.com"}
+	if err := ApplyWorkspace(prof, fakePrompter{}, &Apply{Skip: true}); err != nil {
 		t.Fatal(err)
 	}
 	if len(m.Repo.LocalConfig) != 0 {

@@ -20,7 +20,7 @@ A binary is an executable file that represents compiled Elegant Git.
 
 An object represents a logical boundary that we would like to interact with.
 
-Current objects: `memory`, `git`, `profile`, `repo`, `hook`, `work`, `release`.
+Current objects: `memory`, `git`, `workspace`, `repo`, `hook`, `work`, `release`.
 
 `version` and `completion` sit on the binary without an object. Hidden legacy
 flat names (for example `start-work`) remain as aliases.

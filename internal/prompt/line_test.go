@@ -6,7 +6,7 @@ func TestRequiredLine(t *testing.T) {
 	tests := []struct {
 		prompt, suggestion, want string
 	}{
-		{"Profile name", "", "Profile name:"},
+		{"Workspace name", "", "Workspace name:"},
 		{"Git user.name", "Alice", "Git user.name [Alice] (press enter to accept):"},
 		{"Git user.email", "alice@example.com", "Git user.email [alice@example.com] (press enter to accept):"},
 	}
@@ -40,16 +40,16 @@ func TestClosedLine(t *testing.T) {
 		want    string
 	}{
 		{
-			"Apply profile \"work\" to current repository?",
+			"Apply workspace \"work\" to current repository?",
 			yesNoOptions,
 			"yes",
-			"Apply profile \"work\" to current repository? [yes/no] (press enter to 'yes'):",
+			"Apply workspace \"work\" to current repository? [yes/no] (press enter to 'yes'):",
 		},
 		{
-			"Override existing profile \"home\"?",
+			"Override existing workspace \"home\"?",
 			yesNoOptions,
 			"no",
-			"Override existing profile \"home\"? [yes/no] (press enter to 'no'):",
+			"Override existing workspace \"home\"? [yes/no] (press enter to 'no'):",
 		},
 		{
 			"Apply to repo?",

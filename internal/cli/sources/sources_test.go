@@ -19,14 +19,14 @@ func TestHookCommandIDsFromProvider(t *testing.T) {
 	}
 }
 
-func TestProfilesWithCreateNew(t *testing.T) {
+func TestWorkspacesWithCreateNew(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
-	choices, err := ProfilesWithCreateNew(context.Background())
+	choices, err := WorkspacesWithCreateNew(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(choices) != 1 || choices[0].Value != ProfileCreateNew {
+	if len(choices) != 1 || choices[0].Value != WorkspaceCreateNew {
 		t.Fatalf("got %+v", choices)
 	}
 }

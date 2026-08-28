@@ -25,6 +25,10 @@ const (
 	DEP007 = "DEP-007"
 	DEP008 = "DEP-008"
 	DEP009 = "DEP-009"
+	DEP012 = "DEP-012"
+
+	// SurfaceAnnotation marks a cobra command as a deprecated renamed surface (DEP-012).
+	SurfaceAnnotation = "elegant-git.deprecated-surface"
 )
 
 var (
@@ -70,6 +74,11 @@ func RecordLegacyCommonHook(path string) {
 // RecordShowCommands records DEP-004.
 func RecordShowCommands() {
 	Record(DEP004, "command name: show-commands", "git elegant completion <shell>", "git elegant completion bash")
+}
+
+// RecordRenamedSurface records DEP-012 for renamed commands or memory keys.
+func RecordRenamedSurface(surface, replacement, migrate string) {
+	Record(DEP012, surface, replacement, migrate)
 }
 
 // Reset clears recorded events (tests).

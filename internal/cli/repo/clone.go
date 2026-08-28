@@ -17,10 +17,10 @@ import (
 
 var cloneID = cmdid.ID{Command: "repo", Action: "clone"}
 
-func cloneSpec(repository, profile, directory *string) argspec.Spec {
+func cloneSpec(repository, workspace, directory *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
 		argspec.PositionalInput("repository", 0, true, "Repository URL or path", repository, nil),
-		profileInput(1, profile),
+		workspaceInput(1, workspace),
 		argspec.PositionalInput("directory", 2, false, "Target directory", directory, func() string {
 			return defaultCloneDir(*repository)
 		}),
@@ -28,10 +28,10 @@ func cloneSpec(repository, profile, directory *string) argspec.Spec {
 }
 
 func newCloneCommand() *cobra.Command {
-	var repository, profileName, directory string
-	spec := cloneSpec(&repository, &profileName, &directory)
+	var repository, workspaceName, directory string
+	spec := cloneSpec(&repository, &workspaceName, &directory)
 	c := &cobra.Command{
-		Use:   "clone <repository> <profile> [<directory>]",
+		Use:   "clone <repository> <workspace> [<directory>]",
 		Short: "Clones a remote repository and configures it",
 		Long:  "Runs git clone then repo configure.",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +39,7 @@ func newCloneCommand() *cobra.Command {
 				if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 					return err
 				}
-				return cloneRun(cmd, repository, profileName, directory)
+				return cloneRun(cmd, repository, workspaceName, directory)
 			})
 		},
 	}
@@ -48,7 +48,7 @@ func newCloneCommand() *cobra.Command {
 	return c
 }
 
-func cloneRun(cmd *cobra.Command, repository, profile, directory string) error {
+func cloneRun(cmd *cobra.Command, repository, workspace, directory string) error {
 	if directory == "" {
 		directory = defaultCloneDir(repository)
 	}
@@ -59,7 +59,7 @@ func cloneRun(cmd *cobra.Command, repository, profile, directory string) error {
 	if err := os.Chdir(directory); err != nil {
 		return err
 	}
-	return ConfigureRun(cmd, profile)
+	return ConfigureRun(cmd, workspace)
 }
 
 // defaultCloneDir mirrors git clone's default destination: last path segment, without .git.

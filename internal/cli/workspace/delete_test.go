@@ -1,4 +1,4 @@
-package profile
+package workspace
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ func TestDeleteSpecKeepsCLIArg(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	s, _ := shared.Load()
-	if _, err := shared.CreateProfile(s, shared.CreateProfileInput{
+	if _, err := shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
 		Name: "dz", UserName: "D", UserEmail: "d@x.com",
 	}); err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestDeleteSpecPicksWhenMissing(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	s, _ := shared.Load()
-	if _, err := shared.CreateProfile(s, shared.CreateProfileInput{
+	if _, err := shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
 		Name: "dz", UserName: "D", UserEmail: "d@x.com",
 	}); err != nil {
 		t.Fatal(err)
@@ -72,7 +72,7 @@ func TestDeleteHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"Usage:", "delete [name]", "Deletes a profile", "no repositories are linked"} {
+	for _, want := range []string{"Usage:", "delete [name]", "Deletes a workspace", "no repositories are linked"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in %q", want, out)
 		}

@@ -12,12 +12,12 @@ import (
 
 func TestListRepositories(t *testing.T) {
 	s := &shared.State{
-		Profiles: map[string]*shared.Profile{
+		Workspaces: map[string]*shared.Workspace{
 			"p1": {Name: "work", UserName: "W", UserEmail: "w@x.com", LinkedRepos: []string{}},
 		},
 		Repositories: map[string]*shared.Repository{
-			"r2": {Name: "beta", ProfileID: "p1", CurrentPath: "/b"},
-			"r1": {Name: "alpha", ProfileID: "p1", CurrentPath: "/a"},
+			"r2": {Name: "beta", WorkspaceID: "p1", CurrentPath: "/b"},
+			"r1": {Name: "alpha", WorkspaceID: "p1", CurrentPath: "/a"},
 		},
 	}
 	var buf bytes.Buffer
@@ -48,7 +48,7 @@ func TestShowRepositoryWithProfile(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"name:  proj", "origin:", "previous paths:", "profile:", "name:         work",
+		"name:  proj", "origin:", "previous paths:", "workspace:", "name:         work",
 		"per-repo memory:",
 	} {
 		if !strings.Contains(out, want) {
@@ -58,13 +58,13 @@ func TestShowRepositoryWithProfile(t *testing.T) {
 }
 
 func TestShowRepositoryMissingProfile(t *testing.T) {
-	repo := &shared.Repository{Name: "orphan", ProfileID: "missing", CurrentPath: t.TempDir()}
-	s := &shared.State{Profiles: map[string]*shared.Profile{}, Repositories: map[string]*shared.Repository{"r": repo}}
+	repo := &shared.Repository{Name: "orphan", WorkspaceID: "missing", CurrentPath: t.TempDir()}
+	s := &shared.State{Workspaces: map[string]*shared.Workspace{}, Repositories: map[string]*shared.Repository{"r": repo}}
 	var buf bytes.Buffer
 	if err := showRepository(&buf, s, repo); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "profile: (missing from shared memory)") {
+	if !strings.Contains(buf.String(), "workspace: (missing from shared memory)") {
 		t.Fatalf("got:\n%s", buf.String())
 	}
 }

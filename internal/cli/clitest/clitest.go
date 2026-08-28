@@ -49,7 +49,7 @@ func ExecuteRoot(t *testing.T, root *cobra.Command, opts Options, args ...string
 	if opts.Runner == nil {
 		ctx = git.WithRunner(ctx, git.RealRunner{})
 	}
-	ctx = runtime.WithWorkspace(ctx, runtime.DefaultWorkspace())
+	ctx = runtime.WithRepoLayout(ctx, runtime.DefaultRepoLayout())
 	if opts.Editor != nil {
 		ctx = runtime.WithEditor(ctx, opts.Editor)
 	} else {

@@ -87,17 +87,17 @@ func forEachRefChoices(pattern, format string) []argspec.Choice {
 	return out
 }
 
-// ProfileCreateNew is the picker sentinel for creating a profile during repo configure.
-const ProfileCreateNew = "[Create new]"
+// WorkspaceCreateNew is the picker sentinel for creating a workspace during repo configure.
+const WorkspaceCreateNew = "[Create new]"
 
-// Profiles returns profile display names from shared memory.
-func Profiles(_ context.Context) ([]argspec.Choice, error) {
+// Workspaces returns workspace display names from shared memory.
+func Workspaces(_ context.Context) ([]argspec.Choice, error) {
 	s, err := shared.Load()
 	if err != nil {
 		return nil, err
 	}
 	var out []argspec.Choice
-	for _, p := range shared.ListProfiles(s) {
+	for _, p := range shared.ListWorkspaces(s) {
 		if p == nil {
 			continue
 		}
@@ -110,13 +110,13 @@ func Profiles(_ context.Context) ([]argspec.Choice, error) {
 	return out, nil
 }
 
-// ProfilesWithCreateNew returns profiles plus a create-new picker entry.
-func ProfilesWithCreateNew(ctx context.Context) ([]argspec.Choice, error) {
-	out, err := Profiles(ctx)
+// WorkspacesWithCreateNew returns workspaces plus a create-new picker entry.
+func WorkspacesWithCreateNew(ctx context.Context) ([]argspec.Choice, error) {
+	out, err := Workspaces(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out = append(out, argspec.Choice{Value: ProfileCreateNew, Description: "Create a new profile"})
+	out = append(out, argspec.Choice{Value: WorkspaceCreateNew, Description: "Create a new workspace"})
 	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
 	return out, nil
 }

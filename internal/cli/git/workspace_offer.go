@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func offerCreateProfileFromGlobal(cmd *cobra.Command) error {
+func offerCreateWorkspaceFromGlobal(cmd *cobra.Command) error {
 	p := prompt.FromContext(cmd.Context())
 	userName := git.ConfigGlobalGet("user.name")
 	userEmail := git.ConfigGlobalGet("user.email")
@@ -24,22 +24,22 @@ func offerCreateProfileFromGlobal(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	if _, existing, ok := shared.FindProfileByFields(s, userName, userEmail, signingKey, editor, gpgProgram); ok {
-		text.InfoText("Profile already exists: " + existing.Name)
+	if _, existing, ok := shared.FindWorkspaceByFields(s, userName, userEmail, signingKey, editor, gpgProgram); ok {
+		text.InfoText("Workspace already exists: " + existing.Name)
 		return nil
 	}
 	if prompt.NonInteractive(p) {
 		return nil
 	}
-	ok, err := p.Confirm("Create a reusable profile from these global values?", false)
+	ok, err := p.Confirm("Create a reusable workspace from these global values?", false)
 	if err != nil || !ok {
 		return err
 	}
-	name, err := p.EditOrAccept("Profile name", defaultProfileNameFromEmail(userEmail))
+	name, err := p.EditOrAccept("Workspace name", defaultWorkspaceNameFromEmail(userEmail))
 	if err != nil {
 		return err
 	}
-	id, err := shared.CreateProfile(s, shared.CreateProfileInput{
+	id, err := shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
 		Name: name, UserName: userName, UserEmail: userEmail,
 		SigningKey: signingKey, Editor: editor, GPGProgram: gpgProgram,
 	})
@@ -49,11 +49,11 @@ func offerCreateProfileFromGlobal(cmd *cobra.Command) error {
 	if err := shared.Save(s); err != nil {
 		return err
 	}
-	text.InfoText("Created profile " + name + " (" + id + ")")
+	text.InfoText("Created workspace " + name + " (" + id + ")")
 	return nil
 }
 
-func defaultProfileNameFromEmail(email string) string {
+func defaultWorkspaceNameFromEmail(email string) string {
 	if i := strings.Index(email, "@"); i > 0 {
 		return email[:i]
 	}

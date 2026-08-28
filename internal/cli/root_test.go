@@ -15,7 +15,7 @@ func TestRootHelpListsObjects(t *testing.T) {
 		t.Fatalf("--help: %v", err)
 	}
 	text := string(out)
-	for _, want := range []string{"git configure", "git status", "repo clone", "memory profiles", "work start", "hook status", "release new"} {
+	for _, want := range []string{"git configure", "git status", "repo clone", "memory workspaces", "work start", "hook status", "release new"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("help missing %q", want)
 		}
@@ -39,7 +39,7 @@ func TestUnknownCommandExit46(t *testing.T) {
 
 func TestUnknownFlagShowsHelp(t *testing.T) {
 	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "memory", "profiles", "--unknown-flag")
+	cmd := exec.Command(bin, "memory", "workspaces", "--unknown-flag")
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatal("expected error exit")

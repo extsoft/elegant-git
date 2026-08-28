@@ -36,7 +36,7 @@ Omit a part when it does not apply. Separate parts with a single space.
 No suggestion. The user must type a value.
 
 ```text
-Profile name: some name
+Workspace name: some name
 ```
 
 ### Optional text
@@ -97,7 +97,7 @@ Type to filter; Backspace; Up / Down; Enter accepts the current row. When a
 default exists, that row starts current.
 
 Examples: yes/no, hook type, release layout, completion shell, work “What now”,
-branches, profiles, refs.
+branches, workspaces, refs.
 
 ### Multi-select
 
@@ -122,7 +122,7 @@ accepts every selected option. Defaults start selected.
 | Local branches | Upstream remote-tracking ref when set (`feat` → `origin/feat`); else none |
 | Remote-only lists | None |
 | Refs / branch union | Locals as above; remotes and tags option-only |
-| Profiles | Identity (`Name <email>`), truncated to 70 |
+| Workspaces | Identity (`Name <email>`), truncated to 70 |
 | Hook paths, command ids, completion shells | None |
 | Work start uncommitted (`add`/`reset`/`cancel`) | Short purpose for each |
 | yes/no, yes/no/all/skip | None |

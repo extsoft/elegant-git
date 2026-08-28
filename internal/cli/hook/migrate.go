@@ -22,7 +22,7 @@ func newMigrateCommand() *cobra.Command {
 
 func migrateCommon(dryRun bool) error {
 	text.InfoBox("Migrating common hooks...")
-	ws := runtime.Workspace{RepoRoot: "."}
+	ws := runtime.RepoLayout{RepoRoot: "."}
 	newPaths, oldPaths, err := MigrateHooks(ws, false, dryRun)
 	if err != nil {
 		return err

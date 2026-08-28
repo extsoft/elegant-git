@@ -4,14 +4,16 @@ package repo
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/git"
 )
 
 const (
-	SchemaVersion = 1
+	SchemaVersion = 2
 	dirName       = "elegant-git"
 	fileName      = "state.json"
 )
@@ -20,10 +22,27 @@ const (
 type State struct {
 	SchemaVersion     int               `json:"schema_version"`
 	RepoID            string            `json:"repo_id"`
-	ProfileID         string            `json:"profile_id"`
+	WorkspaceID       string            `json:"workspace_id"`
 	DefaultBranch     string            `json:"default_branch"`
 	ProtectedBranches []string          `json:"protected_branches"`
 	BranchSources     map[string]string `json:"branch_sources,omitempty"`
+}
+
+type stateWire struct {
+	SchemaVersion     int               `json:"schema_version"`
+	RepoID            string            `json:"repo_id"`
+	WorkspaceID       string            `json:"workspace_id"`
+	ProfileID         string            `json:"profile_id"` // v1
+	DefaultBranch     string            `json:"default_branch"`
+	ProtectedBranches []string          `json:"protected_branches"`
+	BranchSources     map[string]string `json:"branch_sources,omitempty"`
+}
+
+var lastLoadHadLegacyKeys bool
+
+// LastLoadHadLegacyKeys reports whether the most recent Load saw v1 keys.
+func LastLoadHadLegacyKeys() bool {
+	return lastLoadHadLegacyKeys
 }
 
 // Path returns the state file path for a git directory.
@@ -35,7 +54,10 @@ func Path(gitDir string) string {
 }
 
 // Load reads per-repo state from gitDir.
+// When the on-disk schema is older than SchemaVersion (or still uses legacy
+// keys), the file is backed up to path+".bak" and rewritten to the current schema.
 func Load(gitDir string) (*State, error) {
+	lastLoadHadLegacyKeys = false
 	p := Path(gitDir)
 	data, err := os.ReadFile(p)
 	if err != nil {
@@ -44,22 +66,64 @@ func Load(gitDir string) (*State, error) {
 		}
 		return nil, err
 	}
-	var s State
-	if err := json.Unmarshal(data, &s); err != nil {
+	var w stateWire
+	if err := json.Unmarshal(data, &w); err != nil {
 		return nil, err
 	}
-	if s.SchemaVersion == 0 {
-		s.SchemaVersion = SchemaVersion
+	if w.SchemaVersion > SchemaVersion {
+		return nil, fmt.Errorf("per-repo memory schema_version %d is newer than supported %d; upgrade elegant-git", w.SchemaVersion, SchemaVersion)
 	}
-	return &s, nil
+	fromVersion := w.SchemaVersion
+	if fromVersion == 0 {
+		fromVersion = 1
+	}
+	hadLegacy := w.ProfileID != ""
+	wsID := w.WorkspaceID
+	if wsID == "" {
+		wsID = w.ProfileID
+	}
+	s := &State{
+		SchemaVersion:     SchemaVersion,
+		RepoID:            w.RepoID,
+		WorkspaceID:       wsID,
+		DefaultBranch:     w.DefaultBranch,
+		ProtectedBranches: w.ProtectedBranches,
+		BranchSources:     w.BranchSources,
+	}
+	needsMigrate := fromVersion < SchemaVersion || hadLegacy
+	if needsMigrate {
+		lastLoadHadLegacyKeys = hadLegacy
+		if hadLegacy {
+			deprecation.Record(
+				deprecation.DEP012,
+				"shared/per-repo memory keys: profiles, profile_id",
+				"workspaces, workspace_id",
+				"git elegant repo migrate",
+			)
+		}
+		backupPath, err := backupStateFile(p)
+		if err != nil {
+			return nil, fmt.Errorf("backup per-repo memory before schema migrate: %w", err)
+		}
+		if err := writeStateFile(p, s); err != nil {
+			return nil, fmt.Errorf("rewrite per-repo memory after schema migrate (backup at %s): %w", backupPath, err)
+		}
+		fmt.Fprintf(os.Stderr, "elegant-git: migrated per-repo memory schema %d → %d (backup: %s)\n",
+			fromVersion, SchemaVersion, backupPath)
+		lastLoadHadLegacyKeys = false
+	}
+	return s, nil
 }
 
 // Save atomically writes per-repo state.
 func Save(gitDir string, s *State) error {
-	if s.SchemaVersion == 0 {
+	return writeStateFile(Path(gitDir), s)
+}
+
+func writeStateFile(p string, s *State) error {
+	if s.SchemaVersion == 0 || s.SchemaVersion < SchemaVersion {
 		s.SchemaVersion = SchemaVersion
 	}
-	p := Path(gitDir)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
@@ -75,7 +139,29 @@ func Save(gitDir string, s *State) error {
 		_ = os.Remove(tmp)
 		return err
 	}
+	lastLoadHadLegacyKeys = false
 	return nil
+}
+
+func backupStateFile(path string) (string, error) {
+	backupPath := path + ".bak"
+	src, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(backupPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+	if _, err := io.Copy(dst, src); err != nil {
+		return "", err
+	}
+	if err := dst.Sync(); err != nil {
+		return "", err
+	}
+	return backupPath, nil
 }
 
 // GitDir returns the absolute .git directory for the current repository.

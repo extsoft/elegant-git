@@ -61,7 +61,7 @@ func listRepositories(w io.Writer, s *shared.State) error {
 	}
 	sort.Slice(repos, func(i, j int) bool { return repos[i].Name < repos[j].Name })
 	for _, r := range repos {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", r.Name, profileName(s, r.ProfileID), r.CurrentPath)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", r.Name, workspaceName(s, r.WorkspaceID), r.CurrentPath)
 	}
 	return nil
 }
@@ -78,8 +78,8 @@ func showRepository(w io.Writer, s *shared.State, r *shared.Repository) error {
 			fmt.Fprintf(w, "  - %s\n", p)
 		}
 	}
-	if prof, err := shared.GetProfile(s, r.ProfileID); err == nil {
-		fmt.Fprintln(w, "profile:")
+	if prof, err := shared.GetWorkspace(s, r.WorkspaceID); err == nil {
+		fmt.Fprintln(w, "workspace:")
 		fmt.Fprintf(w, "  name:         %s\n", prof.Name)
 		fmt.Fprintf(w, "  user.name:    %s\n", prof.UserName)
 		fmt.Fprintf(w, "  user.email:   %s\n", prof.UserEmail)
@@ -87,7 +87,7 @@ func showRepository(w io.Writer, s *shared.State, r *shared.Repository) error {
 		fmt.Fprintf(w, "  gpg program:  %s\n", showOptional(prof.GPGProgram))
 		fmt.Fprintf(w, "  editor:       %s\n", showOptional(prof.Editor))
 	} else {
-		fmt.Fprintln(w, "profile: (missing from shared memory)")
+		fmt.Fprintln(w, "workspace: (missing from shared memory)")
 	}
 	gitDir := filepath.Join(r.CurrentPath, ".git")
 	if _, err := os.Stat(gitDir); err != nil {
@@ -108,8 +108,8 @@ func showRepository(w io.Writer, s *shared.State, r *shared.Repository) error {
 	return nil
 }
 
-func profileName(s *shared.State, profileID string) string {
-	if p, err := shared.GetProfile(s, profileID); err == nil {
+func workspaceName(s *shared.State, profileID string) string {
+	if p, err := shared.GetWorkspace(s, profileID); err == nil {
 		return p.Name
 	}
 	return ""

@@ -11,15 +11,15 @@ import (
 	"github.com/bees-hive/elegant-git/internal/memory/shared"
 )
 
-func TestListProfilesTable(t *testing.T) {
+func TestListWorkspacesTable(t *testing.T) {
 	s := &shared.State{
-		Profiles: map[string]*shared.Profile{
+		Workspaces: map[string]*shared.Workspace{
 			"id-b": {Name: "beta", UserName: "B", UserEmail: "b@x.com", LinkedRepos: []string{"r1"}},
 			"id-a": {Name: "alpha", UserName: "A", UserEmail: "a@x.com", LinkedRepos: []string{}},
 		},
 	}
 	var buf bytes.Buffer
-	if err := listProfiles(&buf, s, "table"); err != nil {
+	if err := listWorkspaces(&buf, s, "table"); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
@@ -34,17 +34,17 @@ func TestListProfilesTable(t *testing.T) {
 	}
 }
 
-func TestListProfilesJSON(t *testing.T) {
+func TestListWorkspacesJSON(t *testing.T) {
 	s := &shared.State{
-		Profiles: map[string]*shared.Profile{
+		Workspaces: map[string]*shared.Workspace{
 			"id-a": {Name: "alpha", UserName: "A", UserEmail: "a@x.com", LinkedRepos: []string{}},
 		},
 	}
 	var buf bytes.Buffer
-	if err := listProfiles(&buf, s, "json"); err != nil {
+	if err := listWorkspaces(&buf, s, "json"); err != nil {
 		t.Fatal(err)
 	}
-	var got map[string]*shared.Profile
+	var got map[string]*shared.Workspace
 	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestListProfilesJSON(t *testing.T) {
 func TestShowProfileTable(t *testing.T) {
 	s := seedState(t, "id-1", "work", "Worker", "w@x.com", "repo-1", "myrepo", "/r")
 	var buf bytes.Buffer
-	if err := showProfile(&buf, s, "work", "table"); err != nil {
+	if err := showWorkspace(&buf, s, "work", "table"); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -70,17 +70,17 @@ func TestShowProfileTable(t *testing.T) {
 func TestShowProfileJSON(t *testing.T) {
 	s := seedState(t, "id-1", "work", "Worker", "w@x.com", "", "", "")
 	var buf bytes.Buffer
-	if err := showProfile(&buf, s, "work", "json"); err != nil {
+	if err := showWorkspace(&buf, s, "work", "json"); err != nil {
 		t.Fatal(err)
 	}
 	var got struct {
-		ID      string          `json:"id"`
-		Profile *shared.Profile `json:"profile"`
+		ID        string            `json:"id"`
+		Workspace *shared.Workspace `json:"workspace"`
 	}
 	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.ID != "id-1" || got.Profile.Name != "work" {
+	if got.ID != "id-1" || got.Workspace.Name != "work" {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -89,7 +89,7 @@ func TestShowProfileNotFound(t *testing.T) {
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(t.TempDir(), "state.json"))
 	s, _ := shared.Load()
 	var buf bytes.Buffer
-	err := showProfile(&buf, s, "nope", "table")
+	err := showWorkspace(&buf, s, "nope", "table")
 	if !errors.Is(err, shared.ErrNotFound) {
 		t.Fatalf("got %v", err)
 	}

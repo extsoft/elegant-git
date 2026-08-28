@@ -21,7 +21,7 @@ func newStatusCommand() *cobra.Command {
 		Long:  "Prints paths of ahead/after hook scripts (new and legacy layouts).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cliruntime.RunWithWorkflows(cmd, statusID, func() error {
-				return statusList(runtime.Workspace{RepoRoot: "."}, cmd.OutOrStdout())
+				return statusList(runtime.RepoLayout{RepoRoot: "."}, cmd.OutOrStdout())
 			})
 		},
 	}
@@ -29,7 +29,7 @@ func newStatusCommand() *cobra.Command {
 	return c
 }
 
-func statusList(ws runtime.Workspace, w io.Writer) error {
+func statusList(ws runtime.RepoLayout, w io.Writer) error {
 	for _, id := range legacy.AllIDs() {
 		legacyName, _ := legacy.IDToLegacy(id)
 		for _, hookType := range []string{"ahead", "after"} {

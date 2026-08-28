@@ -45,8 +45,8 @@ func TestStatusCommandInsideGit(t *testing.T) {
 	git.Use(m)
 
 	s, _ := shared.Load()
-	s.Profiles["prof-1"] = &shared.Profile{Name: "work", UserName: "W", UserEmail: "w@x.com", LinkedRepos: []string{"repo-1"}}
-	s.Repositories["repo-1"] = &shared.Repository{Name: "myrepo", ProfileID: "prof-1", CurrentPath: repoRoot}
+	s.Workspaces["prof-1"] = &shared.Workspace{Name: "work", UserName: "W", UserEmail: "w@x.com", LinkedRepos: []string{"repo-1"}}
+	s.Repositories["repo-1"] = &shared.Repository{Name: "myrepo", WorkspaceID: "prof-1", CurrentPath: repoRoot}
 	if err := shared.Save(s); err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestStatusCommandInsideGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "linked profile: work") || !strings.Contains(out, "local git identity:") {
+	if !strings.Contains(out, "linked workspace: work") || !strings.Contains(out, "local git identity:") {
 		t.Fatalf("got:\n%s", out)
 	}
 }

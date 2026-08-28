@@ -10,7 +10,7 @@ import (
 	"github.com/bees-hive/elegant-git/internal/prompt"
 )
 
-func TestResolveProfileCreateNew(t *testing.T) {
+func TestResolveWorkspaceCreateNew(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	m := git.NewMemoryRunner()
@@ -23,7 +23,7 @@ func TestResolveProfileCreateNew(t *testing.T) {
 	p := &configureRecordingPrompter{
 		editValues: []string{"work", "", "", "", "", ""},
 	}
-	id, prof, err := resolveProfile(s, sources.ProfileCreateNew, p)
+	id, prof, err := resolveWorkspace(s, sources.WorkspaceCreateNew, p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,9 +75,9 @@ func (p *configureRecordingPrompter) Closed(string, []string, string, bool) (str
 	return "", prompt.ErrNonInteractive
 }
 
-func TestResolveProfileCreateNewNonInteractive(t *testing.T) {
+func TestResolveWorkspaceCreateNewNonInteractive(t *testing.T) {
 	s, _ := shared.Load()
-	_, _, err := resolveProfile(s, sources.ProfileCreateNew, prompt.NewNonInteractive())
+	_, _, err := resolveWorkspace(s, sources.WorkspaceCreateNew, prompt.NewNonInteractive())
 	if err == nil {
 		t.Fatal("expected error")
 	}

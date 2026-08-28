@@ -101,14 +101,14 @@ func TestStringAcceptsDefault(t *testing.T) {
 func TestStringRequiredReasks(t *testing.T) {
 	q := captureQuestions(t)
 	p := NewTTY(strings.NewReader("\nsome name\n"), &bytes.Buffer{})
-	got, err := p.String("Profile name", "")
+	got, err := p.String("Workspace name", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != "some name" {
 		t.Fatalf("got %q", got)
 	}
-	line := RequiredLine("Profile name", "") + " "
+	line := RequiredLine("Workspace name", "") + " "
 	if q.String() != line+line {
 		t.Fatalf("got %q want two prompts", q.String())
 	}

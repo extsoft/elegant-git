@@ -13,13 +13,13 @@ import (
 	hookcmd "github.com/bees-hive/elegant-git/internal/cli/hook"
 	legacyshim "github.com/bees-hive/elegant-git/internal/cli/legacy"
 	memorycmd "github.com/bees-hive/elegant-git/internal/cli/memory"
-	profilecmd "github.com/bees-hive/elegant-git/internal/cli/profile"
 	releasecmd "github.com/bees-hive/elegant-git/internal/cli/release"
 	repocmd "github.com/bees-hive/elegant-git/internal/cli/repo"
 	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
 	"github.com/bees-hive/elegant-git/internal/cli/sources"
 	versioncmd "github.com/bees-hive/elegant-git/internal/cli/version"
 	workcmd "github.com/bees-hive/elegant-git/internal/cli/work"
+	workspacecmd "github.com/bees-hive/elegant-git/internal/cli/workspace"
 	"github.com/bees-hive/elegant-git/internal/deprecation"
 	"github.com/bees-hive/elegant-git/internal/exitcode"
 	"github.com/bees-hive/elegant-git/internal/git"
@@ -78,6 +78,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&nonInteractive, "non-interactive", false, "disable prompts; fail when required input is missing")
 	rootCmd.PersistentFlags().BoolVar(&forceInteractive, "interactive", false, "force prompts on a TTY (overrides CI and --non-interactive)")
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		recordDeprecatedSurface(cmd)
 		if err := guardInvocationDepth(); err != nil {
 			return err
 		}
@@ -87,7 +88,7 @@ func init() {
 			ctx = context.Background()
 		}
 		ctx = git.WithRunner(ctx, git.RealRunner{})
-		ctx = runtime.WithWorkspace(ctx, runtime.DefaultWorkspace())
+		ctx = runtime.WithRepoLayout(ctx, runtime.DefaultRepoLayout())
 		ctx = runtime.WithEditor(ctx, runtime.DefaultEditor())
 		stdin := cliruntime.StdinFromContext(ctx)
 		if stdin == os.Stdin {
@@ -119,9 +120,13 @@ func init() {
 	AttachObjectGroup(repoCmd, "repo")
 	rootCmd.AddCommand(repoCmd)
 
-	profileCmd := profilecmd.NewCommand()
-	AttachObjectGroup(profileCmd, "profile")
-	rootCmd.AddCommand(profileCmd)
+	workspaceCmd := workspacecmd.NewCommand()
+	AttachObjectGroup(workspaceCmd, "workspace")
+	rootCmd.AddCommand(workspaceCmd)
+
+	legacyProfileCmd := workspacecmd.NewLegacyProfileCommand()
+	AttachObjectGroup(legacyProfileCmd, "profile")
+	rootCmd.AddCommand(legacyProfileCmd)
 
 	hookCmd := hookcmd.NewCommand()
 	AttachObjectGroup(hookCmd, "hook")
@@ -140,6 +145,23 @@ func init() {
 
 func isUnknownCommand(err error) bool {
 	return strings.Contains(err.Error(), "unknown command")
+}
+
+func recordDeprecatedSurface(cmd *cobra.Command) {
+	for c := cmd; c != nil; c = c.Parent() {
+		surface := c.Annotations[deprecation.SurfaceAnnotation]
+		if surface == "" {
+			continue
+		}
+		replacement := "workspace"
+		if surface == "memory profiles" {
+			replacement = "memory workspaces"
+		} else if strings.HasPrefix(surface, "profile") {
+			replacement = strings.Replace(surface, "profile", "workspace", 1)
+		}
+		deprecation.RecordRenamedSurface(surface, replacement, "git elegant repo migrate")
+		return
+	}
 }
 
 const invocationDepthEnv = "ELEGANT_GIT_DEPTH"

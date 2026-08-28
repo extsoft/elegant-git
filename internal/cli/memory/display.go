@@ -29,8 +29,8 @@ func PrintMemorySummary(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "  profiles: %d\n", len(s.Profiles))
-	fmt.Fprintf(w, "  repositories: %d\n", reposWithProfile(s))
+	fmt.Fprintf(w, "  workspaces: %d\n", len(s.Workspaces))
+	fmt.Fprintf(w, "  repositories: %d\n", reposWithWorkspace(s))
 
 	_, gitErr := memrepo.GitDir()
 	if gitErr != nil {
@@ -50,15 +50,15 @@ func PrintMemorySummary(w io.Writer) error {
 	fmt.Fprintln(w, "For details, run:")
 	fmt.Fprintln(w, "  git elegant git status")
 	fmt.Fprintln(w, "  git elegant repo status")
-	fmt.Fprintln(w, "  git elegant profile status")
+	fmt.Fprintln(w, "  git elegant workspace status")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Catalogs:")
-	fmt.Fprintln(w, "  git elegant memory profiles")
+	fmt.Fprintln(w, "  git elegant memory workspaces")
 	fmt.Fprintln(w, "  git elegant memory repositories")
 	return nil
 }
 
-// PrintGitStatus prints global install and shared memory state (no profile dump).
+// PrintGitStatus prints global install and shared memory state (no workspace dump).
 func PrintGitStatus(w io.Writer) error {
 	return printGitState(w)
 }
@@ -68,8 +68,8 @@ func PrintRepoStatus(w io.Writer) error {
 	return printRepoState(w)
 }
 
-// PrintProfileStatus prints the linked profile for the current repository.
-func PrintProfileStatus(w io.Writer) error {
+// PrintWorkspaceStatus prints the linked workspace for the current repository.
+func PrintWorkspaceStatus(w io.Writer) error {
 	gitDir, gitErr := memrepo.GitDir()
 	if gitErr != nil {
 		fmt.Fprintln(w, "repository: (not inside a git work tree)")
@@ -83,36 +83,36 @@ func PrintProfileStatus(w io.Writer) error {
 
 	repoID, _ := repoid.ReadLocal()
 	if repoID == "" {
-		fmt.Fprintln(w, "linked profile: (not set; run repo configure)")
+		fmt.Fprintln(w, "linked workspace: (not set; run repo configure)")
 		return nil
 	}
 
 	reg, err := shared.GetRepo(s, repoID)
 	if err != nil {
-		fmt.Fprintf(w, "linked profile: repo-id %s not in registry\n", repoID)
+		fmt.Fprintf(w, "linked workspace: repo-id %s not in registry\n", repoID)
 		return nil
 	}
 
-	prof, err := shared.GetProfile(s, reg.ProfileID)
+	prof, err := shared.GetWorkspace(s, reg.WorkspaceID)
 	if err != nil {
-		fmt.Fprintf(w, "linked profile: id %s (missing from shared memory)\n", reg.ProfileID)
+		fmt.Fprintf(w, "linked workspace: id %s (missing from shared memory)\n", reg.WorkspaceID)
 		return nil
 	}
 
-	printProfileFields(w, "", reg.ProfileID, prof)
+	printWorkspaceFields(w, "", reg.WorkspaceID, prof)
 	printLinkedRepos(w, s, prof, "")
 
 	perRepo, err := memrepo.Load(gitDir)
 	if err != nil {
 		return err
 	}
-	if perRepo.ProfileID != "" && perRepo.ProfileID != reg.ProfileID {
-		if alt, err := shared.GetProfile(s, perRepo.ProfileID); err == nil {
+	if perRepo.WorkspaceID != "" && perRepo.WorkspaceID != reg.WorkspaceID {
+		if alt, err := shared.GetWorkspace(s, perRepo.WorkspaceID); err == nil {
 			fmt.Fprintln(w)
-			fmt.Fprintln(w, "per-repo memory profile:")
-			printProfileFields(w, "  ", perRepo.ProfileID, alt)
+			fmt.Fprintln(w, "per-repo memory workspace:")
+			printWorkspaceFields(w, "  ", perRepo.WorkspaceID, alt)
 		} else {
-			fmt.Fprintf(w, "\nper-repo memory profile_id: %s\n", perRepo.ProfileID)
+			fmt.Fprintf(w, "\nper-repo memory workspace_id: %s\n", perRepo.WorkspaceID)
 		}
 	}
 	return nil
@@ -134,8 +134,8 @@ func printGitState(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(w, "  profiles: %d\n", len(s.Profiles))
-	fmt.Fprintf(w, "  repositories: %d\n", reposWithProfile(s))
+	fmt.Fprintf(w, "  workspaces: %d\n", len(s.Workspaces))
+	fmt.Fprintf(w, "  repositories: %d\n", reposWithWorkspace(s))
 
 	fmt.Fprintln(w, "global git identity:")
 	printGitIdentity(w, "  ", git.ConfigGlobalGet)
@@ -178,10 +178,10 @@ func printRepoState(w io.Writer) error {
 			if reg.OriginURL != "" {
 				fmt.Fprintf(w, "  origin: %s\n", reg.OriginURL)
 			}
-			if prof, err := shared.GetProfile(s, reg.ProfileID); err == nil {
-				fmt.Fprintf(w, "  linked profile: %s\n", prof.Name)
+			if prof, err := shared.GetWorkspace(s, reg.WorkspaceID); err == nil {
+				fmt.Fprintf(w, "  linked workspace: %s\n", prof.Name)
 			} else {
-				fmt.Fprintf(w, "  profile id: %s (missing from shared memory)\n", reg.ProfileID)
+				fmt.Fprintf(w, "  workspace id: %s (missing from shared memory)\n", reg.WorkspaceID)
 			}
 		}
 	} else {
@@ -189,21 +189,21 @@ func printRepoState(w io.Writer) error {
 	}
 
 	perRepo, err := memrepo.Load(gitDir)
-	registryProfileID := ""
+	registryWorkspaceID := ""
 	if repoID != "" {
 		if reg, err := shared.GetRepo(s, repoID); err == nil {
-			registryProfileID = reg.ProfileID
+			registryWorkspaceID = reg.WorkspaceID
 		}
 	}
 	if err == nil {
 		if perRepo.RepoID != "" && perRepo.RepoID != repoID {
 			fmt.Fprintf(w, "  memory repo_id: %s\n", perRepo.RepoID)
 		}
-		if perRepo.ProfileID != "" && perRepo.ProfileID != registryProfileID {
-			if prof, err := shared.GetProfile(s, perRepo.ProfileID); err == nil {
-				fmt.Fprintf(w, "  per-repo memory profile: %s\n", prof.Name)
+		if perRepo.WorkspaceID != "" && perRepo.WorkspaceID != registryWorkspaceID {
+			if prof, err := shared.GetWorkspace(s, perRepo.WorkspaceID); err == nil {
+				fmt.Fprintf(w, "  per-repo memory workspace: %s\n", prof.Name)
 			} else {
-				fmt.Fprintf(w, "  per-repo memory profile_id: %s\n", perRepo.ProfileID)
+				fmt.Fprintf(w, "  per-repo memory workspace_id: %s\n", perRepo.WorkspaceID)
 			}
 		}
 		if perRepo.DefaultBranch != "" {
@@ -219,7 +219,7 @@ func printRepoState(w io.Writer) error {
 	return nil
 }
 
-func printProfileFields(w io.Writer, prefix, id string, p *shared.Profile) {
+func printWorkspaceFields(w io.Writer, prefix, id string, p *shared.Workspace) {
 	fmt.Fprintf(w, "%sname:         %s\n", prefix, p.Name)
 	fmt.Fprintf(w, "%sid:           %s\n", prefix, id)
 	fmt.Fprintf(w, "%suser.name:    %s\n", prefix, p.UserName)
@@ -229,7 +229,7 @@ func printProfileFields(w io.Writer, prefix, id string, p *shared.Profile) {
 	fmt.Fprintf(w, "%seditor:       %s\n", prefix, showOptional(p.Editor))
 }
 
-func printLinkedRepos(w io.Writer, s *shared.State, p *shared.Profile, prefix string) {
+func printLinkedRepos(w io.Writer, s *shared.State, p *shared.Workspace, prefix string) {
 	if len(p.LinkedRepos) == 0 {
 		fmt.Fprintf(w, "%slinked repos: (none)\n", prefix)
 		return
@@ -270,10 +270,10 @@ func fileStatusLine(path string) string {
 	return path
 }
 
-func reposWithProfile(s *shared.State) int {
+func reposWithWorkspace(s *shared.State) int {
 	n := 0
 	for _, r := range s.Repositories {
-		if r != nil && r.ProfileID != "" {
+		if r != nil && r.WorkspaceID != "" {
 			n++
 		}
 	}

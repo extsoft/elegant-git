@@ -195,7 +195,7 @@ func TestResolveCompletePickTabbedValue(t *testing.T) {
 
 func TestResolveOmitInteractiveOptional(t *testing.T) {
 	var name string
-	in := PositionalInput("name", 0, false, "Profile name", &name, nil)
+	in := PositionalInput("name", 0, false, "Workspace name", &name, nil)
 	in.OmitInteractive = true
 	spec := Spec{Inputs: []Input{in}}
 	p := &recordingPrompter{strings: []string{"should-not-ask"}}
@@ -215,7 +215,7 @@ func TestResolveOmitInteractiveKeepsCLIArg(t *testing.T) {
 	complete := func(context.Context) ([]Choice, error) {
 		return []Choice{{Value: "dz"}, {Value: "work"}}, nil
 	}
-	in := PositionalInputWithComplete("name", 0, false, "Profile name", &name, nil, complete, true)
+	in := PositionalInputWithComplete("name", 0, false, "Workspace name", &name, nil, complete, true)
 	in.OmitInteractive = true
 	spec := Spec{Inputs: []Input{in}}
 	p := &recordingPrompter{}
@@ -256,7 +256,7 @@ func TestResolveTwoChoicesUsesPick(t *testing.T) {
 func TestResolveOptionalTextLeavesUnset(t *testing.T) {
 	var name, key string
 	spec := Spec{Inputs: []Input{
-		PositionalInput("name", 0, true, "Profile name", &name, nil),
+		PositionalInput("name", 0, true, "Workspace name", &name, nil),
 		PositionalInput("signing-key", 1, false, "Signing key", &key, func() string { return "ABC123" }),
 	}}
 	p := &recordingPrompter{strings: []string{"dz"}, optValues: []string{""}}
@@ -277,7 +277,7 @@ func TestResolveOptionalTextLeavesUnset(t *testing.T) {
 func TestResolveRequiredSuggestUsesEditOrAccept(t *testing.T) {
 	var name string
 	spec := Spec{Inputs: []Input{
-		PositionalInput("name", 0, true, "Profile name", &name, func() string { return "alice" }),
+		PositionalInput("name", 0, true, "Workspace name", &name, func() string { return "alice" }),
 	}}
 	p := &recordingPrompter{editValues: []string{""}}
 	if err := Resolve(context.Background(), p, nil, spec); err != nil {

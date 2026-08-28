@@ -9,7 +9,7 @@ import (
 )
 
 // MigrateHooks moves legacy hook files to the new layout. Returns repo-relative new and old paths.
-func MigrateHooks(ws runtime.Workspace, personal, dryRun bool) (newPaths, oldPaths []string, err error) {
+func MigrateHooks(ws runtime.RepoLayout, personal, dryRun bool) (newPaths, oldPaths []string, err error) {
 	hooksRoot := ws.HooksDir(personal)
 	legacyRoot := ws.LegacyWorkflowsDir(personal)
 
@@ -36,7 +36,7 @@ func MigrateHooks(ws runtime.Workspace, personal, dryRun bool) (newPaths, oldPat
 	return newPaths, oldPaths, nil
 }
 
-func migrateCanonicalLegacyHooks(ws runtime.Workspace, personal bool, hooksRoot string, dryRun bool) (newPaths, oldPaths []string, err error) {
+func migrateCanonicalLegacyHooks(ws runtime.RepoLayout, personal bool, hooksRoot string, dryRun bool) (newPaths, oldPaths []string, err error) {
 	for legacyName, id := range legacy.LegacyToID {
 		for _, hookType := range []string{"ahead", "after"} {
 			var oldPath string

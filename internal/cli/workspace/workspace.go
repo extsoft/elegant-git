@@ -1,10 +1,10 @@
-package profile
+package workspace
 
 import "github.com/spf13/cobra"
 
-// NewCommand returns the profile command group.
+// NewCommand returns the workspace command group.
 func NewCommand() *cobra.Command {
-	c := &cobra.Command{Use: "profile", Short: "Manage git user profiles"}
+	c := &cobra.Command{Use: "workspace", Short: "Manage git workspaces"}
 	c.AddCommand(newStatusCommand())
 	c.AddCommand(newCreateCommand())
 	c.AddCommand(newEditCommand())

@@ -27,10 +27,10 @@ initialization of a new repository.
 var initID = cmdid.ID{Command: "repo", Action: "init"}
 
 func newInitCommand() *cobra.Command {
-	var profileName string
-	spec := configureSpec(&profileName)
+	var workspaceName string
+	spec := configureSpec(&workspaceName)
 	c := &cobra.Command{
-		Use:   "init <profile>",
+		Use:   "init <workspace>",
 		Short: "Initializes a new repository and configures it",
 		Long:  "Runs git init, repo configure, and an initial empty commit.",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,7 +38,7 @@ func newInitCommand() *cobra.Command {
 				if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 					return err
 				}
-				return initRun(cmd, profileName)
+				return initRun(cmd, workspaceName)
 			})
 		},
 	}
@@ -47,11 +47,11 @@ func newInitCommand() *cobra.Command {
 	return c
 }
 
-func initRun(cmd *cobra.Command, profile string) error {
+func initRun(cmd *cobra.Command, workspace string) error {
 	if err := git.Verbose("init"); err != nil {
 		return err
 	}
-	if err := ConfigureRun(cmd, profile); err != nil {
+	if err := ConfigureRun(cmd, workspace); err != nil {
 		return err
 	}
 	msgFile := "a-message-of-initial-commit"

@@ -37,7 +37,7 @@ type subCommandSpec struct {
 var commandGroups = []commandGroup{
 	{object: "memory", title: "inspect elegant-git memory", commands: []subCommandSpec{
 		{action: "status", purpose: "Summarizes shared memory paths and counts."},
-		{action: "profiles", purpose: "Lists profiles or shows one profile's details."},
+		{action: "workspaces", purpose: "Lists workspaces or shows one workspace's details."},
 		{action: "repositories", purpose: "Lists managed repositories or shows one repository's details."},
 	}},
 	{object: "git", title: "configure Git installation", commands: []subCommandSpec{
@@ -45,18 +45,18 @@ var commandGroups = []commandGroup{
 		{action: "status", purpose: "Shows global Git installation and shared memory state."},
 		{action: "migrate", purpose: "Migrates global aliases and acquired marker."},
 	}},
-	{object: "profile", title: "manage git user profiles", commands: []subCommandSpec{
-		{action: "status", purpose: "Shows the linked profile for the current repository."},
-		{action: "create", purpose: "Creates a profile."},
-		{action: "edit", purpose: "Edits a profile and optionally applies it to linked repos."},
-		{action: "delete", purpose: "Deletes a profile."},
+	{object: "workspace", title: "manage git workspaces", commands: []subCommandSpec{
+		{action: "status", purpose: "Shows the linked workspace for the current repository."},
+		{action: "create", purpose: "Creates a workspace."},
+		{action: "edit", purpose: "Edits a workspace and optionally applies it to linked repos."},
+		{action: "delete", purpose: "Deletes a workspace."},
 	}},
 	{object: "repo", title: "manage repositories", commands: []subCommandSpec{
 		{action: "status", purpose: "Shows repository memory and registry state for the current repository."},
 		{action: "init", purpose: "Initializes a new repository and configures it."},
 		{action: "clone", purpose: "Clones a remote repository and configures it."},
 		{action: "configure", purpose: "Configures the current local Git repository."},
-		{action: "sync", purpose: "Re-applies profile settings to repositories."},
+		{action: "sync", purpose: "Re-applies workspace settings to repositories."},
 		{action: "prune", purpose: "Removes useless local branches."},
 		{action: "migrate", purpose: "Migrates local aliases and hooks."},
 	}},

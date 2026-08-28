@@ -14,21 +14,21 @@ import (
 
 var configureID = cmdid.ID{Command: "repo", Action: "configure"}
 
-func profileInput(index int, profile *string) argspec.Input {
-	return argspec.PositionalInputWithComplete("profile", index, true, "Profile name", profile, nil, sources.ProfilesWithCreateNew, true)
+func workspaceInput(index int, workspace *string) argspec.Input {
+	return argspec.PositionalInputWithComplete("workspace", index, true, "Workspace name", workspace, nil, sources.WorkspacesWithCreateNew, true)
 }
 
-func configureSpec(profile *string) argspec.Spec {
+func configureSpec(workspace *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
-		profileInput(0, profile),
+		workspaceInput(0, workspace),
 	}}
 }
 
 func newConfigureCommand() *cobra.Command {
-	var profileName string
-	spec := configureSpec(&profileName)
+	var workspaceName string
+	spec := configureSpec(&workspaceName)
 	c := &cobra.Command{
-		Use:   "configure <profile>",
+		Use:   "configure <workspace>",
 		Short: "Configures the current local Git repository",
 		Long:  "Applies local Elegant Git configuration for this repository.",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -36,7 +36,7 @@ func newConfigureCommand() *cobra.Command {
 				if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 					return err
 				}
-				return configureRun(cmd, profileName)
+				return configureRun(cmd, workspaceName)
 			})
 		},
 	}
@@ -45,7 +45,7 @@ func newConfigureCommand() *cobra.Command {
 	return c
 }
 
-func configureRun(cmd *cobra.Command, profileName string) error {
+func configureRun(cmd *cobra.Command, workspaceName string) error {
 	p := prompt.FromContext(cmd.Context())
 	if updated, path, err := syncRegistryPath("", false); err != nil {
 		return err
@@ -55,7 +55,7 @@ func configureRun(cmd *cobra.Command, profileName string) error {
 	if err := configureLocalGitInstallPre(); err != nil {
 		return err
 	}
-	if err := configureWithMemory(cmd, profileName); err != nil {
+	if err := configureWithMemory(cmd, workspaceName); err != nil {
 		return err
 	}
 	if err := configureLocalGitInstallPost(); err != nil {
@@ -86,6 +86,6 @@ func configureLocalGitInstallPost() error {
 }
 
 // ConfigureRun is exported for clone/init to call configure logic.
-func ConfigureRun(cmd *cobra.Command, profile string) error {
-	return configureRun(cmd, profile)
+func ConfigureRun(cmd *cobra.Command, workspace string) error {
+	return configureRun(cmd, workspace)
 }

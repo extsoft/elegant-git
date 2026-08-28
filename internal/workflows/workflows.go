@@ -32,12 +32,12 @@ func defaultRepoRoot() string {
 	return out
 }
 
-func workspace(ctx context.Context) runtime.Workspace {
-	ws := runtime.FromContext(ctx)
-	if ws.RepoRoot == "." || ws.RepoRoot == "" {
-		ws.RepoRoot = repoRootFunc()
+func repoLayout(ctx context.Context) runtime.RepoLayout {
+	layout := runtime.RepoLayoutFromContext(ctx)
+	if layout.RepoRoot == "." || layout.RepoRoot == "" {
+		layout.RepoRoot = repoRootFunc()
 	}
-	return ws
+	return layout
 }
 
 // RunAhead executes personal then common ahead hooks for id.
@@ -70,12 +70,12 @@ func runLegacyOnly(ctx context.Context, legacyName, hookType string) {
 	if Skip {
 		return
 	}
-	ws := workspace(ctx)
-	if runFileIfExists(ws.LegacyPersonalHookFile(legacyName, hookType), true) {
-		deprecation.RecordLegacyPersonalHook(ws.LegacyPersonalHookFile(legacyName, hookType))
+	layout := repoLayout(ctx)
+	if runFileIfExists(layout.LegacyPersonalHookFile(legacyName, hookType), true) {
+		deprecation.RecordLegacyPersonalHook(layout.LegacyPersonalHookFile(legacyName, hookType))
 	}
-	if runFileIfExists(ws.LegacyCommonHookFile(legacyName, hookType), true) {
-		deprecation.RecordLegacyCommonHook(ws.LegacyCommonHookFile(legacyName, hookType))
+	if runFileIfExists(layout.LegacyCommonHookFile(legacyName, hookType), true) {
+		deprecation.RecordLegacyCommonHook(layout.LegacyCommonHookFile(legacyName, hookType))
 	}
 }
 
@@ -83,15 +83,15 @@ func runHook(ctx context.Context, id cmdid.ID, hookType string) {
 	if Skip {
 		return
 	}
-	ws := workspace(ctx)
+	layout := repoLayout(ctx)
 	legacyName, _ := legacy.IDToLegacy(id)
 	if legacyName == "" {
 		legacyName = id.Command + "-" + id.Action
 	}
-	newPersonal := ws.NewHookFile(ws.PersonalHookDir(id), id, hookType)
-	newCommon := ws.NewHookFile(ws.CommonHookDir(id), id, hookType)
-	legacyPersonal := ws.LegacyPersonalHookFile(legacyName, hookType)
-	legacyCommon := ws.LegacyCommonHookFile(legacyName, hookType)
+	newPersonal := layout.NewHookFile(layout.PersonalHookDir(id), id, hookType)
+	newCommon := layout.NewHookFile(layout.CommonHookDir(id), id, hookType)
+	legacyPersonal := layout.LegacyPersonalHookFile(legacyName, hookType)
+	legacyCommon := layout.LegacyCommonHookFile(legacyName, hookType)
 
 	if fileExists(newPersonal) {
 		runFile(newPersonal)
@@ -119,12 +119,12 @@ func Prefix(id cmdid.ID) string {
 
 // WorkflowsDirectory returns the directory for personal or common hooks (new layout).
 func WorkflowsDirectory(location string, id cmdid.ID) (string, error) {
-	ws := runtime.Workspace{RepoRoot: repoRootFunc()}
+	layout := runtime.RepoLayout{RepoRoot: repoRootFunc()}
 	switch location {
 	case "personal":
-		return ws.PersonalHookDir(id), nil
+		return layout.PersonalHookDir(id), nil
 	case "common":
-		return ws.CommonHookDir(id), nil
+		return layout.CommonHookDir(id), nil
 	default:
 		return "", os.ErrInvalid
 	}
@@ -136,8 +136,8 @@ func WorkflowsFile(location string, id cmdid.ID, hookType string) (string, error
 	if err != nil {
 		return "", err
 	}
-	ws := runtime.Workspace{RepoRoot: repoRootFunc()}
-	return ws.NewHookFile(dir, id, hookType), nil
+	layout := runtime.RepoLayout{RepoRoot: repoRootFunc()}
+	return layout.NewHookFile(dir, id, hookType), nil
 }
 
 func fileExists(path string) bool {

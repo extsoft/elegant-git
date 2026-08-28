@@ -25,11 +25,11 @@ func TestPrintMemorySummaryNotInGitTree(t *testing.T) {
 	for _, want := range []string{
 		"version:",
 		"shared memory:",
-		"profiles: 0",
+		"workspaces: 0",
 		"repositories: 0",
 		"not inside a git work tree",
 		"git elegant git status",
-		"memory profiles",
+		"memory workspaces",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
@@ -97,7 +97,7 @@ func TestPrintGitStatusNoProfileDump(t *testing.T) {
 	if err := shared.Save(s); err != nil {
 		t.Fatal(err)
 	}
-	s.Profiles["p1"] = &shared.Profile{Name: "work", UserName: "W", UserEmail: "w@x.com", LinkedRepos: []string{}}
+	s.Workspaces["p1"] = &shared.Workspace{Name: "work", UserName: "W", UserEmail: "w@x.com", LinkedRepos: []string{}}
 	if err := shared.Save(s); err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestPrintGitStatusNoProfileDump(t *testing.T) {
 		}
 	}
 	if strings.Contains(out, "profiles:\n") {
-		t.Fatal("should not dump full profiles section")
+		t.Fatal("should not dump full workspaces section")
 	}
 }
 
@@ -165,11 +165,11 @@ func TestPrintRepoStatusLinkedProfileNameOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "linked profile: work") {
-		t.Errorf("missing linked profile name: %s", out)
+	if !strings.Contains(out, "linked workspace: work") {
+		t.Errorf("missing linked workspace name: %s", out)
 	}
 	if strings.Contains(out, "user.name:    Worker") {
-		t.Error("should not print full profile fields in repo status")
+		t.Error("should not print full workspace fields in repo status")
 	}
 	for _, want := range []string{"default branch: main", "protected branches:", "local git identity:"} {
 		if !strings.Contains(out, want) {
@@ -178,13 +178,13 @@ func TestPrintRepoStatusLinkedProfileNameOnly(t *testing.T) {
 	}
 }
 
-func TestPrintProfileStatusBranches(t *testing.T) {
+func TestPrintWorkspaceStatusBranches(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	git.Use(git.NewMemoryRunner())
 
 	var buf bytes.Buffer
-	if err := PrintProfileStatus(&buf); err != nil {
+	if err := PrintWorkspaceStatus(&buf); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "not inside a git work tree") {
@@ -201,10 +201,10 @@ func TestPrintProfileStatusBranches(t *testing.T) {
 	git.Use(m)
 
 	buf.Reset()
-	if err := PrintProfileStatus(&buf); err != nil {
+	if err := PrintWorkspaceStatus(&buf); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "linked profile: (not set") {
+	if !strings.Contains(buf.String(), "linked workspace: (not set") {
 		t.Fatalf("got:\n%s", buf.String())
 	}
 
@@ -215,7 +215,7 @@ func TestPrintProfileStatusBranches(t *testing.T) {
 	}
 
 	buf.Reset()
-	if err := PrintProfileStatus(&buf); err != nil {
+	if err := PrintWorkspaceStatus(&buf); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -227,7 +227,7 @@ func TestPrintProfileStatusBranches(t *testing.T) {
 
 	m.Repo.LocalConfig["elegant-git.repo-id"] = "missing"
 	buf.Reset()
-	if err := PrintProfileStatus(&buf); err != nil {
+	if err := PrintWorkspaceStatus(&buf); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "not in registry") {
@@ -235,7 +235,7 @@ func TestPrintProfileStatusBranches(t *testing.T) {
 	}
 }
 
-func TestPrintProfileStatusPerRepoOverride(t *testing.T) {
+func TestPrintWorkspaceStatusPerRepoOverride(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	gitDir := filepath.Join(dir, "r", ".git")
@@ -251,20 +251,20 @@ func TestPrintProfileStatusPerRepoOverride(t *testing.T) {
 	git.Use(m)
 
 	s := seedState(t, "prof-1", "work", "Worker", "w@x.com", "repo-1", "myrepo", repoRoot)
-	s.Profiles["prof-2"] = &shared.Profile{Name: "alt", UserName: "Alt", UserEmail: "a@x.com", LinkedRepos: []string{}}
+	s.Workspaces["prof-2"] = &shared.Workspace{Name: "alt", UserName: "Alt", UserEmail: "a@x.com", LinkedRepos: []string{}}
 	if err := shared.Save(s); err != nil {
 		t.Fatal(err)
 	}
-	if err := memrepo.Save(gitDir, &memrepo.State{ProfileID: "prof-2"}); err != nil {
+	if err := memrepo.Save(gitDir, &memrepo.State{WorkspaceID: "prof-2"}); err != nil {
 		t.Fatal(err)
 	}
 
 	var buf bytes.Buffer
-	if err := PrintProfileStatus(&buf); err != nil {
+	if err := PrintWorkspaceStatus(&buf); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "per-repo memory profile:") || !strings.Contains(out, "name:         alt") {
+	if !strings.Contains(out, "per-repo memory workspace:") || !strings.Contains(out, "name:         alt") {
 		t.Fatalf("got:\n%s", out)
 	}
 }
@@ -272,12 +272,12 @@ func TestPrintProfileStatusPerRepoOverride(t *testing.T) {
 func TestReposWithProfile(t *testing.T) {
 	s := &shared.State{
 		Repositories: map[string]*shared.Repository{
-			"a": {ProfileID: "p"},
-			"b": {ProfileID: ""},
+			"a": {WorkspaceID: "p"},
+			"b": {WorkspaceID: ""},
 			"c": nil,
 		},
 	}
-	if n := reposWithProfile(s); n != 1 {
+	if n := reposWithWorkspace(s); n != 1 {
 		t.Fatalf("got %d want 1", n)
 	}
 }
@@ -313,16 +313,16 @@ func seedState(t *testing.T, profID, profName, userName, email, repoID, repoName
 		t.Fatal(err)
 	}
 	if profID != "" {
-		s.Profiles[profID] = &shared.Profile{
+		s.Workspaces[profID] = &shared.Workspace{
 			Name: profName, UserName: userName, UserEmail: email, LinkedRepos: []string{},
 		}
 		if repoID != "" {
-			s.Profiles[profID].LinkedRepos = []string{repoID}
+			s.Workspaces[profID].LinkedRepos = []string{repoID}
 		}
 	}
 	if repoID != "" {
 		s.Repositories[repoID] = &shared.Repository{
-			Name: repoName, ProfileID: profID, CurrentPath: repoPath,
+			Name: repoName, WorkspaceID: profID, CurrentPath: repoPath,
 		}
 	}
 	return s

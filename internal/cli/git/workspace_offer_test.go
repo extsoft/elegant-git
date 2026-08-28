@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestOfferCreateProfileFromGlobalSkipsDuplicate(t *testing.T) {
+func TestOfferCreateWorkspaceFromGlobalSkipsDuplicate(t *testing.T) {
 	t.Setenv("ELEGANT_GIT_STATE_FILE", t.TempDir()+"/state.json")
 	m := git.NewMemoryRunner()
 	m.GlobalConfig["user.name"] = "Jane"
@@ -22,7 +22,7 @@ func TestOfferCreateProfileFromGlobalSkipsDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = shared.CreateProfile(s, shared.CreateProfileInput{
+	_, err = shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
 		Name: "jane", UserName: "Jane", UserEmail: "jane@example.com",
 	})
 	if err != nil {
@@ -33,15 +33,15 @@ func TestOfferCreateProfileFromGlobalSkipsDuplicate(t *testing.T) {
 	}
 	cmd := &cobra.Command{}
 	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
-	if err := offerCreateProfileFromGlobal(cmd); err != nil {
+	if err := offerCreateWorkspaceFromGlobal(cmd); err != nil {
 		t.Fatal(err)
 	}
-	if len(s.Profiles) != 1 {
-		t.Fatalf("profiles = %d", len(s.Profiles))
+	if len(s.Workspaces) != 1 {
+		t.Fatalf("workspaces = %d", len(s.Workspaces))
 	}
 }
 
-func TestOfferCreateProfileFromGlobalCreates(t *testing.T) {
+func TestOfferCreateWorkspaceFromGlobalCreates(t *testing.T) {
 	t.Setenv("ELEGANT_GIT_STATE_FILE", t.TempDir()+"/state.json")
 	m := git.NewMemoryRunner()
 	m.GlobalConfig["user.name"] = "Bob"
@@ -51,11 +51,11 @@ func TestOfferCreateProfileFromGlobalCreates(t *testing.T) {
 	p := prompt.NewTTY(in, &bytes.Buffer{})
 	cmd := &cobra.Command{}
 	cmd.SetContext(prompt.WithPrompter(context.Background(), p))
-	if err := offerCreateProfileFromGlobal(cmd); err != nil {
+	if err := offerCreateWorkspaceFromGlobal(cmd); err != nil {
 		t.Fatal(err)
 	}
 	s, _ := shared.Load()
-	if len(s.Profiles) != 1 {
-		t.Fatalf("profiles = %d", len(s.Profiles))
+	if len(s.Workspaces) != 1 {
+		t.Fatalf("workspaces = %d", len(s.Workspaces))
 	}
 }

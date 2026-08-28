@@ -1,4 +1,4 @@
-package profile
+package workspace
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ func TestCreateHelp(t *testing.T) {
 	for _, want := range []string{
 		"Usage:",
 		"create <name> <user-name> <user-email>",
-		"Creates a Git user profile",
+		"Creates a Git workspace",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in %q", want, out)
