@@ -24,7 +24,7 @@ A workspace maintains a single Git identity among its repositories:
 - editor configuration
 
 Only the account identity is required. The rest is applied when you have it, and
-`git elegant repo configure` asks before writing an optional field into a repository. Values that
+`eg repo configure` asks before writing an optional field into a repository. Values that
 already match the workspace are skipped without a prompt. The full field list, with the names they
 get on disk, is on the [memory](../reference/memory.md) page.
 
@@ -36,8 +36,8 @@ A Git repository URL usually has a `<domain>/<owner>/<repo>` structure — for e
 SCP-like, or `git://`. The same namespace may be attached to many workspaces, so it is a hint
 rather than a key.
 
-Whenever you link a repository — `git elegant repo configure`, `git elegant repo clone`,
-`git elegant repo init`, `git elegant workspace link`, or `git elegant workspace new` applying to
+Whenever you link a repository — `eg repo configure`, `eg repo clone`,
+`eg repo init`, `eg workspace link`, or `eg workspace new` applying to
 the current repository — and its origin yields a namespace the chosen workspace has not recorded
 yet, you are asked to confirm remembering it. In non-interactive mode it is recorded silently.
 
@@ -50,7 +50,7 @@ That memory pays off when `repo clone` runs without a workspace argument:
 
 ## The actions
 
-`git elegant workspace` is how you drive this. The actions are:
+`eg workspace` is how you drive this. The actions are:
 
 - `list` — shows available workspaces, or the details of one
 - `new` — creates a workspace and, on confirmation, applies it to the current repository
@@ -109,7 +109,7 @@ Repository problems and their repairs:
 
 ## What bare `workspace` does
 
-`git elegant workspace` with no action always asks; it never runs an action for you. It still
+`eg workspace` with no action always asks; it never runs an action for you. It still
 prints what it saw first, so you know which options you are looking at:
 
 ```mermaid

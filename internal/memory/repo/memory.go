@@ -98,7 +98,7 @@ func Load(gitDir string) (*State, error) {
 				deprecation.DEP012,
 				"shared/per-repo memory keys: profiles, profile_id",
 				"workspaces, workspace_id",
-				"git elegant repo migrate",
+				"eg repo migrate",
 			)
 		}
 		backupPath, err := backupStateFile(p)

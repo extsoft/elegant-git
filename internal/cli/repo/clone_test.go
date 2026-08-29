@@ -1,6 +1,9 @@
 package repo
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestDefaultCloneDir(t *testing.T) {
 	cases := []struct {
@@ -19,5 +22,22 @@ func TestDefaultCloneDir(t *testing.T) {
 		if got := defaultCloneDir(tc.repo); got != tc.want {
 			t.Errorf("defaultCloneDir(%q) = %q, want %q", tc.repo, got, tc.want)
 		}
+	}
+}
+
+func TestResolveUnderGitPrefix(t *testing.T) {
+	t.Setenv("GIT_PREFIX", "")
+	if got := resolveUnderGitPrefix("mydir"); got != "mydir" {
+		t.Fatalf("empty prefix: %q", got)
+	}
+
+	t.Setenv("GIT_PREFIX", "docs/")
+	if got := resolveUnderGitPrefix("mydir"); got != filepath.Join("docs/", "mydir") {
+		t.Fatalf("relative: %q", got)
+	}
+
+	abs := filepath.Join(t.TempDir(), "out")
+	if got := resolveUnderGitPrefix(abs); got != abs {
+		t.Fatalf("abs: %q", got)
 	}
 }

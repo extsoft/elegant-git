@@ -206,8 +206,8 @@ func TestFetchRunSuggestsDoctorOnPathMissing(t *testing.T) {
 	for _, want := range []string{
 		"path missing: " + missing,
 		"fail active-sales",
-		"Run `git elegant workspace doctor acme` to repair missing paths from the workspace side,",
-		"or `cd` into a relocated clone and run `git elegant repo doctor`.",
+		"Run `eg workspace doctor acme` to repair missing paths from the workspace side,",
+		"or `cd` into a relocated clone and run `eg repo doctor`.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)

@@ -46,7 +46,7 @@ Modifiers are different: they keep their default and are never offered as a ques
 
 ## When you omit the action
 
-Running `git elegant work` or `git elegant workspace` without an action is legitimate in
+Running `eg work` or `eg workspace` without an action is legitimate in
 interactive mode — Elegant Git detects the action from the context, or asks you when more than one
 fits. In non-interactive mode there is nothing to detect against, so an action is required and the
 command fails without one.
@@ -62,7 +62,7 @@ check that fits, so what you see is exactly what was evaluated:
 ```text
 ==>> Detection action...
 <check>? <result>
-selected: git elegant <object> <action>
+selected: eg <object> <action>
 ```
 
 When no check fits, the decision line says so and the [ask list](#the-ask-list) follows:

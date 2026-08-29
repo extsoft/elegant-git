@@ -13,9 +13,9 @@ Elegant Git keeps its own state in two JSON files — **shared memory** for ever
 **per-repo memory** for everything that belongs to one repository. Anything that does land in
 `git config` is on the [configuration](configuration.md) page instead.
 
-You never have to open these files. `git elegant memory status` summarizes them,
-`git elegant memory workspaces` and `git elegant memory repositories` list their contents, and
-`git elegant repo status` shows what the current repository resolved to.
+You never have to open these files. `eg memory status` summarizes them,
+`eg memory workspaces` and `eg memory repositories` list their contents, and
+`eg repo status` shows what the current repository resolved to.
 
 ## Shared memory
 
@@ -34,7 +34,7 @@ The document holds four things:
 
 - `schema_version` — currently `2`
 - `acquired_version` — the Elegant Git version that applied the global configuration; its presence
-  is what [`git elegant git configure`](configuration.md#approach) checks for
+  is what [`eg git configure`](configuration.md#approach) checks for
 - `workspaces` — each keyed by id, with `name`, `user_name`, `user_email`, and the optional
   `signing_key`, `editor`, `gpg_program`, `namespaces`, and `linked_repos`
 - `repositories` — the registry of managed repositories, each keyed by id, with `name`,
@@ -72,7 +72,7 @@ downgrade state a newer one wrote.
 
 ## How memory gets filled
 
-`git elegant repo configure` is what links a repository to a workspace. It writes `user.name` and
+`eg repo configure` is what links a repository to a workspace. It writes `user.name` and
 `user.email` into `.git/config`, and prompts before applying the optional workspace fields
 (`signing_key`, `editor`, `gpg_program`). Values that already match the workspace are skipped
 without prompts, and every `git config` set or unset is printed before it runs. Branch settings

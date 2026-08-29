@@ -49,13 +49,13 @@ func PrintMemorySummary(w io.Writer) error {
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "For details, run:")
-	fmt.Fprintln(w, "  git elegant git status")
-	fmt.Fprintln(w, "  git elegant repo status")
-	fmt.Fprintln(w, "  git elegant workspace status")
+	fmt.Fprintln(w, "  eg git status")
+	fmt.Fprintln(w, "  eg repo status")
+	fmt.Fprintln(w, "  eg workspace status")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Catalogs:")
-	fmt.Fprintln(w, "  git elegant memory workspaces")
-	fmt.Fprintln(w, "  git elegant memory repositories")
+	fmt.Fprintln(w, "  eg memory workspaces")
+	fmt.Fprintln(w, "  eg memory repositories")
 	return nil
 }
 

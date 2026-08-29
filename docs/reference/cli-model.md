@@ -18,9 +18,10 @@ seen yet, and to script the tool without surprises. So, one part at a time.
 
 ## Binary
 
-The binary is the program itself, and it is called `git-elegant`. Help and docs write it as
-`git elegant …` because Git resolves `git <subcommand>` by looking for a `git-<subcommand>` program
-on your `PATH` — the two forms are the same program.
+The binary is called `eg`. After `eg git configure`,
+`git elegant …` still works via the git alias `alias.elegant = "!eg"`. That form
+runs from the repository top level (Git sets `GIT_PREFIX` to the subdirectory you
+started in) and does not tab-complete. Treat `eg …` as the primary form.
 
 ## Object
 
@@ -47,7 +48,7 @@ something is an input to the action, it is positional — you will not see a fla
 
 A modifier changes how an action runs without changing what it does. There are three, and they are
 global: `--no-workflows`, `--non-interactive`, and `--interactive`. They may appear
-anywhere on the command line, so `git elegant --no-workflows work save` and
-`git elegant work save --no-workflows` are equivalent. What each one means is on the
+anywhere on the command line, so `eg --no-workflows work save` and
+`eg work save --no-workflows` are equivalent. What each one means is on the
 [interaction](interaction.md) page, and the full list is in the
 [commands](commands.md#flags) reference.

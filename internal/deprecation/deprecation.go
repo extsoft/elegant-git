@@ -26,6 +26,7 @@ const (
 	DEP008 = "DEP-008"
 	DEP009 = "DEP-009"
 	DEP012 = "DEP-012"
+	DEP015 = "DEP-015"
 
 	// SurfaceAnnotation marks a cobra command as a deprecated renamed surface (DEP-012).
 	SurfaceAnnotation = "elegant-git.deprecated-surface"
@@ -56,24 +57,24 @@ func Record(id, surface, replacement, migrate string) {
 // replacement is the canonical command path (e.g. "work start").
 func RecordLegacyCommand(name, replacement string) {
 	if replacement == "" {
-		replacement = "see `git elegant --help`"
+		replacement = "see `eg --help`"
 	}
-	Record(DEP001, name, replacement, "git elegant git migrate")
+	Record(DEP001, name, replacement, "eg git migrate")
 }
 
 // RecordLegacyPersonalHook records DEP-002.
 func RecordLegacyPersonalHook(path string) {
-	Record(DEP002, "personal hook: "+path, ".git/.config/elegant-git/hooks/<command>-<action>-{ahead,after}", "git elegant repo migrate")
+	Record(DEP002, "personal hook: "+path, ".git/.config/elegant-git/hooks/<command>-<action>-{ahead,after}", "eg repo migrate")
 }
 
 // RecordLegacyCommonHook records DEP-003.
 func RecordLegacyCommonHook(path string) {
-	Record(DEP003, "common hook: "+path, ".config/elegant-git/hooks/<command>-<action>-{ahead,after}", "git elegant hook migrate")
+	Record(DEP003, "common hook: "+path, ".config/elegant-git/hooks/<command>-<action>-{ahead,after}", "eg hook migrate")
 }
 
 // RecordShowCommands records DEP-004.
 func RecordShowCommands() {
-	Record(DEP004, "command name: show-commands", "git elegant completion <shell>", "git elegant completion bash")
+	Record(DEP004, "command name: show-commands", "eg completion <shell>", "eg completion bash")
 }
 
 // RecordRenamedSurface records DEP-012 for renamed commands or memory keys.

@@ -76,7 +76,7 @@ func decisionLine(action string) string {
 	if action == "" {
 		return "selected: ask"
 	}
-	return "selected: git elegant work " + action
+	return "selected: eg work " + action
 }
 
 func detect(s snapshot) outcome {

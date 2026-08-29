@@ -12,17 +12,17 @@ Elegant Git aims to standardize how a work environment should be configured. It 
 levels of configurations (see below) that can be applied to a Git repository (local configuration)
 and/or to a Git installation globally (global configuration). So,
 
-- the local configuration applies by running [`git elegant repo configure`](commands.md#repo)
+- the local configuration applies by running [`eg repo configure`](commands.md#repo)
   and configures the current Git repository (workspace linkage, per-repo memory, optional local
   standards and aliases)
-- the global configuration applies by running [`git elegant git configure`](commands.md#git)
+- the global configuration applies by running [`eg git configure`](commands.md#git)
   and uses `git config --global <key> <value>` for Git installation-wide settings
 
 If you've applied a global configuration (`acquired_version` in shared memory), `repo configure`
 does **not** add or rewrite local git aliases or local standards — those come from
 `git configure` once per Git installation. It still removes redundant **local**
-`elegant …` aliases and a stale local `elegant-git.acquired` marker when present. Run
-`git elegant git configure` once on each machine where you use Elegant Git globally.
+`elegant …` / `!eg …` aliases and a stale local `elegant-git.acquired` marker when present. Run
+`eg git configure` once on each machine where you use Elegant Git globally.
 
 For local-only setups (no global acquired marker), `repo configure` applies the full local
 standards and alias set, same as before.
@@ -76,17 +76,21 @@ Windows with `true`
 
 ## Level: Aliases
 
-In order to make an Elegant Git command look like a native Git command, the historical flat command
-names are registered as Git aliases — `git save-work` reaches `git elegant work save`. This should
-significantly improve user experience.
+`eg git configure` writes `alias.elegant = "!eg"`, so `git elegant <object> <action>` still reaches
+Elegant Git after configure. It also registers the historical flat command names as Git aliases —
+`git save-work` reaches `eg work save`. This should significantly improve user experience.
 
-The configuration is a call of `git config "alias.<flat-name>" "elegant <object> <action>"` [`i`]
-for each of those names, `show-commands` excepted. Note that only the flat names get an alias; the
-object-first form is always spelled in full as `git elegant work save`. The flat names themselves
-are deprecated, so treat the aliases as compatibility rather than as the way to drive the tool.
+The configuration is a call of `git config "alias.<flat-name>" "!eg <object> <action>"` [`i`]
+for each of those names, `show-commands` excepted, plus `git config alias.elegant "!eg"`. The
+object-first form is always spelled in full as `eg work save`. The flat names themselves
+are deprecated, so treat those aliases as compatibility rather than as the way to drive the tool.
+
+`!` aliases run from the repository top level, not the current subdirectory. `repo clone`
+honors Git's `GIT_PREFIX` so a relative destination still lands where you were. Other
+commands that take a relative path may not.
 
 When global configuration is applied, aliases are written globally only; `repo configure` and
-`repo migrate` remove redundant local elegant aliases instead.
+`repo migrate` remove redundant local elegant aliases instead. They keep `alias.elegant`.
 
 ## Level: Signature
 

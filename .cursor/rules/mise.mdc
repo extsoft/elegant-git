@@ -13,7 +13,7 @@ For **agent work**, use only:
 | Task | Use |
 | --- | --- |
 | `fix` | Lint/format/autofix via hk — run after code changes |
-| `build` | Produce `dist/git-elegant` |
+| `build` | Produce `dist/eg` |
 | `docs-preview` | Serve `docs/` locally via Docker (Jekyll) |
 
 ```bash

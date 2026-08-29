@@ -30,12 +30,12 @@ A hook is a single executable file, and its name says when it runs:
 `<command>` and `<action>` are the object and the action of an Elegant Git command — the same pair
 you see on the [commands](../reference/commands.md) page — and `<type>` is either `ahead` (runs
 prior to the command) or `after` (runs after the command). So a script that formats your code
-before every `git elegant work save` is `work-save-ahead`.
+before every `eg work save` is `work-save-ahead`.
 
 A sample hook execution:
 
 ```bash
-==>> git elegant work save
+==>> eg work save
 .git/.config/elegant-git/hooks/work-save-ahead
 .config/elegant-git/hooks/work-save-ahead
 # the command itself
@@ -52,22 +52,22 @@ directory.
 Git reports the hook it is running and moves on regardless of how the script ended, so a hook that
 must block the command has to be written to make the command itself fail.
 
-There is one hard limit worth knowing: a hook may call `git elegant` again, but the nesting is
+There is one hard limit worth knowing: a hook may call Elegant Git again, but the nesting is
 capped at 16 levels. Beyond that the run aborts with a message pointing at recursive hooks, which
-is what saves you from a `work-save-ahead` hook that calls `git elegant work save`.
+is what saves you from a `work-save-ahead` hook that calls `eg work save`.
 
 If you want to skip hooks for the current command execution, just use the `--no-workflows` option
-like `git elegant --no-workflows work save`.
+like `eg --no-workflows work save`.
 
 ## Managing hooks
 
 The `hook` object does the file handling for you:
 
-- `git elegant hook status` prints the path of every hook file that currently exists
-- `git elegant hook new <command-id> <ahead|after> <personal|common>` creates the file, makes it
+- `eg hook status` prints the path of every hook file that currently exists
+- `eg hook new <command-id> <ahead|after> <personal|common>` creates the file, makes it
   executable, and opens it in your editor
-- `git elegant hook edit <path>` opens an existing hook in your editor
-- `git elegant hook migrate` moves the repo-tracked hooks to the layout above
+- `eg hook edit <path>` opens an existing hook in your editor
+- `eg hook migrate` moves the repo-tracked hooks to the layout above
 
 The `<command-id>` for `hook new` is the canonical dotted form of the command — `work.start`,
 `repo.clone`, `release.new`. Legacy flat names such as `start-work` are still accepted, but they
@@ -83,8 +83,8 @@ it warns you. Both locations are deprecated and will stop working.
 Migrating is two commands, because the two tiers belong to different owners:
 
 ```bash
-git elegant hook migrate    # moves .workflows/ (common, tracked by Git)
-git elegant repo migrate    # moves .git/.workflows/ (personal)
+eg hook migrate    # moves .workflows/ (common, tracked by Git)
+eg repo migrate    # moves .git/.workflows/ (personal)
 ```
 
 `hook migrate` takes a `--dry-run` flag if you want to see the planned moves first, and it suggests

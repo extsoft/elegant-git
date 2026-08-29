@@ -6,14 +6,14 @@ nav_order: 9
 
 # Releases
 
-The `release` object has two actions. `git elegant release new` cuts a release from the default
-development branch, and `git elegant release notes` prints the log between two refs so you can
+The `release` object has two actions. `eg release new` cuts a release from the default
+development branch, and `eg release notes` prints the log between two refs so you can
 paste it wherever your release lives.
 
 ## Cutting a release
 
 ```bash
-git elegant release new v2026.8.29
+eg release new v2026.8.29
 ```
 
 The name is the only argument, and it becomes the tag. In interactive mode you are asked for it
@@ -35,7 +35,7 @@ started. "The last tag" means the highest tag by version order, not the most rec
 ## Shaping the notes
 
 ```bash
-git elegant release notes [<layout>] [<from-ref>] [<to-ref>]
+eg release notes [<layout>] [<from-ref>] [<to-ref>]
 ```
 
 Every argument is optional. The layout defaults to `simple`, `<from-ref>` defaults to the last tag,
@@ -54,5 +54,5 @@ command quietly falls back to `simple` rather than emitting broken links. Any ot
 an error.
 
 ```bash
-git elegant release notes simple v2026.7.1 v2026.8.29
+eg release notes simple v2026.7.1 v2026.8.29
 ```

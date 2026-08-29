@@ -56,7 +56,7 @@ func newRun(cmd *cobra.Command, args []string) error {
 		cliruntime.ExitWorkflowError("Please specify a valid command id (e.g. work.start) or legacy name.")
 	}
 	if _, ok := legacy.LegacyToID[commandID]; ok {
-		deprecation.Record(deprecation.DEP007, "hook new command argument: "+commandID, id.String(), "git elegant hook new "+id.String())
+		deprecation.Record(deprecation.DEP007, "hook new command argument: "+commandID, id.String(), "eg hook new "+id.String())
 	}
 	file, err := workflows.WorkflowsFile(location, id, hookType)
 	if err != nil {

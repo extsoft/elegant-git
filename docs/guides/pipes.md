@@ -8,7 +8,7 @@ nav_order: 8
 
 There are a lot of situations when a current Git state needs to be reserved prior to Elegant Git
 commands execution. For instance, you are working on something. And now, urgently, you need to
-accept someone's critical work — `git elegant work accept some-critical-branch`. But there are
+accept someone's critical work — `eg work accept some-critical-branch`. But there are
 uncommitted modifications that need to be stashed prior to accepting work. From the other side, it
 will be good to back into the previous working branch and restore modification from the stash when
 the needed work is accepted. That's why there are **pipes** which are doing preserve and restore

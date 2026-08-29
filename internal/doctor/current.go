@@ -59,7 +59,7 @@ func diagnoseRepoLinkage(s *shared.State, cwd, repoID string, p prompt.Prompter)
 		} else {
 			out = append(out, Finding{
 				Problem: fmt.Sprintf("%s is unset and no registry entry matches this path", repoid.Key),
-				Repair:  "run `git elegant repo configure <workspace>`",
+				Repair:  "run `eg repo configure <workspace>`",
 			})
 			return out
 		}
@@ -331,7 +331,7 @@ func hasRedundantLocalInstall() bool {
 			continue
 		}
 		value := strings.Join(fields[1:], " ")
-		if strings.HasPrefix(value, "elegant ") {
+		if config.IsRemovableAliasValue(value) {
 			return true
 		}
 	}

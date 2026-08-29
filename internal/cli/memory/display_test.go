@@ -28,7 +28,7 @@ func TestPrintMemorySummaryNotInGitTree(t *testing.T) {
 		"workspaces: 0",
 		"repositories: 0",
 		"not inside a git work tree",
-		"git elegant git status",
+		"eg git status",
 		"memory workspaces",
 	} {
 		if !strings.Contains(out, want) {

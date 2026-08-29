@@ -21,7 +21,7 @@ func TestDetect(t *testing.T) {
 			action: "accept",
 			steps: []string{
 				"rebase in progress? yes (" + acceptWorkBranch + ")",
-				"selected: git elegant work accept",
+				"selected: eg work accept",
 			},
 		},
 		{
@@ -30,7 +30,7 @@ func TestDetect(t *testing.T) {
 			action: "polish",
 			steps: []string{
 				"rebase in progress? yes (feat)",
-				"selected: git elegant work polish",
+				"selected: eg work polish",
 			},
 		},
 		{
@@ -41,7 +41,7 @@ func TestDetect(t *testing.T) {
 				"rebase in progress? no",
 				"on protected branch 'main'? yes",
 				"uncommitted changes? yes",
-				"selected: git elegant work start",
+				"selected: eg work start",
 			},
 		},
 		{
@@ -52,7 +52,7 @@ func TestDetect(t *testing.T) {
 				"rebase in progress? no",
 				"on protected branch 'feat'? no",
 				"uncommitted changes? yes",
-				"selected: git elegant work save",
+				"selected: eg work save",
 			},
 		},
 		{
@@ -65,7 +65,7 @@ func TestDetect(t *testing.T) {
 				"on protected branch 'feat'? no",
 				"uncommitted changes? no",
 				"behind upstream only? yes (ahead 0, behind 3)",
-				"selected: git elegant work sync",
+				"selected: eg work sync",
 			},
 		},
 		{
@@ -79,7 +79,7 @@ func TestDetect(t *testing.T) {
 				"uncommitted changes? no",
 				"behind upstream only? no (ahead 0, behind 0)",
 				"unique commits vs source? no",
-				"selected: git elegant work list",
+				"selected: eg work list",
 			},
 		},
 		{
@@ -117,7 +117,7 @@ func TestDetect(t *testing.T) {
 				"uncommitted changes? no",
 				"behind upstream only? no (no upstream)",
 				"unique commits vs source? no",
-				"selected: git elegant work list",
+				"selected: eg work list",
 			},
 		},
 	}

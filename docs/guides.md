@@ -11,7 +11,7 @@ about, and where you can hook your own automation in. Each guide is a walk-throu
 list of options; the exhaustive lists live in the [reference](reference.md).
 
 - [Daily work](guides/daily-work.md) — the `work` object: how a branch travels from `start` to
-  `accept`, and what bare `git elegant work` picks for you.
+  `accept`, and what bare `eg work` picks for you.
 - [Workspaces](guides/workspaces.md) — one Git identity shared across many repositories.
 - [Hooks](guides/hooks.md) — your own scripts running before and after Elegant Git commands.
 - [Pipes](guides/pipes.md) — stash and branch preserved around a command, then restored.

@@ -40,7 +40,7 @@ func saveRun(cmd *cobra.Command) error {
 
 func saveViaStartOnProtected(cmd *cobra.Command, branch string) error {
 	text.InfoBox(fmt.Sprintf("Warning: no direct commits on the protected '%s' branch.", branch))
-	text.InfoText("Starting `git elegant work start` to create a feature branch first.")
+	text.InfoText("Starting `eg work start` to create a feature branch first.")
 	var name, fromRef string
 	spec := startSpec(&name, &fromRef)
 	if err := cliruntime.RunWithWorkflows(cmd, startID, func() error {

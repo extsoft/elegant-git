@@ -51,7 +51,7 @@ func TestRunSessionDirtyProtectedStart(t *testing.T) {
 		t.Fatalf("ran %v", ran)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "==>> Detection action...") || !strings.Contains(out, "selected: git elegant work start") {
+	if !strings.Contains(out, "==>> Detection action...") || !strings.Contains(out, "selected: eg work start") {
 		t.Fatalf("eval=%q", out)
 	}
 }
@@ -87,7 +87,7 @@ func TestRunSessionListThenAskQuit(t *testing.T) {
 		t.Fatalf("expected action descriptions, got %+v", p.pickChoices)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "==>> Detection action...") || !strings.Contains(out, "selected: git elegant work list") || !strings.Contains(out, "selected: ask") {
+	if !strings.Contains(out, "==>> Detection action...") || !strings.Contains(out, "selected: eg work list") || !strings.Contains(out, "selected: ask") {
 		t.Fatalf("eval=%q", out)
 	}
 }

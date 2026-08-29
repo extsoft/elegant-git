@@ -15,7 +15,7 @@ func TestLegacyToPathCoversTwentyCommands(t *testing.T) {
 
 func TestAliasValueUsesNewForm(t *testing.T) {
 	got := AliasValue("start-work")
-	want := "elegant work start"
+	want := "!eg work start"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
@@ -30,7 +30,7 @@ func TestShowWorkflowsMapsToHookStatus(t *testing.T) {
 	if !ok || id.Action != "status" {
 		t.Fatalf("show-workflows id -> %+v", id)
 	}
-	if got := AliasValue("show-workflows"); got != "elegant hook status" {
+	if got := AliasValue("show-workflows"); got != "!eg hook status" {
 		t.Fatalf("got %q", got)
 	}
 }

@@ -88,14 +88,14 @@ var commandGroups = []commandGroup{
 	}},
 }
 
-// AttachObjectHelp sets HelpFunc so `git elegant <object> --help` lists actions.
+// AttachObjectHelp sets HelpFunc so `eg <object> --help` lists actions.
 func AttachObjectHelp(c *cobra.Command, object string) {
 	c.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
 		writeObjectUsage(cmd.OutOrStdout(), object)
 	})
 }
 
-// AttachObjectGroup sets Run and HelpFunc so `git elegant <object>` shows that object's subcommands.
+// AttachObjectGroup sets Run and HelpFunc so `eg <object>` shows that object's subcommands.
 func AttachObjectGroup(c *cobra.Command, object string) {
 	AttachObjectHelp(c, object)
 	c.Run = func(cmd *cobra.Command, _ []string) {
@@ -117,7 +117,7 @@ func writeObjectUsage(w io.Writer, object string) {
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "%s — %s\n\n", group.object, group.title)
-	fmt.Fprintf(w, "usage: git elegant %s <action> [-h | --help] [--no-workflows] [args]\n\n", group.object)
+	fmt.Fprintf(w, "usage: eg %s <action> [-h | --help] [--no-workflows] [args]\n\n", group.object)
 	fmt.Fprintln(w, "    -h, --help       displays help for an action")
 	fmt.Fprintln(w, "    --no-workflows       disables available hooks")
 	fmt.Fprintln(w, "    --non-interactive    disables prompts; fails when input is missing")
@@ -146,8 +146,8 @@ func writeRootUsage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "An assistant who carefully automates routine work with Git.")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "usage: git elegant [-h | --help | --version]")
-	fmt.Fprintln(w, "   or: git elegant <object> <action> [-h | --help] [--no-workflows] [args]")
+	fmt.Fprintln(w, "usage: eg [-h | --help | --version]")
+	fmt.Fprintln(w, "   or: eg <object> <action> [-h | --help] [--no-workflows] [args]")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "    -h, --help       displays help")
 	fmt.Fprintln(w, "    --version        displays program version")

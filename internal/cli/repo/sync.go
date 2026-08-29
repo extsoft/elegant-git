@@ -105,7 +105,7 @@ func syncRun(cmd *cobra.Command, all bool) error {
 		text.InfoText("Synced " + repo.Name)
 	}
 	if missingHint != "" {
-		text.InfoText("Run `git elegant workspace doctor " + missingHint + "` to repair missing paths from the workspace side, or `cd` into a relocated clone and run `git elegant repo doctor`.")
+		text.InfoText("Run `eg workspace doctor " + missingHint + "` to repair missing paths from the workspace side, or `cd` into a relocated clone and run `eg repo doctor`.")
 	}
 	return nil
 }

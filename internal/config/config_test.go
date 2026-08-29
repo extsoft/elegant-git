@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/extsoft/elegant-git/internal/deprecation"
 	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/memory/shared"
 	"github.com/extsoft/elegant-git/internal/version"
@@ -131,6 +132,82 @@ func TestAliasesRemovingOnlyElegantAliases(t *testing.T) {
 	}
 	if !unsetStart {
 		t.Fatal("expected start-work alias unset")
+	}
+}
+
+func TestAliasesRemovingKeepsElegantAlias(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Outputs["config --local --get-regexp ^alias\\."] = strings.Join([]string{
+		"alias.elegant !eg",
+		"alias.start-work elegant work start",
+		"alias.save-work !eg work save",
+		"alias.st status",
+	}, "\n")
+	git.Use(m)
+	if err := AliasesRemoving("--local", false); err != nil {
+		t.Fatal(err)
+	}
+	unset := map[string]bool{}
+	for _, c := range m.Calls {
+		if len(c.Args) >= 4 && c.Args[0] == "config" && c.Args[2] == "--unset" {
+			unset[c.Args[3]] = true
+		}
+	}
+	if !unset["alias.start-work"] {
+		t.Fatal("expected start-work (elegant …) unset")
+	}
+	if !unset["alias.save-work"] {
+		t.Fatal("expected save-work (!eg …) unset")
+	}
+	if unset[ElegantAliasKey] {
+		t.Fatal("alias.elegant must survive removal")
+	}
+	if unset["alias.st"] {
+		t.Fatal("non-elegant alias should not be removed")
+	}
+}
+
+func TestAliasesConfigurationWritesElegantAndFlat(t *testing.T) {
+	m := git.NewMemoryRunner()
+	git.Use(m)
+	if err := AliasesConfiguration("--global"); err != nil {
+		t.Fatal(err)
+	}
+	if m.GlobalConfig[ElegantAliasKey] != ElegantAliasValue {
+		t.Fatalf("alias.elegant = %q", m.GlobalConfig[ElegantAliasKey])
+	}
+	if m.GlobalConfig["alias.start-work"] != "!eg work start" {
+		t.Fatalf("alias.start-work = %q", m.GlobalConfig["alias.start-work"])
+	}
+}
+
+func TestAliasesRemovingDoesNotRecordDEP015(t *testing.T) {
+	deprecation.Reset()
+	m := git.NewMemoryRunner()
+	m.Outputs["config --local --get-regexp ^alias\\."] = "alias.start-work elegant work start"
+	git.Use(m)
+	if err := AliasesRemoving("--local", false); err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range deprecation.Events() {
+		if e.ID == deprecation.DEP015 {
+			t.Fatal("configure/remove must not record DEP-015")
+		}
+	}
+}
+
+func TestIsRemovableAliasValue(t *testing.T) {
+	if !IsRemovableAliasValue("elegant work start") {
+		t.Fatal("stale elegant prefix")
+	}
+	if !IsRemovableAliasValue("!eg work save") {
+		t.Fatal("!eg prefix")
+	}
+	if IsRemovableAliasValue(ElegantAliasValue) {
+		t.Fatal("bare !eg must not be removable")
+	}
+	if IsRemovableAliasValue("status") {
+		t.Fatal("unrelated alias")
 	}
 }
 

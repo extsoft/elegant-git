@@ -97,8 +97,8 @@ func fetchRun(w io.Writer, name string) error {
 	ui.close()
 	fmt.Fprintf(w, "Fetched: %d | Skipped: %d | Failed: %d\n", fetched, skipped, failed)
 	if pathMissing {
-		fmt.Fprintf(w, "Run `git elegant workspace doctor %s` to repair missing paths from the workspace side,\n", ws.Name)
-		fmt.Fprintln(w, "or `cd` into a relocated clone and run `git elegant repo doctor`.")
+		fmt.Fprintf(w, "Run `eg workspace doctor %s` to repair missing paths from the workspace side,\n", ws.Name)
+		fmt.Fprintln(w, "or `cd` into a relocated clone and run `eg repo doctor`.")
 	}
 	if failed > 0 {
 		return fmt.Errorf("fetch failed for %d of %d repositories", failed, len(ws.LinkedRepos))

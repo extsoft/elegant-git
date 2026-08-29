@@ -29,19 +29,25 @@ func newMigrateCommand() *cobra.Command {
 
 func migrateGlobal(dryRun bool) error {
 	text.InfoBox("Migrating global Elegant Git configuration...")
+	if err := config.EnsureElegantAlias("--global", dryRun); err != nil {
+		return err
+	}
 	for _, legacyName := range legacy.LegacyNames() {
 		if legacyName == "show-commands" {
 			continue
 		}
 		newVal := legacy.AliasValue(legacyName)
-		oldVal := "elegant " + legacyName
 		cur, _ := git.Output("config", "--global", "--get", "alias."+legacyName)
 		cur = strings.TrimSpace(cur)
 		if cur == newVal {
 			continue
 		}
+		if cur == "" {
+			continue
+		}
+		config.RecordStaleAlias(cur, newVal)
 		fmt.Fprintf(os.Stdout, "  alias.%s: %q -> %q\n", legacyName, cur, newVal)
-		if !dryRun && (cur == oldVal || cur == newVal || cur != "") {
+		if !dryRun {
 			if err := git.Verbose("config", "--global", "alias."+legacyName, newVal); err != nil {
 				return err
 			}

@@ -99,7 +99,7 @@ func CurrentBranch() string {
 func ExitProtectedNoCommits(branch string) {
 	text.ErrorBox(fmt.Sprintf("No direct commits to the protected '%s' branch.", branch))
 	text.ErrorText("Please read more on " + SiteURL + ".")
-	text.ErrorText("Run 'git elegant work start' prior to retrying this command.")
+	text.ErrorText("Run 'eg work start' prior to retrying this command.")
 	os.Exit(exitcode.ProtectedBranch)
 }
 
@@ -111,7 +111,7 @@ func ExitProtectedNoRewrite(branch string) {
 
 func ExitProtectedDeliver(branch string) {
 	text.ErrorBox(fmt.Sprintf("The push of the protected '%s' branch is prohibited.", branch))
-	text.ErrorText("Consider using 'git elegant work accept' or use plain 'git push'.")
+	text.ErrorText("Consider using 'eg work accept' or use plain 'git push'.")
 	os.Exit(exitcode.ProtectedBranch)
 }
 

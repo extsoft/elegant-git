@@ -2,7 +2,7 @@
 #MISE description="build release artifacts"
 set -o pipefail -o errexit -o nounset
 
-BINARY="git-elegant"
+BINARY="eg"
 MODULE="github.com/extsoft/elegant-git"
 
 PLATFORMS=(
@@ -83,7 +83,7 @@ build_and_archive_platform() {
   go build \
     -ldflags="-s -w -X ${MODULE}/internal/version.Version=${version}" \
     -o "$staging_dir/$binary_name" \
-    ./cmd/git-elegant
+    ./cmd/eg
 
   cp LICENSE "$staging_dir/"
   cp README.md "$staging_dir/"

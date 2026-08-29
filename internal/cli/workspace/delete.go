@@ -79,7 +79,7 @@ func deleteSummaryConfirm(cmd *cobra.Command, s *shared.State, id string, ws *sh
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "  - %s    %s\n", repo.Name, repo.CurrentPath)
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "Run `git elegant repo configure <workspace>` in each to link it elsewhere.")
+		fmt.Fprintln(cmd.OutOrStdout(), "Run `eg repo configure <workspace>` in each to link it elsewhere.")
 	}
 	fmt.Fprintln(cmd.OutOrStdout())
 

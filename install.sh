@@ -2,7 +2,7 @@
 set -o errexit -o nounset
 
 REPOSITORY="https://github.com/extsoft/elegant-git"
-BINARY="git-elegant"
+BINARY="eg"
 BINDIR="${BINDIR:-}"
 TAG=""
 
@@ -301,6 +301,7 @@ execute() {
     install "${tmpdir}/${BINARY}" "$BINDIR/"
     log_step "Installed ${BINARY}"
   fi
+  remove_legacy_binary "$BINDIR"
   log_info ""
 
   log_info "Elegant Git $TAG is installed to $BINDIR"
@@ -308,8 +309,8 @@ execute() {
   log_info ""
   log_info "  Then configure Git and a repository:"
   log_info ""
-  log_info "    git elegant git configure"
-  log_info "    git elegant repo configure"
+  log_info "    eg git configure"
+  log_info "    eg repo configure"
 }
 
 path_contains_dir() {
@@ -318,6 +319,17 @@ path_contains_dir() {
   *":${dir}:"* | *":${dir}/"*) return 0 ;;
   *) return 1 ;;
   esac
+}
+
+remove_legacy_binary() {
+  dir="$1"
+  for name in git-elegant git-elegant.exe; do
+    path="${dir}/${name}"
+    if [ -e "$path" ]; then
+      rm -f "$path"
+      log_step "Removed leftover ${name}"
+    fi
+  done
 }
 
 suggest_path_add() {
@@ -330,7 +342,7 @@ suggest_path_add() {
   if path_contains_dir "$bindir_expanded" || path_contains_dir "$BINDIR"; then
     return 0
   fi
-  log_info "  Add to PATH so that Git can find the ${BINARY} subcommand:"
+  log_info "  Add to PATH so that the ${BINARY} binary can be found:"
   log_info ""
   case "$BINDIR" in
   /*)

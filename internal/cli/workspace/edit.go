@@ -240,7 +240,7 @@ func workspaceEditSummaryConfirm(plan *editPlan, p prompt.Prompter) error {
 		}
 	}
 	if len(plan.missing) > 0 {
-		fmt.Printf("\nMissing path: %d repository (-ies); run `git elegant repo configure <name>` from the repository path to fix:\n", len(plan.missing))
+		fmt.Printf("\nMissing path: %d repository (-ies); run `eg repo configure <name>` from the repository path to fix:\n", len(plan.missing))
 		for _, t := range plan.missing {
 			fmt.Printf("  - %s    (%s)\n", t.name, t.path)
 		}

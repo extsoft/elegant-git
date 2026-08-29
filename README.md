@@ -67,7 +67,7 @@ The structure of directories:
 └── install.sh                  <- the installer published with every release
 ```
 
-`git elegant …` runs the Go binary built from `cmd/git-elegant`, which is part of the
+`eg …` runs the Go binary built from `cmd/eg`, which is part of the
 `github.com/extsoft/elegant-git` module. Commands live under `internal/cli/` as an object-first
 Cobra tree (for example `work start`, `repo clone`).
 
@@ -75,7 +75,7 @@ Cobra tree (for example `work start`, `repo clone`).
 
 1. Install [mise](https://mise.jdx.dev/)
 2. Run `mise run init` once after clone
-3. Use `mise run build` to produce `dist/git-elegant`
+3. Use `mise run build` to produce `dist/eg`
 
 ### Checks and tests
 

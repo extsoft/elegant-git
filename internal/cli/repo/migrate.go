@@ -35,6 +35,9 @@ func migrateLocal(dryRun bool) error {
 	text.InfoBox("Migrating local Elegant Git configuration...")
 	globalAcquired := config.IsGitAcquired()
 	if !globalAcquired {
+		if err := config.EnsureElegantAlias("--local", dryRun); err != nil {
+			return err
+		}
 		for _, legacyName := range legacy.LegacyNames() {
 			if legacyName == "show-commands" {
 				continue
@@ -43,6 +46,7 @@ func migrateLocal(dryRun bool) error {
 			cur, _ := git.Output("config", "--local", "--get", "alias."+legacyName)
 			cur = strings.TrimSpace(cur)
 			if cur != newVal {
+				config.RecordStaleAlias(cur, newVal)
 				fmt.Fprintf(os.Stdout, "  alias.%s -> %q\n", legacyName, newVal)
 				if !dryRun {
 					_ = git.Verbose("config", "--local", "alias."+legacyName, newVal)

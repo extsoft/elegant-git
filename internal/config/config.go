@@ -25,6 +25,8 @@ const (
 	AcquiredKey           = "elegant-git.acquired"
 	AcquiredValueLegacy   = "true"
 	DefaultUpstreamRemote = "origin"
+	ElegantAliasKey       = "alias.elegant"
+	ElegantAliasValue     = "!eg"
 )
 
 type stdPair struct {
@@ -216,7 +218,7 @@ func AliasesRemoving(scope string, dryRun bool) error {
 		}
 		key := parts[0]
 		value := strings.Join(parts[1:], " ")
-		if strings.HasPrefix(value, "elegant ") {
+		if IsRemovableAliasValue(value) {
 			keys = append(keys, key)
 		}
 	}
@@ -242,6 +244,9 @@ func AliasesRemoving(scope string, dryRun bool) error {
 // AliasesConfiguration sets git aliases mapping legacy names to new elegant paths.
 func AliasesConfiguration(scope string) error {
 	text.InfoBox("Configuring aliases...")
+	if err := EnsureElegantAlias(scope, false); err != nil {
+		return err
+	}
 	for _, legacyName := range legacy.LegacyNames() {
 		if legacyName == "show-commands" {
 			continue
@@ -255,6 +260,33 @@ func AliasesConfiguration(scope string) error {
 		}
 	}
 	return nil
+}
+
+// EnsureElegantAlias writes or overwrites alias.elegant = "!eg" in scope.
+func EnsureElegantAlias(scope string, dryRun bool) error {
+	cur, _ := git.Output("config", scope, "--get", ElegantAliasKey)
+	cur = strings.TrimSpace(cur)
+	if cur == ElegantAliasValue {
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "  %s: %q -> %q\n", ElegantAliasKey, cur, ElegantAliasValue)
+	if dryRun {
+		return nil
+	}
+	return git.Verbose("config", scope, ElegantAliasKey, ElegantAliasValue)
+}
+
+// IsRemovableAliasValue reports whether a git alias value is an Elegant Git-managed
+// flat-command alias. alias.elegant ("!eg") is excluded so it survives cleanup.
+func IsRemovableAliasValue(value string) bool {
+	return strings.HasPrefix(value, "elegant ") || strings.HasPrefix(value, "!eg ")
+}
+
+// RecordStaleAlias records DEP-015 when a pre-rename alias value is rewritten.
+func RecordStaleAlias(value, replacement string) {
+	if strings.HasPrefix(value, "elegant ") {
+		deprecation.Record(deprecation.DEP015, "alias value: "+value, replacement, "eg git migrate")
+	}
 }
 
 // MigrateAcquiredValue imports legacy git config markers into shared memory and unsets them.
@@ -290,9 +322,9 @@ func importAcquiredToSharedMemory(scope string) error {
 
 func migrateHint(scope string) string {
 	if scope == "--global" {
-		return "git elegant git migrate"
+		return "eg git migrate"
 	}
-	return "git elegant repo migrate"
+	return "eg repo migrate"
 }
 
 // RemoveObsoleteAcquired unsets elegant-git.acquired for scope when present.

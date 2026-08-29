@@ -22,7 +22,7 @@ and raises them as
 
 `42` is the code you meet when you ask Elegant Git to do something a protected branch does not
 allow: commit directly to it, rewrite its history, or push it. The message names the branch and
-suggests the way around it — usually `git elegant work start` or `git elegant work accept`. Which
+suggests the way around it — usually `eg work start` or `eg work accept`. Which
 branches are protected comes from [per-repo memory](memory.md).
 
 `43` means the command refused to continue because your input or the repository state does not make

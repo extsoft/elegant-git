@@ -10,7 +10,7 @@ The `work` object covers your day-to-day branch routine. It has nine actions —
 `amend`, `list`, `polish`, `sync`, `push`, `track`, and `accept` — and between them they carry a
 change from a fresh branch to the default development branch.
 
-You don't have to remember which one comes next. If you run `git elegant work` with no action,
+You don't have to remember which one comes next. If you run `eg work` with no action,
 Elegant Git looks at the repository, tells you what it saw, and either runs the obvious action or
 asks you to choose. In non-interactive mode there is nothing to ask, so an action is always
 required — see [interaction](../reference/interaction.md) for what "interactive" means here.
@@ -118,4 +118,4 @@ out of the idle set.
 Two more details are easy to miss. On a feature branch, picking `accept` accepts the branch you are
 already on — it does not ask you to choose one. On a protected branch it still asks which branch to
 take. And `amend` is never detected and never offered; rewriting your last commit is always
-something you ask for explicitly with `git elegant work amend`.
+something you ask for explicitly with `eg work amend`.

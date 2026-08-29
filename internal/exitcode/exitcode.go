@@ -1,4 +1,4 @@
-// Package exitcode defines exit codes used by git-elegant commands.
+// Package exitcode defines exit codes used by eg commands.
 package exitcode
 
 const (

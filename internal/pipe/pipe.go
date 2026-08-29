@@ -28,7 +28,7 @@ func StashPipe(id cmdid.ID, fn func() error) error {
 	if HasChanges() {
 		if msg, _ := cmdmem.Get(id, cmdmem.FieldStash); msg == "" {
 			branch, _ := git.Output("rev-parse", "--abbrev-ref", "HEAD")
-			message := fmt.Sprintf("git-elegant %s auto-stash: WIP in '%s' branch on %s",
+			message := fmt.Sprintf("eg %s auto-stash: WIP in '%s' branch on %s",
 				id.String(), strings.TrimSpace(branch), time.Now().Format("2006-01-02T15:04:05"))
 			if err := git.Verbose("stash", "push", "--message", message); err != nil {
 				return err

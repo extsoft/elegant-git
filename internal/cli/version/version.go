@@ -12,7 +12,7 @@ func NewCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print the program version",
-		Long:  "Prints the installed git-elegant version string.",
+		Long:  "Prints the installed eg version string.",
 		Run: func(_ *cobra.Command, _ []string) {
 			fmt.Println(version.Version)
 		},

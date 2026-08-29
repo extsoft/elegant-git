@@ -63,6 +63,7 @@ func cloneRun(cmd *cobra.Command, repository, workspace, directory string) error
 	if directory == "" {
 		directory = defaultCloneDir(repository)
 	}
+	directory = resolveUnderGitPrefix(directory)
 	if err := git.Verbose("clone", repository, directory); err != nil {
 		return err
 	}
@@ -89,6 +90,20 @@ func disambiguateCloneArgs(workspace, directory *string) {
 	}
 	*directory = *workspace
 	*workspace = ""
+}
+
+// resolveUnderGitPrefix joins a relative clone destination with GIT_PREFIX so
+// `git elegant repo clone` (a ! alias, cwd = work-tree root) matches `eg repo clone`
+// from the subdirectory the user was in.
+func resolveUnderGitPrefix(directory string) string {
+	if directory == "" || filepath.IsAbs(directory) {
+		return directory
+	}
+	prefix := strings.TrimSpace(os.Getenv("GIT_PREFIX"))
+	if prefix == "" {
+		return directory
+	}
+	return filepath.Join(prefix, directory)
 }
 
 // defaultCloneDir mirrors git clone's default destination: last path segment, without .git.

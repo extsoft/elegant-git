@@ -139,12 +139,12 @@ func TestLegacyShimStartWork(t *testing.T) {
 func buildTestBinary(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	bin := filepath.Join(dir, "git-elegant")
+	bin := filepath.Join(dir, "eg")
 	root, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/git-elegant")
+	cmd := exec.Command("go", "build", "-o", bin, "./cmd/eg")
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if out, err := cmd.CombinedOutput(); err != nil {

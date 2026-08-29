@@ -71,10 +71,10 @@ func installMessage() string {
 It is achieved by
 
 1. applying the configuration for a concrete repository only (a local
-   configuration that is managed by "git elegant repo configure")
+   configuration that is managed by "eg repo configure")
 2. applying the configuration for both Git installation (global configuration
    that is managed by this command) and a repository (managed by
-   "git elegant repo configure")
+   "eg repo configure")
 
 The second option is preferred in case of the installation of a newer Elegant
 Git version as it allows you don't refresh a configuration for each local
@@ -93,13 +93,13 @@ You've decided to stay with local configurations. Great!
 Now you have to follow some rules:
 
 1. if you want to acquire existing local repository
-        git elegant repo configure
+        eg repo configure
 
 2. if you need to clone a repository
-        git elegant repo clone
+        eg repo clone
 
 3. if you need to create a new repository
-        git elegant repo init
+        eg repo init
 
 `
 }

@@ -8,7 +8,7 @@ import (
 )
 
 func TestLegacyShimDoesNotRecurse(t *testing.T) {
-	root := &cobra.Command{Use: "git-elegant"}
+	root := &cobra.Command{Use: "eg"}
 	var ran bool
 	work := &cobra.Command{Use: "work"}
 	work.AddCommand(&cobra.Command{

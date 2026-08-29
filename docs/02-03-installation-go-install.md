@@ -11,12 +11,12 @@ permalink: /installation/go-install/
 With a Go toolchain available, you can build from source instead of downloading a release:
 
 ```bash
-go install github.com/extsoft/elegant-git/cmd/git-elegant@latest
+go install github.com/extsoft/elegant-git/cmd/eg@latest
 ```
 
-This puts `git-elegant` into `$(go env GOPATH)/bin`, which is `~/go/bin` unless you changed it.
-That directory has to be on your `PATH` for Git to resolve `git elegant`.
+This puts the `eg` binary into `$(go env GOPATH)/bin`, which is `~/go/bin` unless you changed it.
+That directory has to be on your `PATH`.
 
 Replace `@latest` with a tag — for example `@v2026.8.29` — to build a specific release. Note that a
-binary built this way reports the version baked in at build time, so `git elegant --version` may
+binary built this way reports the version baked in at build time, so `eg --version` may
 read `dev` for a source build outside a release tag.

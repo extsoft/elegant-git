@@ -9,8 +9,8 @@ permalink: /installation/
 
 # Installation
 
-`git-elegant` is a single executable, and its directory has to be on your `PATH` for Git to resolve
-`git elegant`. Pick one way, then continue with [getting started](03-getting-started.md).
+Pick one way to install Elegant Git so the `eg` command is on your `PATH`, then continue with
+[getting started](03-getting-started.md).
 
 ## Using install script
 
@@ -32,8 +32,20 @@ Want it only in this project, or to update later? See [using mise](02-02-install
 ## Using go install
 
 ```bash
-go install github.com/extsoft/elegant-git/cmd/git-elegant@latest
+go install github.com/extsoft/elegant-git/cmd/eg@latest
 ```
 
 Need to know where the binary lands, or pin a tag? See
 [using go install](02-03-installation-go-install.md).
+
+## Upgrading from `git-elegant`
+
+The binary was renamed from `git-elegant` to `eg`. Git no longer finds it as a
+`git-<subcommand>` on `PATH`.
+
+1. Remove every `git-elegant` binary from `PATH`. A leftover copy **shadows** the
+   `alias.elegant` git alias, so `git elegant …` keeps invoking the old program.
+2. Delete stale completion files (`~/.local/share/bash-completion/completions/git-elegant`
+   and the zsh equivalent).
+3. Install Elegant Git, then run `eg git configure` (or `eg git migrate`) to write
+   `alias.elegant = "!eg"` and rewrite flat aliases to `!eg <object> <action>`.

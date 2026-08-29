@@ -36,7 +36,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:           "git-elegant",
+	Use:           "eg",
 	Short:         "An assistant who carefully automates routine work with Git.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
@@ -46,13 +46,13 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-// Execute runs the git-elegant CLI.
+// Execute runs the eg CLI.
 func Execute() {
 	defer deprecation.Flush()
 	if err := rootCmd.Execute(); err != nil {
 		if isUnknownCommand(err) {
 			name := unknownCommandName(err)
-			fmt.Fprintf(os.Stderr, "Unknown command: git elegant %s\n", name)
+			fmt.Fprintf(os.Stderr, "Unknown command: eg %s\n", name)
 			writeRootUsage(os.Stderr)
 			os.Exit(exitcode.UnknownCommand)
 		}
@@ -164,7 +164,7 @@ func recordDeprecatedSurface(cmd *cobra.Command) {
 				replacement = strings.Replace(surface, "profile", "workspace", 1)
 			}
 		}
-		deprecation.RecordRenamedSurface(surface, replacement, "git elegant repo migrate")
+		deprecation.RecordRenamedSurface(surface, replacement, "eg repo migrate")
 		return
 	}
 }
@@ -182,7 +182,7 @@ func guardInvocationDepth() error {
 	}
 	if d >= maxDepth {
 		return fmt.Errorf(
-			"elegant-git: nested invocation limit (%d); check workflow hooks for recursive `git elegant` / `git deliver-work` calls",
+			"elegant-git: nested invocation limit (%d); check workflow hooks for recursive `eg` / `git deliver-work` calls",
 			maxDepth,
 		)
 	}

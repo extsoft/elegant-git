@@ -108,13 +108,13 @@ func ReplacementCommand(legacy string) string {
 	return joinArgs(path)
 }
 
-// AliasValue returns the git alias value for a legacy name (elegant <new path>).
+// AliasValue returns the git alias value for a legacy name (!eg <new path>).
 func AliasValue(legacy string) string {
 	path, ok := LegacyToPath[legacy]
 	if !ok {
 		return ""
 	}
-	return "elegant " + joinArgs(path)
+	return "!eg " + joinArgs(path)
 }
 
 func joinArgs(parts []string) string {

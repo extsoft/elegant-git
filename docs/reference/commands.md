@@ -7,7 +7,7 @@ nav_order: 1
 
 # Commands
 
-`git elegant` uses an object-first CLI. Legacy flat names (e.g. `git elegant start-work`) remain available as hidden aliases.
+Elegant Git uses an object-first CLI. Legacy flat names (e.g. `eg start-work`) remain available as hidden aliases.
 
 ## Argument handling
 
@@ -122,5 +122,8 @@ Hooks live under `.config/elegant-git/hooks/<command>-<action>-{ahead,after}` (r
 ## Shell completion
 
 ```bash
-git elegant completion bash > ~/.local/share/bash-completion/completions/git-elegant
+eg completion bash > ~/.local/share/bash-completion/completions/eg
 ```
+
+`git elegant <TAB>` does not complete (the git alias is a `!` expansion). Use `eg <TAB>`.
+If you previously installed a `git-elegant` completion file, delete it.

@@ -14,11 +14,12 @@ Minimum policy: keep **active** for at least two minor releases or six months af
 
 | Type | Example | Migrate command |
 | --- | --- | --- |
-| Command name | `start-work` | `git elegant git migrate` / `git elegant repo migrate` |
-| Hook path | `.workflows/start-work-ahead` | `git elegant hook migrate` / `git elegant repo migrate` |
-| Config key | `elegant.start-work-stash` | `git elegant repo migrate` |
-| Alias value | `elegant start-work` | `git elegant git migrate` |
-| Completion script | hand-written `_git-elegant` | `git elegant completion <shell>` |
+| Command name | `start-work` | `eg git migrate` / `eg repo migrate` |
+| Hook path | `.workflows/start-work-ahead` | `eg hook migrate` / `eg repo migrate` |
+| Config key | `elegant.start-work-stash` | `eg repo migrate` |
+| Alias value | `elegant start-work` | `eg git migrate` |
+| Completion script | hand-written `_git-elegant` | `eg completion <shell>` |
+| Binary name | `git-elegant` / `git elegant` dispatch | `eg git configure` / `eg git migrate` |
 
 ## Warning format
 
@@ -27,7 +28,7 @@ After command execution, once per process per deprecation id.
 Legacy command names (`DEP-001`):
 
 ```text
-Warning: the `<legacy>` command is deprecated; please use `<command> <action>`. Run `git elegant git migrate` to migrate automatically.
+Warning: the `<legacy>` command is deprecated; please use `<command> <action>`. Run `eg git migrate` to migrate automatically.
 ```
 
 Other surfaces:
