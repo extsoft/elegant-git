@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/git"
 )
 
 // IsThereActiveRebase reports whether a rebase is in progress.

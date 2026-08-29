@@ -1,13 +1,13 @@
 package memory
 
 import (
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
-	"github.com/bees-hive/elegant-git/internal/cli/completion"
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	"github.com/bees-hive/elegant-git/internal/cli/sources"
-	workspacecmd "github.com/bees-hive/elegant-git/internal/cli/workspace"
-	"github.com/bees-hive/elegant-git/internal/deprecation"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
+	"github.com/extsoft/elegant-git/internal/cli/completion"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/cli/sources"
+	workspacecmd "github.com/extsoft/elegant-git/internal/cli/workspace"
+	"github.com/extsoft/elegant-git/internal/deprecation"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
 	"github.com/spf13/cobra"
 )
 

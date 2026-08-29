@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bees-hive/elegant-git/internal/memory/repoid"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/memory/repoid"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
 )
 
 // syncRegistryPath updates shared memory when a registered repo is at path.

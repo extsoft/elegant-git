@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/git"
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 )
 
 type pruneOnFetchRunner struct {

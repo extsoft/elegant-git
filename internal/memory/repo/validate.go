@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/memory/repoid"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/memory/repoid"
 )
 
 // ValidateRepoID warns when per-repo repo_id does not match git config.

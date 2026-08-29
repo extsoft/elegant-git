@@ -7,12 +7,12 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/cli/legacy"
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	"github.com/bees-hive/elegant-git/internal/deprecation"
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/runtime"
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/cli/legacy"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/deprecation"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/runtime"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 // Skip when true disables ahead/after hook execution (--no-workflows).

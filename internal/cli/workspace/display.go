@@ -7,10 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
-	"github.com/bees-hive/elegant-git/internal/memory/repoid"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/text"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/memory/repoid"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 // PrintWorkspaceStatus prints the linked workspace for the current repository.

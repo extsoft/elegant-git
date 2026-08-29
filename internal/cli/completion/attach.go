@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/spf13/cobra"
 )
 

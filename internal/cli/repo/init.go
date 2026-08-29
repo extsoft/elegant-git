@@ -3,11 +3,11 @@ package repo
 import (
 	"os"
 
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
-	"github.com/bees-hive/elegant-git/internal/cli/completion"
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
+	"github.com/extsoft/elegant-git/internal/cli/completion"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/spf13/cobra"
 )
 

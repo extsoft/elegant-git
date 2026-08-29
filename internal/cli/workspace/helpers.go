@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/git"
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
-	"github.com/bees-hive/elegant-git/internal/memory/repoid"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/memory/repoid"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/spf13/cobra"
 )
 

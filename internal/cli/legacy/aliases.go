@@ -1,7 +1,7 @@
 // Package legacy maps deprecated flat command names to new object-first paths.
 package legacy
 
-import "github.com/bees-hive/elegant-git/internal/cmdid"
+import "github.com/extsoft/elegant-git/internal/cmdid"
 
 // LegacyToPath maps legacy name -> new CLI args (without "elegant").
 var LegacyToPath = map[string][]string{

@@ -4,4 +4,4 @@ The contribution:
 - [ ] updates the completion scripts if requires
 - [ ] complies with all requirements from `README.md > Hands-on development notes`
 
-@bees-hive/elegant-git-maintainers, please review.
+@extsoft, please review.

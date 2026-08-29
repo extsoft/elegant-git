@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/spf13/cobra"
 )
 

@@ -5,11 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/cli/legacy"
-	"github.com/bees-hive/elegant-git/internal/config"
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/cli/legacy"
+	"github.com/extsoft/elegant-git/internal/config"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 

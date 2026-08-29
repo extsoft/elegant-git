@@ -1,8 +1,8 @@
 package shared
 
 import (
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 // Apply controls how ApplyWorkspace writes keys during propagation.

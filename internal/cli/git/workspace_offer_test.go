@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/spf13/cobra"
 )
 

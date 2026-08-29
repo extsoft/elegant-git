@@ -3,13 +3,13 @@ package repo
 import (
 	"strings"
 
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	"github.com/bees-hive/elegant-git/internal/config"
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/memory/repo"
-	"github.com/bees-hive/elegant-git/internal/state"
-	"github.com/bees-hive/elegant-git/internal/text"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/config"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/state"
+	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 

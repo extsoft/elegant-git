@@ -3,8 +3,8 @@ package shared
 import (
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 type fakePrompter struct {

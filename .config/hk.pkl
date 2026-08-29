@@ -62,7 +62,7 @@ local generic = new Mapping<String, Step> {
         "**/*.go",
         "**/go.*",
         "dist/**",
-        "site/**",
+        "docs/_site/**",
         "aaa/**",
         ".git/**",
         "docs/**",
@@ -75,14 +75,16 @@ local generic = new Mapping<String, Step> {
 local shell = new Mapping<String, Step> {
   ["shfmt"] {
     batch = true
-    glob = List(".config/mise/tasks/*.bash")
+    glob = List("**/*.bash", "install.sh")
+    exclude = List("dist/**", "docs/_site/**")
     check = "shfmt --list --indent 2 --simplify --diff {{files}}"
     fix = "shfmt --list --indent 2 --simplify --write {{files}}"
   }
   ["shellcheck"] {
     depends = "shfmt"
     batch = true
-    glob = List(".config/mise/tasks/*.bash")
+    glob = List("**/*.bash", "install.sh")
+    exclude = List("dist/**", "docs/_site/**")
     check = "shellcheck {{files}}"
   }
 }

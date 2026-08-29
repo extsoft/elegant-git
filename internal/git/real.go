@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 // RealRunner invokes the git binary on the host.

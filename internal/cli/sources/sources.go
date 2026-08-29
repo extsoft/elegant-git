@@ -8,11 +8,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/state"
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/state"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 func fetchRemotes() {

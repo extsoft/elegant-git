@@ -3,7 +3,7 @@ package shared
 import (
 	"os"
 
-	"github.com/bees-hive/elegant-git/internal/memory/repoid"
+	"github.com/extsoft/elegant-git/internal/memory/repoid"
 )
 
 // TouchCurrentRepo updates registry path when repo-id is known and cwd changed.

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	"github.com/bees-hive/elegant-git/internal/git"
-	cmdmem "github.com/bees-hive/elegant-git/internal/memory/cmd"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/git"
+	cmdmem "github.com/extsoft/elegant-git/internal/memory/cmd"
 )
 
 // HasChanges reports whether HEAD has staged or unstaged changes.

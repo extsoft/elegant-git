@@ -5,7 +5,7 @@ import (
 	"io"
 	"sort"
 
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +21,7 @@ func AllCanonicalCommandIDs() []string {
 	return ids
 }
 
-const siteURL = "https://elegant-git.bees-hive.org"
+const siteURL = "https://elegant-git.extsoft.pro"
 
 type commandGroup struct {
 	object   string

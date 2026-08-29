@@ -1,11 +1,11 @@
-[help-wanted]: https://github.com/bees-hive/elegant-git/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+sort%3Acomments-desc+no%3Aassignee
-[by-reactions]: https://github.com/bees-hive/elegant-git/issues?q=is%3Aissue+is%3Aopen+sort%3Areactions-%2B1-desc+no%3Aassignee
+[help-wanted]: https://github.com/extsoft/elegant-git/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22+sort%3Acomments-desc+no%3Aassignee
+[by-reactions]: https://github.com/extsoft/elegant-git/issues?q=is%3Aissue+is%3Aopen+sort%3Areactions-%2B1-desc+no%3Aassignee
 [dev-notes]: README.md#hands-on-development-notes
-[open-issues]: https://github.com/bees-hive/elegant-git/issues
-[new-issue]: https://github.com/bees-hive/elegant-git/issues/new/choose
-[commit-sample]: https://github.com/bees-hive/elegant-git/commit/1855df5881a4c80f78b0a189342f5003628e0db8
+[open-issues]: https://github.com/extsoft/elegant-git/issues
+[new-issue]: https://github.com/extsoft/elegant-git/issues/new/choose
+[commit-sample]: https://github.com/extsoft/elegant-git/commit/1855df5881a4c80f78b0a189342f5003628e0db8
 [status-checks]: https://help.github.com/articles/about-status-checks/
-[semver]: https://semver.org/spec/v2.0.0.html
+[calver]: https://calver.org/
 
 # Contribution guide for Elegant Git
 :+1::tada: First off, thanks for taking the time to contribute! :tada::+1:
@@ -54,13 +54,19 @@ for the first contribution.
 
 ## Release management
 The project is released based on a decision of the maintainers or a request from the community (a
-comment in a pull request or an issue). And [Semantic Versioning 2.0][semver] is used as a control
-mechanism of version numbers. Such release approach requires ready-to-release contributions within
-a single pull request. This allows releasing `master` branch at any point of time.
+comment in a pull request or an issue). And [calendar versioning][calver] is used as a control
+mechanism of version numbers: `vYYYY.M.D` for a stable release and `vYYYY.M.D.hhmm-prerelease` for
+a preview one. Such release approach requires ready-to-release contributions within a single pull
+request. This allows releasing the `main` branch at any point of time.
+
+A maintainer publishes a release locally with `mise run release:github`, which builds the
+artifacts, generates the notes from the commits since the last stable tag, and creates the GitHub
+release. See ["Releasing" section in README.md](README.md#releasing) for the details.
 
 ## Documentation management
 All project-related documentation is stored along with source code. It is
-- `docs` directory for user documentation
+- `docs` directory for user documentation, published to <https://elegant-git.extsoft.pro/> and
+organized as Home, Installation, Getting started, the guide pages, Reference, and About
 - `*.md` files in the root of the repository for the development documentation
 - help messages and comments within source code
 
@@ -108,7 +114,7 @@ as many worlds as wish.
 
 The final part, please mention the issue number (see the last line). Please
 either use
-    https://elegant-git.bees-hive.org
+    https://elegant-git.extsoft.pro
 or run
     git config --local core.commentChar |
 for stating commit message lines with # symbol.
@@ -128,7 +134,7 @@ A newly created pull request will be prepopulated from a template. You have to
 update issue number (if it affects several issues, please specify all) and
 complete checklist. After, feel free to add more comments if you want.
 
-A pull requests must be targeted into the `master` branch (a default one).
+A pull requests must be targeted into the `main` branch (a default one).
 
 Once the pull request is created, please make sure [status checks][status-checks] are passing.
 

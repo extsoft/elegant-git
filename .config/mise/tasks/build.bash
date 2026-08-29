@@ -15,7 +15,7 @@ go mod tidy
 mkdir -p "${DIST_DIR}"
 version="$(git describe --tags --always --abbrev=7 2>/dev/null || echo dev)"
 go build \
-  -ldflags="-s -w -X github.com/bees-hive/elegant-git/internal/version.Version=${version}" \
+  -ldflags="-s -w -X github.com/extsoft/elegant-git/internal/version.Version=${version}" \
   -o "${DIST_DIR}/git-elegant" \
   ./cmd/git-elegant
 echo "Artifact: ${DIST_DIR}/git-elegant"

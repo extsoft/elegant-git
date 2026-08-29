@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 func TestDeleteSpecKeepsCLIArg(t *testing.T) {

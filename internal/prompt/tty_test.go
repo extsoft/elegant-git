@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 func captureQuestions(t *testing.T) *bytes.Buffer {

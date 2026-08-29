@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 // Call records one git invocation.

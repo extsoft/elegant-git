@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	"github.com/bees-hive/elegant-git/internal/prompt"
-	"github.com/bees-hive/elegant-git/internal/text"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 

@@ -3,8 +3,8 @@ package work
 import (
 	"fmt"
 
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/spf13/cobra"
 )
 

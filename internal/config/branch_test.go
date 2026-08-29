@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/git"
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 )
 
 func setupBranchSourceTest(t *testing.T) (*git.MemoryRunner, string) {

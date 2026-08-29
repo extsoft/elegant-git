@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bees-hive/elegant-git/internal/uuidv7"
+	"github.com/extsoft/elegant-git/internal/uuidv7"
 )
 
 // UpsertRepoInput holds registry fields for a repository.

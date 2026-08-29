@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/runtime"
+	"github.com/extsoft/elegant-git/internal/runtime"
 )
 
 func TestMigrateHooksMovesExtraFilesAndRemovesWorkflows(t *testing.T) {

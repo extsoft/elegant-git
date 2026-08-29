@@ -3,7 +3,7 @@ package version
 import (
 	"fmt"
 
-	"github.com/bees-hive/elegant-git/internal/version"
+	"github.com/extsoft/elegant-git/internal/version"
 	"github.com/spf13/cobra"
 )
 

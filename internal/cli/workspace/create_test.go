@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 func TestCreateSpecKeepsCLIArgs(t *testing.T) {

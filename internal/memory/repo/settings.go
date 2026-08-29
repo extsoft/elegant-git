@@ -3,7 +3,7 @@ package repo
 import (
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/git"
 )
 
 const defaultUpstreamRemote = "origin"

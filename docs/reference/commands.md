@@ -1,3 +1,10 @@
+---
+layout: default
+title: Commands
+parent: Reference
+nav_order: 1
+---
+
 # Commands
 
 `git elegant` uses an object-first CLI. Legacy flat names (e.g. `git elegant start-work`) remain available as hidden aliases.
@@ -10,7 +17,7 @@ Every command follows the same policy:
 2. In **interactive** mode, missing required arguments are asked as one-line questions; then every **optional** argument is offered (including values already passed on the CLI, unless all required arguments were given).
 3. In **non-interactive** mode, missing required arguments cause an error listing what is missing.
 
-A question is one line when there are 0–1 options: `<prompt> [<suggested>] (<action on enter>):`. Parts are omitted when they do not apply. With 2 or more options, use the [picker](../adr/003-interactive-questions.md#picker).
+A question is one line when there are 0–1 options: `<prompt> [<suggested>] (<action on enter>):`. Parts are omitted when they do not apply. With 2 or more options, use the [picker](interaction.md#picker).
 
 - Required with a suggestion: `Git user.name [Alice] (press enter to accept):`
 - Optional with a suggestion: `Signing key [ABC123] (press enter to accept):`

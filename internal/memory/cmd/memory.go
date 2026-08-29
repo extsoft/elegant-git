@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 )
 
 const (

@@ -3,8 +3,8 @@ package memory
 import (
 	"testing"
 
-	workspacecmd "github.com/bees-hive/elegant-git/internal/cli/workspace"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	workspacecmd "github.com/extsoft/elegant-git/internal/cli/workspace"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
 )
 
 func TestMemoryWorkspacesDelegatesToWorkspacePackage(t *testing.T) {

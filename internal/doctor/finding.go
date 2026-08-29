@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 // ErrSkipped means the user declined a Decide finding; Run treats it as no change.

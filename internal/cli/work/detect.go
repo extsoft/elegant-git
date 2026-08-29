@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	"github.com/bees-hive/elegant-git/internal/config"
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/pipe"
-	"github.com/bees-hive/elegant-git/internal/prompt"
-	"github.com/bees-hive/elegant-git/internal/state"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/config"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/pipe"
+	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/state"
 )
 
 type snapshot struct {

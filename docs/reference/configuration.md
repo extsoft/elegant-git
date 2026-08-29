@@ -1,3 +1,11 @@
+---
+layout: default
+title: Configuration
+parent: Reference
+nav_order: 2
+permalink: /reference/configuration/
+---
+
 # Approach
 
 Elegant Git aims to standardize how a work environment should be configured. It operates several
@@ -13,7 +21,8 @@ and/or to a Git installation globally (global configuration). So,
 If you've applied a global configuration (`acquired_version` in shared memory), `repo configure`
 does **not** add or rewrite local git aliases or local standards — those come from
 `git configure` once per Git installation. It still removes redundant **local**
-`elegant …` aliases and a stale local `elegant-git.acquired` marker when present. Run `git elegant git configure` once on each machine where you use Elegant Git globally.
+`elegant …` aliases and a stale local `elegant-git.acquired` marker when present. Run
+`git elegant git configure` once on each machine where you use Elegant Git globally.
 
 For local-only setups (no global acquired marker), `repo configure` applies the full local
 standards and alias set, same as before.
@@ -29,8 +38,10 @@ otherwise, uses in local configuration
 Also, there are defined [the custom configuration keys](#custom-keys) in addition to
 [the standard `git config` options](https://git-scm.com/docs/git-config). These keys are set
 automatically during `git configure` or `repo configure`; you do not need to set them manually.
+Everything that does **not** live in `git config` — workspaces, the repository registry, protected
+branches, the default development branch — is described on the [memory](memory.md) page.
 
-# Level: Basics
+## Level: Basics
 
 The basics configuration sets the mandatory options for the correct user-focused operation of Git and
 Elegant Git. During the configuration, you will be asked to provide appropriate values. Furthermore,
@@ -39,10 +50,11 @@ if you run `repo configure`, it proposes defaults that are set by `git configure
 1. setting your full name usign `user.name` [`b`]
 2. setting your email usign `user.email` [`b`]
 3. setting a default editor using `core.editor` [`b`]
-4. setting protected branches (stored in per-repo memory, not `git config`) [`l`]
-5. setting a default development branch (stored in per-repo memory, not `git config`) [`l`]
+4. setting protected branches (stored in [per-repo memory](memory.md), not `git config`) [`l`]
+5. setting a default development branch (stored in [per-repo memory](memory.md), not `git config`)
+[`l`]
 
-# Level: Standards
+## Level: Standards
 
 The standards configuration adopts the Git setting for painless and user-oriented commands execution
 for both Git and Elegant Git. It takes into account OS-specific stuff while configuring specific
@@ -62,17 +74,21 @@ Windows with `true`
 8. `credential.helper osxkeychain` [`i`] configures default credentials storage on MacOS only
 9. `acquired_version` in shared memory [`g`] identifies that Elegant Git global configuration is applied (value is the installed version)
 
-# Level: Aliases
+## Level: Aliases
 
-In order to make Elegant Git command like a native Git command, each Elegant Git command will have
-an appropriate alias like `git elegant save-work` will become `git save-work`. This should
+In order to make an Elegant Git command look like a native Git command, the historical flat command
+names are registered as Git aliases — `git save-work` reaches `git elegant work save`. This should
 significantly improve user experience.
 
-The configuration is a call of `git config "alias.<command>" "elegant <command>"` [`i`] for each Elegant
-Git command. When global configuration is applied, aliases are written globally only;
-`repo configure` and `repo migrate` remove redundant local elegant aliases instead.
+The configuration is a call of `git config "alias.<flat-name>" "elegant <object> <action>"` [`i`]
+for each of those names, `show-commands` excepted. Note that only the flat names get an alias; the
+object-first form is always spelled in full as `git elegant work save`. The flat names themselves
+are deprecated, so treat the aliases as compatibility rather than as the way to drive the tool.
 
-# Level: Signature
+When global configuration is applied, aliases are written globally only; `repo configure` and
+`repo migrate` remove redundant local elegant aliases instead.
+
+## Level: Signature
 
 This configuration aims to say Git how to sign commits, tags, and other objects you create. It runs
 during `repo configure` **only when no workspace is assigned**. Once a workspace is assigned,
@@ -89,22 +105,10 @@ not apply. The signing configuration consists of
 4. setting `tag.forceSignAnnotated` [`l`] to `true`
 5. setting `tag.gpgSign` [`l`] to `true`
 
-For now, only `gpg` is supported. If you need other tools, please [create a new feature request][https://github.com/bees-hive/elegant-git/issues/new/choose].
+For now, only `gpg` is supported. If you need other tools, please
+[create a new feature request](https://github.com/extsoft/elegant-git/issues/new/choose).
 
-# Memory
-
-Elegant Git stores workspaces and repository metadata outside plain `git config`:
-
-- **Shared memory:** `$XDG_CONFIG_HOME/elegant-git/state.json` (override: `ELEGANT_GIT_STATE_FILE`). Holds workspaces (`name`, `user_name`, `user_email`, optional `signing_key`, `editor`, `gpg_program`, `namespaces`, `linked_repos`) and a registry of managed repositories (`workspace_id`, `current_path`, `path_history`, `origin_url`). Schema version 2. Older files (v1 `profiles` / `profile_id`) are auto-migrated on load: a `state.json.bak` backup is written first, then the file is rewritten. Restore with `mv state.json.bak state.json` if needed.
-- **Per-repo memory:** `<repo>/.git/elegant-git/state.json` (override: `ELEGANT_GIT_REPO_STATE_FILE`). Holds `workspace_id`, `default_branch`, and `protected_branches`.
-
-`repo configure` links the current repository to a workspace, writes `user.name` / `user.email` into `.git/config`, and prompts before applying optional workspace fields (`signing_key`, `editor`, `gpg_program`). Values already matching the workspace are skipped without prompts. Every `git config` set or unset is logged before execution. Elegant-git-specific branch settings live only in per-repo memory; legacy `elegant-git.default-branch` and `elegant-git.protected-branches` keys are removed from `.git/config` after migration (logged unsets). When the origin URL yields a namespace (`<domain>/<owner>`) not yet on the workspace, configure (and `workspace new` apply) asks to remember it (recorded silently in non-interactive mode).
-
-Workspaces can be created three ways: `git configure` (offer after global setup), `repo configure` (picker: existing workspace, `[Create new]`, or `[Use settings from this repository]` when the repo already has `user.name` and `user.email`), or `workspace new` (manual; suggests from local then global git config). `repo clone` may omit the workspace argument and suggest one from a matching namespace.
-
-`workspace edit` is transactional: collect field edits and per-repo apply decisions, show one summary, confirm once, then save shared memory and apply to selected repositories.
-
-# Custom keys
+## Custom keys
 
 The Elegant Git configuration keys:
 
@@ -113,6 +117,7 @@ The Elegant Git configuration keys:
 [approach](#approach) for the details). Legacy `elegant-git.acquired` in git config is migrated
 by `git configure` / `git migrate`.
 
-Protected branches and the default development branch are read from per-repo memory (legacy values in
-`elegant-git.protected-branches` / `elegant-git.default-branch` are migrated by `repo configure` or
-`repo migrate`). The "protected" branch rules and default-branch semantics are unchanged; only storage moved.
+Protected branches and the default development branch are read from [per-repo memory](memory.md)
+(legacy values in `elegant-git.protected-branches` / `elegant-git.default-branch` are migrated by
+`repo configure` or `repo migrate`). The "protected" branch rules and default-branch semantics are
+unchanged; only storage moved.

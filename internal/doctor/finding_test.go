@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 func TestRunNonInteractivePrintsOnly(t *testing.T) {

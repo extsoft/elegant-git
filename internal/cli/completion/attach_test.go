@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
 	"github.com/spf13/cobra"
 )
 

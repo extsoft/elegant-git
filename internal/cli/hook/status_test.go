@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/runtime"
+	"github.com/extsoft/elegant-git/internal/runtime"
 )
 
 func TestStatusListEmptyWorkspace(t *testing.T) {

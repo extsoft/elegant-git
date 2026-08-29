@@ -8,7 +8,7 @@ func TestDefaultCloneDir(t *testing.T) {
 		want string
 	}{
 		{"git@github.com:Zwirner/active-data-pipelines", "active-data-pipelines"},
-		{"git@github.com:bees-hive/elegant-git.git", "elegant-git"},
+		{"git@github.com:extsoft/elegant-git.git", "elegant-git"},
 		{"https://github.com/extsoft/elegant-git.git", "elegant-git"},
 		{"https://github.com/extsoft/elegant-git.git/", "elegant-git"},
 		{"ssh://git@github.com/user/repo.git", "repo"},

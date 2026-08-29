@@ -3,8 +3,8 @@ package config
 import (
 	"strings"
 
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
-	"github.com/bees-hive/elegant-git/internal/state"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/state"
 )
 
 // SetBranchSourceBranch records the branch that branch was created from.

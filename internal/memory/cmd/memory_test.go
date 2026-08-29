@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/git"
 )
 
 func TestSaveLoadRoundTrip(t *testing.T) {

@@ -1,7 +1,7 @@
 package git
 
 import (
-	memorycmd "github.com/bees-hive/elegant-git/internal/cli/memory"
+	memorycmd "github.com/extsoft/elegant-git/internal/cli/memory"
 	"github.com/spf13/cobra"
 )
 

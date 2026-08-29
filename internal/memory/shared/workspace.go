@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/uuidv7"
+	"github.com/extsoft/elegant-git/internal/uuidv7"
 )
 
 // ListWorkspaces returns all workspaces keyed by id.

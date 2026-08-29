@@ -5,7 +5,7 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/bees-hive/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/cmdid"
 )
 
 type repoLayoutKeyType struct{}

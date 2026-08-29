@@ -7,14 +7,14 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/cli/legacy"
-	"github.com/bees-hive/elegant-git/internal/deprecation"
-	"github.com/bees-hive/elegant-git/internal/git"
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/prompt"
-	"github.com/bees-hive/elegant-git/internal/text"
-	"github.com/bees-hive/elegant-git/internal/version"
+	"github.com/extsoft/elegant-git/internal/cli/legacy"
+	"github.com/extsoft/elegant-git/internal/deprecation"
+	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/version"
 )
 
 const (

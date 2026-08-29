@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
-	"github.com/bees-hive/elegant-git/internal/cli/completion"
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
+	"github.com/extsoft/elegant-git/internal/cli/completion"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 

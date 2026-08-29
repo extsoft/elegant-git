@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 func movePreservingMode(repoRoot, src, dst string, dryRun bool) (relOld, relNew string, err error) {

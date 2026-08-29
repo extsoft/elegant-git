@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	"github.com/bees-hive/elegant-git/internal/config"
-	"github.com/bees-hive/elegant-git/internal/prompt"
-	"github.com/bees-hive/elegant-git/internal/text"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/config"
+	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 
@@ -83,7 +83,7 @@ applied, it doesn't force you to use Elegant Git for all local repositories you
 interact with. It is still up to you.
 
 If needed, please read more about the configuration approach to be used on
-%s/en/latest/configuration/
+%s/reference/configuration/
 `, cliruntime.SiteURL)
 }
 

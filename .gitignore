@@ -1,9 +1,14 @@
 .idea/
 tmp/
-site/
 out/
 .DS_Store
 .cursor/plans/*
+.local/
+
+# Jekyll
+docs/_site/
+docs/.jekyll-cache/
+docs/vendor/
 
 # Go
 /dist/

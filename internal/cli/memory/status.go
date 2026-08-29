@@ -1,7 +1,7 @@
 package memory
 
 import (
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/spf13/cobra"
 )
 

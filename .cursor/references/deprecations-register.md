@@ -15,3 +15,4 @@
 | DEP-011 | 2026-05-24 | commands: `repo list`, `hook list` | `memory repositories`, `hook status` | use replacement commands | 2027-01-31 | active |
 | DEP-012 | 2026-08-28 | commands: `profile *`, `memory profiles`; shared/per-repo memory keys `profiles`, `profile_id` | `workspace *`, `memory workspaces`, `workspaces`, `workspace_id` | `git elegant repo migrate` / `git elegant git migrate` | 2027-06-30 | active |
 | DEP-013 | 2026-08-28 | command: `workspace create` | `workspace new` | use `git elegant workspace new` | 2027-06-30 | active |
+| DEP-014 | 2026-08-28 | Go import path: `github.com/bees-hive/elegant-git/...` | `github.com/extsoft/elegant-git/...` | update imports; reinstall with `go install github.com/extsoft/elegant-git/cmd/git-elegant@latest` | 2027-06-30 | removed |

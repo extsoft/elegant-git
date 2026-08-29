@@ -1,7 +1,7 @@
 package workspace
 
 import (
-	"github.com/bees-hive/elegant-git/internal/deprecation"
+	"github.com/extsoft/elegant-git/internal/deprecation"
 	"github.com/spf13/cobra"
 )
 

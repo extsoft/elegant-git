@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
 )
 
 func TestListRepositories(t *testing.T) {

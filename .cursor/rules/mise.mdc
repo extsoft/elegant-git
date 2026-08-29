@@ -14,6 +14,7 @@ For **agent work**, use only:
 | --- | --- |
 | `fix` | Lint/format/autofix via hk — run after code changes |
 | `build` | Produce `dist/git-elegant` |
+| `docs-preview` | Serve `docs/` locally via Docker (Jekyll) |
 
 ```bash
 # ✅ Agent work
@@ -25,6 +26,9 @@ mise run check
 mise run test
 mise run install
 ```
+
+`release:artifacts` and `release:github` are maintainer-only. Do not run them
+unless the user explicitly asks.
 
 Do not run `go test`, `go build`, or hk check directly unless the user
 explicitly asks. Prefer `mise run fix` then `mise run build` when verification

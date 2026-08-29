@@ -3,7 +3,7 @@ package repo
 import (
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/git"
 )
 
 func TestUnsetLegacyElegantGitKeys(t *testing.T) {

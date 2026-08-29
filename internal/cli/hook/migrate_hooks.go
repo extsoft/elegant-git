@@ -3,9 +3,9 @@ package hook
 import (
 	"os"
 
-	"github.com/bees-hive/elegant-git/internal/cli/legacy"
-	"github.com/bees-hive/elegant-git/internal/runtime"
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/cli/legacy"
+	"github.com/extsoft/elegant-git/internal/runtime"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 // MigrateHooks moves legacy hook files to the new layout. Returns repo-relative new and old paths.

@@ -10,16 +10,16 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	"github.com/bees-hive/elegant-git/internal/exitcode"
-	"github.com/bees-hive/elegant-git/internal/git"
-	"github.com/bees-hive/elegant-git/internal/state"
-	"github.com/bees-hive/elegant-git/internal/text"
-	"github.com/bees-hive/elegant-git/internal/workflows"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/exitcode"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/state"
+	"github.com/extsoft/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/workflows"
 	"github.com/spf13/cobra"
 )
 
-const SiteURL = "https://elegant-git.bees-hive.org"
+const SiteURL = "https://elegant-git.extsoft.pro"
 
 type stdinKeyType struct{}
 

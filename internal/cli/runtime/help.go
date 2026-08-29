@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/version"
+	"github.com/extsoft/elegant-git/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 type recordingPrompter struct {

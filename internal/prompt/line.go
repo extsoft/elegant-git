@@ -12,7 +12,7 @@ var (
 	batchChoiceOptions = []string{"yes", "no", "all", "skip"}
 )
 
-// RequiredLine formats a required text question (ADR 003).
+// RequiredLine formats a required text question (see docs/reference/interaction.md).
 // With a suggestion: `<prompt> [value] (press enter to accept):`
 // Without: `<prompt>:`
 func RequiredLine(prompt, suggestion string) string {
@@ -23,7 +23,7 @@ func RequiredLine(prompt, suggestion string) string {
 	return questionLine(prompt, suggestion, action)
 }
 
-// OptionalLine formats an optional text question (ADR 003).
+// OptionalLine formats an optional text question (see docs/reference/interaction.md).
 // With a suggestion: `<prompt> [value] (press enter to accept):`.
 // Without: `<prompt> (press enter to skip):`.
 func OptionalLine(prompt, suggestion string) string {
@@ -33,7 +33,7 @@ func OptionalLine(prompt, suggestion string) string {
 	return questionLine(prompt, "", enterSkip)
 }
 
-// ClosedLine formats a closed-list question (ADR 003).
+// ClosedLine formats a closed-list question (see docs/reference/interaction.md).
 // Options appear as `[a/b/c]`. A default adds `(press enter to '<word>')`.
 func ClosedLine(prompt string, options []string, defaultWord string) string {
 	suggested := strings.Join(options, "/")

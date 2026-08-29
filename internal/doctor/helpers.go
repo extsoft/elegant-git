@@ -1,7 +1,7 @@
 package doctor
 
 import (
-	"github.com/bees-hive/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/git"
 )
 
 func suggestWorkspaceName() string {

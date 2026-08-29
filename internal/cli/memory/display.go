@@ -5,12 +5,12 @@ import (
 	"io"
 	"os"
 
-	"github.com/bees-hive/elegant-git/internal/git"
-	memrepo "github.com/bees-hive/elegant-git/internal/memory/repo"
-	"github.com/bees-hive/elegant-git/internal/memory/repoid"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/text"
-	"github.com/bees-hive/elegant-git/internal/version"
+	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/memory/repoid"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/version"
 )
 
 // PrintMemorySummary prints paths, counts, and pointers to status commands.

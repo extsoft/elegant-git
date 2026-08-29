@@ -1,0 +1,29 @@
+title: Elegant Git
+description: An assistant who carefully automates routine work with Git
+url: https://elegant-git.extsoft.pro
+baseurl: ""
+theme: just-the-docs
+search_enabled: true
+heading_anchors: true
+plugins:
+  - jekyll-seo-tag
+  - jekyll-include-cache
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: false
+aux_links:
+  GitHub: https://github.com/extsoft/elegant-git
+nav_external_links:
+  - title: Release notes
+    url: https://github.com/extsoft/elegant-git/releases
+mermaid:
+  version: "11.17.2"
+exclude: [Dockerfile]
+# just-the-docs 0.12 still uses @import / map-get / darken; silence until the theme migrates
+sass:
+  quiet_deps: true
+  silence_deprecations:
+    - import
+    - global-builtin
+    - color-functions

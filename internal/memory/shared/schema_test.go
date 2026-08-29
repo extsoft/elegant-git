@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bees-hive/elegant-git/internal/deprecation"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/deprecation"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
 )
 
 func TestLoadAutoMigratesV1AndBacksUp(t *testing.T) {

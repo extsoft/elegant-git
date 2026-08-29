@@ -1,8 +1,8 @@
 package hook
 
 import (
-	"github.com/bees-hive/elegant-git/internal/runtime"
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/runtime"
+	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 

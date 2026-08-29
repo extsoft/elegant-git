@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/text"
+	"github.com/extsoft/elegant-git/internal/text"
 	"golang.org/x/term"
 )
 

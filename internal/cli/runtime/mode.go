@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 // InteractionMode is whether the CLI may prompt for input.

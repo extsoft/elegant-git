@@ -5,10 +5,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/bees-hive/elegant-git/internal/cli/legacy"
-	cliruntime "github.com/bees-hive/elegant-git/internal/cli/runtime"
-	"github.com/bees-hive/elegant-git/internal/cmdid"
-	"github.com/bees-hive/elegant-git/internal/runtime"
+	"github.com/extsoft/elegant-git/internal/cli/legacy"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/runtime"
 	"github.com/spf13/cobra"
 )
 

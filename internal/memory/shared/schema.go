@@ -1,6 +1,6 @@
 package shared
 
-import "github.com/bees-hive/elegant-git/internal/deprecation"
+import "github.com/extsoft/elegant-git/internal/deprecation"
 
 // stateWire accepts both v1 (profiles/profile_id) and v2 (workspaces/workspace_id) keys.
 type stateWire struct {

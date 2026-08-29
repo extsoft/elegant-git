@@ -3,9 +3,9 @@ package workspace
 import (
 	"fmt"
 
-	"github.com/bees-hive/elegant-git/internal/giturl"
-	"github.com/bees-hive/elegant-git/internal/memory/shared"
-	"github.com/bees-hive/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/giturl"
+	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/prompt"
 )
 
 // CaptureNamespace records origin's namespace on the workspace after

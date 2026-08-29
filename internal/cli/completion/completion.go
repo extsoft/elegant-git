@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bees-hive/elegant-git/internal/cli/argspec"
-	"github.com/bees-hive/elegant-git/internal/cli/sources"
+	"github.com/extsoft/elegant-git/internal/cli/argspec"
+	"github.com/extsoft/elegant-git/internal/cli/sources"
 	"github.com/spf13/cobra"
 )
 

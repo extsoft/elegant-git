@@ -1,4 +1,4 @@
-module github.com/bees-hive/elegant-git
+module github.com/extsoft/elegant-git
 
 go 1.25.6
 
