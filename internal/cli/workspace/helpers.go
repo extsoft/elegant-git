@@ -28,6 +28,28 @@ func suggestField(flagVal, configKey string) string {
 	return git.ConfigEffectiveLocal(configKey)
 }
 
+// resolveNamedOrLinkedWorkspace resolves an optional workspace name, falling
+// back to the workspace linked to the current repository. Returns ErrNotFound
+// when no name is given and the current repo is not linked.
+func resolveNamedOrLinkedWorkspace(s *shared.State, name string) (string, *shared.Workspace, error) {
+	if name != "" {
+		return shared.GetWorkspaceByName(s, name)
+	}
+	repoID, err := repoid.ReadLocal()
+	if err != nil || repoID == "" {
+		return "", nil, shared.ErrNotFound
+	}
+	reg, err := shared.GetRepo(s, repoID)
+	if err != nil || reg.WorkspaceID == "" {
+		return "", nil, shared.ErrNotFound
+	}
+	ws, err := shared.GetWorkspace(s, reg.WorkspaceID)
+	if err != nil {
+		return "", nil, err
+	}
+	return reg.WorkspaceID, ws, nil
+}
+
 func offerApplyToCurrentRepo(cmd *cobra.Command, s *shared.State, workspaceID string, ws *shared.Workspace) error {
 	p := prompt.FromContext(cmd.Context())
 	if prompt.NonInteractive(p) {

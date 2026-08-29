@@ -74,6 +74,7 @@ var workspaceActionPurpose = map[string]string{
 	"delete": "Deletes a workspace.",
 	"status": "Shows the linked workspace for the current repository.",
 	"fetch":  "Fetches remotes for linked repositories.",
+	"doctor": "Diagnoses and repairs a workspace.",
 	"quit":   "Leave without another action.",
 }
 
@@ -82,20 +83,20 @@ func askOptions(s snapshot) []string {
 	if !s.InGit {
 		opts := []string{"new"}
 		if hasWS {
-			opts = []string{"list", "new", "edit", "delete"}
+			opts = []string{"list", "new", "edit", "delete", "doctor"}
 		}
 		return append(opts, "quit")
 	}
 	if !s.Linked {
 		opts := []string{"new"}
 		if hasWS {
-			opts = append(opts, "link")
+			opts = append(opts, "link", "doctor")
 		}
 		return append(opts, "quit")
 	}
 	opts := []string{"new", "status", "fetch"}
 	if hasWS {
-		opts = []string{"list", "new", "link", "edit", "delete", "status", "fetch"}
+		opts = []string{"list", "new", "link", "edit", "delete", "status", "fetch", "doctor"}
 	}
 	return append(opts, "quit")
 }

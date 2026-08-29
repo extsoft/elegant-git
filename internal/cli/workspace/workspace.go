@@ -23,6 +23,7 @@ func NewCommand() *cobra.Command {
 	c.AddCommand(newDeleteCommand())
 	c.AddCommand(newStatusCommand())
 	c.AddCommand(newFetchCommand())
+	c.AddCommand(newDoctorCommand())
 	return c
 }
 

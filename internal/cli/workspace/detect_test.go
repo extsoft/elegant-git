@@ -16,7 +16,7 @@ func TestDetectAlwaysAsks(t *testing.T) {
 			name:  "outside git with workspaces",
 			snap:  snapshot{WorkspaceCount: 2},
 			steps: []string{"in a git repository? no", "selected: ask"},
-			opts:  []string{"list", "new", "edit", "delete", "quit"},
+			opts:  []string{"list", "new", "edit", "delete", "doctor", "quit"},
 		},
 		{
 			name:  "outside git no workspaces",
@@ -28,7 +28,7 @@ func TestDetectAlwaysAsks(t *testing.T) {
 			name:  "unlinked with workspaces",
 			snap:  snapshot{InGit: true, WorkspaceCount: 1},
 			steps: []string{"in a git repository? yes", "workspace linked? no", "selected: ask"},
-			opts:  []string{"new", "link", "quit"},
+			opts:  []string{"new", "link", "doctor", "quit"},
 		},
 		{
 			name:  "unlinked no workspaces",
@@ -40,7 +40,7 @@ func TestDetectAlwaysAsks(t *testing.T) {
 			name:  "linked",
 			snap:  snapshot{InGit: true, Linked: true, WorkspaceName: "github", WorkspaceCount: 1},
 			steps: []string{"in a git repository? yes", "workspace linked? yes (github)", "selected: ask"},
-			opts:  []string{"list", "new", "link", "edit", "delete", "status", "fetch", "quit"},
+			opts:  []string{"list", "new", "link", "edit", "delete", "status", "fetch", "doctor", "quit"},
 		},
 		{
 			name:  "linked no other workspaces count edge",

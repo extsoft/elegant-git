@@ -64,6 +64,7 @@ func fetchRun(w io.Writer, name string) error {
 		defer fmt.Fprint(w, "\033[?25h")
 	}
 	fetched, skipped, failed := 0, 0, 0
+	pathMissing := false
 	for _, repoID := range ws.LinkedRepos {
 		repo, err := shared.GetRepo(s, repoID)
 		if err != nil {
@@ -76,6 +77,7 @@ func fetchRun(w io.Writer, name string) error {
 		if err := os.Chdir(repo.CurrentPath); err != nil {
 			ui.finish(repo.Name, "fail", "path missing: "+repo.CurrentPath)
 			failed++
+			pathMissing = true
 			continue
 		}
 		if !state.AreThereRemotes() {
@@ -94,6 +96,10 @@ func fetchRun(w io.Writer, name string) error {
 	}
 	ui.close()
 	fmt.Fprintf(w, "Fetched: %d | Skipped: %d | Failed: %d\n", fetched, skipped, failed)
+	if pathMissing {
+		fmt.Fprintf(w, "Run `git elegant workspace doctor %s` to repair missing paths from the workspace side,\n", ws.Name)
+		fmt.Fprintln(w, "or `cd` into a relocated clone and run `git elegant repo doctor`.")
+	}
 	if failed > 0 {
 		return fmt.Errorf("fetch failed for %d of %d repositories", failed, len(ws.LinkedRepos))
 	}
@@ -101,20 +107,19 @@ func fetchRun(w io.Writer, name string) error {
 }
 
 func resolveFetchWorkspace(s *shared.State, name string) (*shared.Workspace, error) {
+	_, ws, err := resolveNamedOrLinkedWorkspace(s, name)
+	if err == nil {
+		return ws, nil
+	}
 	if name != "" {
-		_, ws, err := shared.GetWorkspaceByName(s, name)
-		return ws, err
+		return nil, err
 	}
-	repoID, err := repoid.ReadLocal()
-	if err != nil || repoID == "" {
+	repoID, readErr := repoid.ReadLocal()
+	if readErr != nil || repoID == "" {
 		return nil, fmt.Errorf("not a configured elegant-git repository; run repo configure first")
 	}
-	reg, err := shared.GetRepo(s, repoID)
-	if err != nil {
+	if _, getErr := shared.GetRepo(s, repoID); getErr != nil {
 		return nil, fmt.Errorf("not a configured elegant-git repository; run repo configure first")
 	}
-	if reg.WorkspaceID == "" {
-		return nil, fmt.Errorf("current repository is not linked to a workspace; pass a workspace name or run repo configure")
-	}
-	return shared.GetWorkspace(s, reg.WorkspaceID)
+	return nil, fmt.Errorf("current repository is not linked to a workspace; pass a workspace name or run repo configure")
 }

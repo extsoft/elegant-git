@@ -43,6 +43,7 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 | `workspace delete <name> [--yes]` | Deletes a workspace after explaining what will happen and asking for confirmation. Linked repositories stay in the registry with `workspace_id` cleared; their git config and files are untouched. `--yes` skips the prompt; non-interactive mode requires `--yes`. |
 | `workspace status` | Shows the linked workspace for the current repository (when inside a git work tree). |
 | `workspace fetch [name]` | Runs `git fetch --all --tags --prune` in every repository linked to the workspace (prunes stale remote-tracking branches). Exits non-zero if any repository fails. On a TTY: progress bar, processed-repo list, ephemeral logs for the current fetch. When name is omitted, uses the workspace linked to the current repository. |
+| `workspace doctor [name]` | Diagnoses shared memory and repository link problems for one workspace and suggests a repair for each. Interactive mode confirms yes/no repairs and asks once for branching repairs; non-interactive mode only reports and exits non-zero when issues are found. When name is omitted, uses the linked workspace or asks interactively. |
 
 ### git
 
@@ -61,6 +62,7 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 | `repo init <workspace>` | Initializes a new repository and configures it. |
 | `repo status` | Shows per-repo memory, registry linkage, branch settings, and local git identity for the current repository. |
 | `repo sync` | Re-applies workspace settings (`--all` for every managed repo; `[yes/no/all/skip]` per repo). |
+| `repo doctor` | Diagnoses registry, identity, and legacy configuration problems for the current repository and suggests a repair for each. Interactive mode confirms yes/no repairs; non-interactive mode only reports and exits non-zero when issues remain. |
 | `repo prune` | Removes useless local branches. |
 | `repo migrate` | Migrates local aliases, hooks, and elegant-git settings into memory. |
 

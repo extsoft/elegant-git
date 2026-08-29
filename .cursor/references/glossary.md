@@ -56,7 +56,7 @@ Imports legacy elegant-git data; scope depends on the CLI object prefix.
 
 Reusable git identity bundle stored in shared memory (`user_name`, `user_email`, and optional signing, editor, gpg, and `namespaces` fields).
 
-Notes: stable id is a UUID map key (`workspace_id` in JSON); `name` is the display label; CLI object `workspace` manages list/new/link/edit/delete/status/fetch (bare `workspace` detects context then asks); `namespaces` holds confirmed `<domain>/<owner>` values used to suggest a workspace on `repo clone`.
+Notes: stable id is a UUID map key (`workspace_id` in JSON); `name` is the display label; CLI object `workspace` manages list/new/link/edit/delete/status/fetch/doctor (bare `workspace` detects context then asks); `namespaces` holds confirmed `<domain>/<owner>` values used to suggest a workspace on `repo clone`.
 
 Aliases: profile (deprecated), identity profile
 
@@ -74,7 +74,7 @@ CLI object for tagging and release notes on the default development branch.
 
 ### Repo
 
-CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `status`, `sync`, `prune`, `migrate`).
+CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `status`, `sync`, `prune`, `migrate`, `doctor`).
 
 Avoid: using “repo” when you mean the **Repository** entity in shared memory
 

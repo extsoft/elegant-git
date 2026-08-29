@@ -56,6 +56,7 @@ func syncRun(cmd *cobra.Command, all bool) error {
 
 	applyAll := prompt.NonInteractive(p)
 	skipRemaining := false
+	missingHint := ""
 	for _, repoID := range targets {
 		if skipRemaining {
 			continue
@@ -93,12 +94,18 @@ func syncRun(cmd *cobra.Command, all bool) error {
 		}
 		if err := os.Chdir(repo.CurrentPath); err != nil {
 			text.ErrorText("repo " + repo.Name + ": path missing: " + repo.CurrentPath)
+			if missingHint == "" {
+				missingHint = prof.Name
+			}
 			continue
 		}
 		if err := shared.ApplyWorkspace(prof, p, apply); err != nil {
 			return err
 		}
 		text.InfoText("Synced " + repo.Name)
+	}
+	if missingHint != "" {
+		text.InfoText("Run `git elegant workspace doctor " + missingHint + "` to repair missing paths from the workspace side, or `cd` into a relocated clone and run `git elegant repo doctor`.")
 	}
 	return nil
 }

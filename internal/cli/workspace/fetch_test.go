@@ -171,6 +171,50 @@ func TestFetchRunKeepsGitError(t *testing.T) {
 	}
 }
 
+func TestFetchRunSuggestsDoctorOnPathMissing(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
+	missing := filepath.Join(dir, "active-sales")
+
+	m := git.NewMemoryRunner()
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	s, err := shared.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := shared.CreateWorkspace(s, shared.CreateWorkspaceInput{
+		Name: "acme", UserName: "U", UserEmail: "u@e.com",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = shared.UpsertRepo(s, shared.UpsertRepoInput{
+		ID: "ra", Name: "active-sales", WorkspaceID: id, CurrentPath: missing,
+	})
+	if err := shared.Save(s); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	err = fetchRun(&buf, "acme")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"path missing: " + missing,
+		"fail active-sales",
+		"Run `git elegant workspace doctor acme` to repair missing paths from the workspace side,",
+		"or `cd` into a relocated clone and run `git elegant repo doctor`.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
 func TestFetchRunSkipNoRemotes(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))

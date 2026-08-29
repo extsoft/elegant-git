@@ -53,6 +53,7 @@ var commandGroups = []commandGroup{
 		{action: "delete", purpose: "Deletes a workspace and unlinks its repositories."},
 		{action: "status", purpose: "Shows the linked workspace for the current repository."},
 		{action: "fetch", purpose: "Fetches remotes for repositories linked to a workspace."},
+		{action: "doctor", purpose: "Diagnoses and repairs a workspace."},
 	}},
 	{object: "repo", title: "manage repositories", commands: []subCommandSpec{
 		{action: "status", purpose: "Shows repository memory and registry state for the current repository."},
@@ -62,6 +63,7 @@ var commandGroups = []commandGroup{
 		{action: "sync", purpose: "Re-applies workspace settings to repositories."},
 		{action: "prune", purpose: "Removes useless local branches."},
 		{action: "migrate", purpose: "Migrates local aliases and hooks."},
+		{action: "doctor", purpose: "Diagnoses and repairs the current repository."},
 	}},
 	{object: "hook", title: "manage command hooks", commands: []subCommandSpec{
 		{action: "status", purpose: "Lists configured hook file paths."},
