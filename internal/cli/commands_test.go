@@ -24,7 +24,7 @@ func hasAction(actions []string, action string) bool {
 
 func TestMemoryGroupActions(t *testing.T) {
 	got := findGroupActions("memory")
-	want := []string{"status", "workspaces", "repositories"}
+	want := []string{"list", "workspaces", "repositories"}
 	slices.Sort(got)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
@@ -32,16 +32,18 @@ func TestMemoryGroupActions(t *testing.T) {
 	}
 }
 
-func TestStatusActionsInGroups(t *testing.T) {
+func TestListActionsInGroups(t *testing.T) {
 	for _, tc := range []struct {
 		object string
 		has    string
 		lacks  string
 	}{
-		{"git", "status", ""},
+		{"git", "list", "status"},
 		{"workspace", "list", "status"},
-		{"repo", "status", "list"},
-		{"hook", "status", "list"},
+		{"repo", "list", "status"},
+		{"hook", "list", "status"},
+		{"memory", "list", "status"},
+		{"work", "list", "status"},
 	} {
 		actions := findGroupActions(tc.object)
 		if !hasAction(actions, tc.has) {

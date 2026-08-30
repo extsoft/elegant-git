@@ -11,6 +11,7 @@ func NewCommand() *cobra.Command {
 		Short: "Configure Git installation",
 	}
 	c.AddCommand(newConfigureCommand())
+	c.AddCommand(newListCommand())
 	c.AddCommand(newStatusCommand())
 	c.AddCommand(newDoctorCommand())
 	c.AddCommand(newMigrateCommand())

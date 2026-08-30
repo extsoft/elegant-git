@@ -18,17 +18,31 @@ func TestRecordOncePerID(t *testing.T) {
 	}
 }
 
-func TestRecordWorkspaceStatus(t *testing.T) {
+func TestRecordRenamed(t *testing.T) {
 	Reset()
 	var buf bytes.Buffer
 	SetOutputWriter(&buf)
-	RecordWorkspaceStatus("workspace status", "workspace list current")
+	RecordRenamed(DEP017, "workspace status", "workspace list current")
 	events := Events()
 	if len(events) != 1 || events[0].ID != DEP017 {
 		t.Fatalf("events = %+v", events)
 	}
 	Flush()
 	want := "warning: workspace status is deprecated; use workspace list current.\n"
+	if buf.String() != want {
+		t.Fatalf("got %q want %q", buf.String(), want)
+	}
+
+	Reset()
+	buf.Reset()
+	SetOutputWriter(&buf)
+	RecordRenamed(DEP018, "git status", "git list")
+	events = Events()
+	if len(events) != 1 || events[0].ID != DEP018 {
+		t.Fatalf("events = %+v", events)
+	}
+	Flush()
+	want = "warning: git status is deprecated; use git list.\n"
 	if buf.String() != want {
 		t.Fatalf("got %q want %q", buf.String(), want)
 	}

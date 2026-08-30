@@ -158,28 +158,33 @@ func isUnknownCommand(err error) bool {
 }
 
 func recordDeprecatedSurface(cmd *cobra.Command) {
-	replacements := map[string]string{
-		"memory profiles":  "memory workspaces",
-		"workspace create": "workspace new",
-		"workspace status": "workspace list current",
+	type rename struct {
+		id          string
+		replacement string
+	}
+	renames := map[string]rename{
+		"memory profiles":  {id: deprecation.DEP012, replacement: "memory workspaces"},
+		"workspace create": {id: deprecation.DEP012, replacement: "workspace new"},
+		"workspace status": {id: deprecation.DEP017, replacement: "workspace list current"},
+		"memory status":    {id: deprecation.DEP018, replacement: "memory list"},
+		"git status":       {id: deprecation.DEP018, replacement: "git list"},
+		"repo status":      {id: deprecation.DEP018, replacement: "repo list"},
+		"hook status":      {id: deprecation.DEP018, replacement: "hook list"},
 	}
 	for c := cmd; c != nil; c = c.Parent() {
 		surface := c.Annotations[deprecation.SurfaceAnnotation]
 		if surface == "" {
 			continue
 		}
-		replacement, ok := replacements[surface]
-		if !ok {
-			replacement = "workspace"
-			if strings.HasPrefix(surface, "profile") {
-				replacement = strings.Replace(surface, "profile", "workspace", 1)
-			}
+		if r, ok := renames[surface]; ok {
+			deprecation.RecordRenamed(r.id, surface, r.replacement)
+			return
 		}
-		if surface == "workspace status" {
-			deprecation.RecordWorkspaceStatus(surface, replacement)
-		} else {
-			deprecation.RecordRenamedSurface(surface, replacement, "")
+		replacement := "workspace"
+		if strings.HasPrefix(surface, "profile") {
+			replacement = strings.Replace(surface, "profile", "workspace", 1)
 		}
+		deprecation.RecordRenamedSurface(surface, replacement, "")
 		return
 	}
 }

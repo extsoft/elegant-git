@@ -36,13 +36,13 @@ type subCommandSpec struct {
 
 var commandGroups = []commandGroup{
 	{object: "memory", title: "inspect elegant-git memory", commands: []subCommandSpec{
-		{action: "status", purpose: "Summarizes shared memory paths and counts."},
+		{action: "list", purpose: "Summarizes shared memory paths and counts."},
 		{action: "workspaces", purpose: "Lists workspaces or shows one workspace's details."},
 		{action: "repositories", purpose: "Lists managed repositories or shows one repository's details."},
 	}},
 	{object: "git", title: "configure Git installation", commands: []subCommandSpec{
 		{action: "configure", purpose: "Configures your Git installation."},
-		{action: "status", purpose: "Shows global Git installation and shared memory state."},
+		{action: "list", purpose: "Shows global Git installation and shared memory state."},
 		{action: "doctor", purpose: "Diagnoses and repairs your Git installation."},
 	}},
 	{object: "workspace", title: "manage git workspaces", commands: []subCommandSpec{
@@ -55,7 +55,7 @@ var commandGroups = []commandGroup{
 		{action: "doctor", purpose: "Diagnoses and repairs a workspace."},
 	}},
 	{object: "repo", title: "manage repositories", commands: []subCommandSpec{
-		{action: "status", purpose: "Shows repository memory and registry state for the current repository."},
+		{action: "list", purpose: "Shows repository memory and registry state for the current repository."},
 		{action: "init", purpose: "Initializes a new repository and configures it."},
 		{action: "clone", purpose: "Clones a remote repository and configures it."},
 		{action: "configure", purpose: "Configures the current local Git repository."},
@@ -64,7 +64,7 @@ var commandGroups = []commandGroup{
 		{action: "doctor", purpose: "Diagnoses and repairs the current repository."},
 	}},
 	{object: "hook", title: "manage command hooks", commands: []subCommandSpec{
-		{action: "status", purpose: "Lists configured hook file paths."},
+		{action: "list", purpose: "Lists configured hook file paths."},
 		{action: "new", purpose: "Creates a new hook file."},
 		{action: "edit", purpose: "Opens a hook file in your editor."},
 	}},

@@ -28,7 +28,7 @@ func TestPrintMemorySummaryNotInGitTree(t *testing.T) {
 		"workspaces: 0",
 		"repositories: 0",
 		"not inside a git work tree",
-		"eg git status",
+		"eg git list",
 		"memory workspaces",
 	} {
 		if !strings.Contains(out, want) {
@@ -83,7 +83,7 @@ func TestPrintMemorySummaryRegisteredRepo(t *testing.T) {
 	}
 }
 
-func TestPrintGitStatusNoProfileDump(t *testing.T) {
+func TestPrintGitListNoProfileDump(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	m := git.NewMemoryRunner()
@@ -103,7 +103,7 @@ func TestPrintGitStatusNoProfileDump(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := PrintGitStatus(&buf); err != nil {
+	if err := PrintGitList(&buf); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -117,13 +117,13 @@ func TestPrintGitStatusNoProfileDump(t *testing.T) {
 	}
 }
 
-func TestPrintRepoStatusNotInGitTree(t *testing.T) {
+func TestPrintRepoListNotInGitTree(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	git.Use(git.NewMemoryRunner())
 
 	var buf bytes.Buffer
-	if err := PrintRepoStatus(&buf); err != nil {
+	if err := PrintRepoList(&buf); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "not inside a git work tree") {
@@ -131,7 +131,7 @@ func TestPrintRepoStatusNotInGitTree(t *testing.T) {
 	}
 }
 
-func TestPrintRepoStatusLinkedProfileNameOnly(t *testing.T) {
+func TestPrintRepoListLinkedProfileNameOnly(t *testing.T) {
 	dir := t.TempDir()
 	stateFile := filepath.Join(dir, "state.json")
 	t.Setenv("ELEGANT_GIT_STATE_FILE", stateFile)
@@ -161,7 +161,7 @@ func TestPrintRepoStatusLinkedProfileNameOnly(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := PrintRepoStatus(&buf); err != nil {
+	if err := PrintRepoList(&buf); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -169,7 +169,7 @@ func TestPrintRepoStatusLinkedProfileNameOnly(t *testing.T) {
 		t.Errorf("missing linked workspace name: %s", out)
 	}
 	if strings.Contains(out, "user.name:    Worker") {
-		t.Error("should not print full workspace fields in repo status")
+		t.Error("should not print full workspace fields in repo list")
 	}
 	for _, want := range []string{"default branch: main", "protected branches:", "local git identity:"} {
 		if !strings.Contains(out, want) {

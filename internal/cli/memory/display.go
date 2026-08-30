@@ -13,7 +13,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/version"
 )
 
-// PrintMemorySummary prints paths, counts, and pointers to status commands.
+// PrintMemorySummary prints paths, counts, and pointers to list commands.
 func PrintMemorySummary(w io.Writer) error {
 	fmt.Fprintf(w, "version: %s\n", version.Version)
 
@@ -49,8 +49,8 @@ func PrintMemorySummary(w io.Writer) error {
 
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "For details, run:")
-	fmt.Fprintln(w, "  eg git status")
-	fmt.Fprintln(w, "  eg repo status")
+	fmt.Fprintln(w, "  eg git list")
+	fmt.Fprintln(w, "  eg repo list")
 	fmt.Fprintln(w, "  eg workspace list current")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Catalogs:")
@@ -59,13 +59,13 @@ func PrintMemorySummary(w io.Writer) error {
 	return nil
 }
 
-// PrintGitStatus prints global install and shared memory state (no workspace dump).
-func PrintGitStatus(w io.Writer) error {
+// PrintGitList prints global install and shared memory state (no workspace dump).
+func PrintGitList(w io.Writer) error {
 	return printGitState(w)
 }
 
-// PrintRepoStatus prints per-repo memory and registry for the current repository.
-func PrintRepoStatus(w io.Writer) error {
+// PrintRepoList prints per-repo memory and registry for the current repository.
+func PrintRepoList(w io.Writer) error {
 	return printRepoState(w)
 }
 

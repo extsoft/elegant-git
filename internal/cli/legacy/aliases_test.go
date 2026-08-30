@@ -21,16 +21,16 @@ func TestAliasValueUsesNewForm(t *testing.T) {
 	}
 }
 
-func TestShowWorkflowsMapsToHookStatus(t *testing.T) {
+func TestShowWorkflowsMapsToHookList(t *testing.T) {
 	path, ok := LegacyToPath["show-workflows"]
-	if !ok || len(path) != 2 || path[0] != "hook" || path[1] != "status" {
+	if !ok || len(path) != 2 || path[0] != "hook" || path[1] != "list" {
 		t.Fatalf("show-workflows -> %v", path)
 	}
 	id, ok := LegacyToID["show-workflows"]
-	if !ok || id.Action != "status" {
+	if !ok || id.Action != "list" {
 		t.Fatalf("show-workflows id -> %+v", id)
 	}
-	if got := AliasValue("show-workflows"); got != "!eg hook status" {
+	if got := AliasValue("show-workflows"); got != "!eg hook list" {
 		t.Fatalf("got %q", got)
 	}
 }

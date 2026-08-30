@@ -14,7 +14,7 @@ func TestNewCommandSubcommands(t *testing.T) {
 		}
 		uses = append(uses, sub.Name())
 	}
-	want := []string{"status", "workspaces", "repositories"}
+	want := []string{"list", "workspaces", "repositories"}
 	slices.Sort(uses)
 	slices.Sort(want)
 	if !slices.Equal(uses, want) {

@@ -11,7 +11,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/memory/shared"
 )
 
-func TestStatusCommandOutput(t *testing.T) {
+func TestListCommandOutput(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	m := git.NewMemoryRunner()
@@ -26,7 +26,7 @@ func TestStatusCommandOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := newStatusCommand()
+	cmd := newListCommand()
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)

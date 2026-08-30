@@ -38,7 +38,7 @@ Positional argument that must be set before the command’s main logic runs; mis
 
 Ahead/after scripts run around elegant-git commands, unless `--no-workflows` is set.
 
-Notes: repo-tracked under `<repo>/.config/elegant-git/hooks/<command>-<action>-{ahead,after}`; personal under `<repo>/.git/.config/elegant-git/hooks/...`; CLI object actions are `status`, `new`, `edit`.
+Notes: repo-tracked under `<repo>/.config/elegant-git/hooks/<command>-<action>-{ahead,after}`; personal under `<repo>/.git/.config/elegant-git/hooks/...`; CLI object actions are `list`, `new`, `edit`.
 
 Avoid: `.git/hooks` (git’s native hook mechanism)
 
@@ -78,7 +78,7 @@ CLI object for tagging and release notes on the default development branch.
 
 ### Repo
 
-CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `status`, `sync`, `prune`, `doctor`).
+CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `list`, `sync`, `prune`, `doctor`).
 
 Avoid: using “repo” when you mean the **Repository** entity in shared memory
 

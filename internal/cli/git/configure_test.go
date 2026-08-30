@@ -103,8 +103,8 @@ func TestConfigureRequiresUserIdentity(t *testing.T) {
 
 func TestAutoConfigureSkipsWhenAcquired(t *testing.T) {
 	m, configure := setupConfigure(t)
-	status := newStatusCommand()
-	configure.Parent().AddCommand(status)
+	listCmd := newListCommand()
+	configure.Parent().AddCommand(listCmd)
 	s, err := shared.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -113,8 +113,8 @@ func TestAutoConfigureSkipsWhenAcquired(t *testing.T) {
 	if err := shared.Save(s); err != nil {
 		t.Fatal(err)
 	}
-	status.SetContext(prompt.WithPrompter(context.Background(), prompt.NewTTY(strings.NewReader("\n"), &bytes.Buffer{})))
-	if err := AutoConfigure(status); err != nil {
+	listCmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewTTY(strings.NewReader("\n"), &bytes.Buffer{})))
+	if err := AutoConfigure(listCmd); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := m.GlobalConfig["pull.rebase"]; ok {
@@ -150,10 +150,10 @@ func TestAutoConfigureSkipsAcquireGit(t *testing.T) {
 
 func TestAutoConfigureSkipsNonInteractive(t *testing.T) {
 	m, configure := setupConfigure(t)
-	status := newStatusCommand()
-	configure.Parent().AddCommand(status)
-	status.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
-	if err := AutoConfigure(status); err != nil {
+	listCmd := newListCommand()
+	configure.Parent().AddCommand(listCmd)
+	listCmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	if err := AutoConfigure(listCmd); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := m.GlobalConfig["pull.rebase"]; ok {
@@ -161,30 +161,30 @@ func TestAutoConfigureSkipsNonInteractive(t *testing.T) {
 	}
 }
 
-func TestAutoConfigureThenStatus(t *testing.T) {
+func TestAutoConfigureThenList(t *testing.T) {
 	m, configure := setupConfigure(t)
 	m.GlobalConfig["user.name"] = "Alice"
 	m.GlobalConfig["user.email"] = "alice@example.com"
-	status := newStatusCommand()
-	configure.Parent().AddCommand(status)
+	listCmd := newListCommand()
+	configure.Parent().AddCommand(listCmd)
 
 	var buf bytes.Buffer
 	text.SetOutput(&buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
-	status.SetOut(&buf)
-	status.SetContext(prompt.WithPrompter(context.Background(), prompt.NewTTY(strings.NewReader("\n\n\n"), &buf)))
+	listCmd.SetOut(&buf)
+	listCmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewTTY(strings.NewReader("\n\n\n"), &buf)))
 
-	if err := AutoConfigure(status); err != nil {
+	if err := AutoConfigure(listCmd); err != nil {
 		t.Fatal(err)
 	}
 	if !config.IsGitAcquired() {
 		t.Fatal("expected configure to run")
 	}
-	if err := status.RunE(status, nil); err != nil {
+	if err := listCmd.RunE(listCmd, nil); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buf.String(), "global git identity:") {
-		t.Fatalf("status missing identity section:\n%s", buf.String())
+		t.Fatalf("list missing identity section:\n%s", buf.String())
 	}
 }
 

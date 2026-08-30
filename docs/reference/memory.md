@@ -13,9 +13,9 @@ Elegant Git keeps its own state in two JSON files — **shared memory** for ever
 **per-repo memory** for everything that belongs to one repository. Anything that does land in
 `git config` is on the [configuration](configuration.md) page instead.
 
-You never have to open these files. `eg memory status` summarizes them,
+You never have to open these files. `eg memory list` summarizes them,
 `eg memory workspaces` and `eg memory repositories` list their contents, and
-`eg repo status` shows what the current repository resolved to.
+`eg repo list` shows what the current repository resolved to.
 
 ## Shared memory
 

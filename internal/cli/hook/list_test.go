@@ -2,18 +2,21 @@ package hook
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/runtime"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
-func TestStatusListEmptyWorkspace(t *testing.T) {
+func TestListEmptyWorkspace(t *testing.T) {
 	root := t.TempDir()
 	var buf bytes.Buffer
-	if err := statusList(runtime.RepoLayout{RepoRoot: root}, &buf); err != nil {
+	if err := listHooks(runtime.RepoLayout{RepoRoot: root}, &buf); err != nil {
 		t.Fatal(err)
 	}
 	if buf.Len() != 0 {
@@ -21,7 +24,7 @@ func TestStatusListEmptyWorkspace(t *testing.T) {
 	}
 }
 
-func TestStatusListFindsHookFiles(t *testing.T) {
+func TestListFindsHookFiles(t *testing.T) {
 	root := t.TempDir()
 	hooksDir := filepath.Join(root, ".config", "elegant-git", "hooks")
 	workflowsDir := filepath.Join(root, ".workflows")
@@ -45,7 +48,7 @@ func TestStatusListFindsHookFiles(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := statusList(runtime.RepoLayout{RepoRoot: root}, &buf); err != nil {
+	if err := listHooks(runtime.RepoLayout{RepoRoot: root}, &buf); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
@@ -58,8 +61,43 @@ func TestStatusListFindsHookFiles(t *testing.T) {
 			t.Errorf("missing %s at %s; got lines %v", name, path, lines)
 		}
 	}
-	// hook-status is scanned from both personal and common dirs (same flat path).
 	if len(lines) < len(files) {
 		t.Fatalf("got %d lines %v want at least %d paths", len(lines), lines, len(files))
+	}
+}
+
+func TestListRunsStatusAndListHooks(t *testing.T) {
+	root := t.TempDir()
+	hooksDir := filepath.Join(root, ".config", "elegant-git", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"hook-list-ahead", "hook-status-ahead"} {
+		path := filepath.Join(hooksDir, name)
+		if err := os.WriteFile(path, []byte("#!/bin/sh\necho RAN:"+name+"\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(root)
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --show-toplevel"] = root
+	git.Use(m)
+
+	var textBuf bytes.Buffer
+	text.SetOutput(&textBuf)
+	t.Cleanup(func() { text.SetOutput(os.Stdout) })
+
+	cmd := newListCommand()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := textBuf.String()
+	for _, name := range []string{"hook-list-ahead", "hook-status-ahead"} {
+		if !strings.Contains(got, name) {
+			t.Errorf("did not run %s; output:\n%s", name, got)
+		}
 	}
 }

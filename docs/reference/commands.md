@@ -34,7 +34,7 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 
 | Command | Description |
 | --- | --- |
-| `memory status` | Summarizes shared memory paths, workspace/repository counts, and current repository hint. |
+| `memory list` | Summarizes shared memory paths, workspace/repository counts, and current repository hint. |
 | `memory workspaces` | Lists workspaces (`--format=table\|json`). `memory workspaces <name>` shows full details for one workspace. |
 | `memory repositories` | Lists managed repositories (`name`, workspace, path). `memory repositories <name-or-path>` shows full details for one. |
 
@@ -56,7 +56,7 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 | Command | Description |
 | --- | --- |
 | `git configure` | Configures your Git installation (global); first interactive `eg` runs this when Git is not yet configured. Offers a workspace from global values. |
-| `git status` | Shows global Git installation and shared memory state (not the same as native `git status`). |
+| `git list` | Shows global Git installation and shared memory state (not the same as native `git status`). |
 | `git doctor` | Checks the Git installation and offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. |
 
 ### repo
@@ -66,7 +66,7 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 | `repo configure <workspace>` | Configures the current local repository. Signature setup is skipped whenever a workspace is assigned — including when that workspace has no signing key (change signing via `workspace edit`). |
 | `repo clone <repository> [<workspace>] [<directory>]` | Clones a remote repository and configures it. When workspace is omitted, suggests one from the repository namespace (`<domain>/<owner>`). |
 | `repo init <workspace>` | Initializes a new repository and configures it. |
-| `repo status` | Shows per-repo memory, registry linkage, branch settings, and local git identity for the current repository. |
+| `repo list` | Shows per-repo memory, registry linkage, branch settings, and local git identity for the current repository. |
 | `repo sync` | Re-applies workspace settings (`--all` for every managed repo; `[yes/no/all/skip]` per repo). |
 | `repo doctor` | Checks the current repository and offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. |
 | `repo prune` | Removes useless local branches. |
@@ -77,7 +77,7 @@ Hooks live under `.config/elegant-git/hooks/<command>-<action>-{ahead,after}` (r
 
 | Command | Description |
 | --- | --- |
-| `hook status` | Lists hook file paths. |
+| `hook list` | Lists hook file paths. |
 | `hook new` | Creates a new hook file. |
 | `hook edit` | Opens a hook file in your editor. |
 
