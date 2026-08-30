@@ -102,3 +102,6 @@ follow CalVer — `vYYYY.M.D` for a stable release and `vYYYY.M.D.hhmm-prereleas
   `dist/<version>/`
 - `mise run release:github` asks for the release type, builds the tag, generates notes from the
   commits since the last stable tag, and publishes everything with `gh release create`
+
+After a release, bump the Homebrew formula from `homebrew-tools` with
+`mise run bump-elegant-git -- <tag>`.

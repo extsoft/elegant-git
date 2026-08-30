@@ -29,6 +29,14 @@ mise use --global "github:extsoft/elegant-git@latest"
 
 Want it only in this project, or to update later? See [using mise](02-02-installation-mise.md).
 
+## Using Homebrew
+
+```bash
+brew install extsoft/tools/elegant-git
+```
+
+Need to upgrade, or still on the old tap? See [using Homebrew](02-03-installation-homebrew.md).
+
 ## Using go install
 
 ```bash
@@ -36,7 +44,7 @@ go install github.com/extsoft/elegant-git/cmd/eg@latest
 ```
 
 Need to know where the binary lands, or pin a tag? See
-[using go install](02-03-installation-go-install.md).
+[using go install](02-04-installation-go-install.md).
 
 ## Upgrading from `git-elegant`
 

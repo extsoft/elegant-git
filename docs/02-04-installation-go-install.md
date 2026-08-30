@@ -2,7 +2,7 @@
 layout: default
 title: Using go install
 parent: Installation
-nav_order: 3
+nav_order: 4
 permalink: /installation/go-install/
 ---
 
