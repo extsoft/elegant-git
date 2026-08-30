@@ -38,13 +38,6 @@ type stateWire struct {
 	BranchSources     map[string]string `json:"branch_sources,omitempty"`
 }
 
-var lastLoadHadLegacyKeys bool
-
-// LastLoadHadLegacyKeys reports whether the most recent Load saw v1 keys.
-func LastLoadHadLegacyKeys() bool {
-	return lastLoadHadLegacyKeys
-}
-
 // Path returns the state file path for a git directory.
 func Path(gitDir string) string {
 	if override := os.Getenv("ELEGANT_GIT_REPO_STATE_FILE"); override != "" {
@@ -57,7 +50,6 @@ func Path(gitDir string) string {
 // When the on-disk schema is older than SchemaVersion (or still uses legacy
 // keys), the file is backed up to path+".bak" and rewritten to the current schema.
 func Load(gitDir string) (*State, error) {
-	lastLoadHadLegacyKeys = false
 	p := Path(gitDir)
 	data, err := os.ReadFile(p)
 	if err != nil {
@@ -92,13 +84,12 @@ func Load(gitDir string) (*State, error) {
 	}
 	needsMigrate := fromVersion < SchemaVersion || hadLegacy
 	if needsMigrate {
-		lastLoadHadLegacyKeys = hadLegacy
 		if hadLegacy {
 			deprecation.Record(
 				deprecation.DEP012,
 				"shared/per-repo memory keys: profiles, profile_id",
 				"workspaces, workspace_id",
-				"eg repo migrate",
+				"",
 			)
 		}
 		backupPath, err := backupStateFile(p)
@@ -110,7 +101,6 @@ func Load(gitDir string) (*State, error) {
 		}
 		fmt.Fprintf(os.Stderr, "elegant-git: migrated per-repo memory schema %d → %d (backup: %s)\n",
 			fromVersion, SchemaVersion, backupPath)
-		lastLoadHadLegacyKeys = false
 	}
 	return s, nil
 }
@@ -139,7 +129,6 @@ func writeStateFile(p string, s *State) error {
 		_ = os.Remove(tmp)
 		return err
 	}
-	lastLoadHadLegacyKeys = false
 	return nil
 }
 

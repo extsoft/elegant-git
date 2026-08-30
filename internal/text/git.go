@@ -1,15 +1,21 @@
 package text
 
 import (
+	"fmt"
+	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
 // SuggestGitAddCommit prints a hint to stage migrated paths explicitly.
-// newPaths are added; oldPaths are passed to git add -u (record removals after rename).
 func SuggestGitAddCommit(newPaths, oldPaths []string, commitMessage string) {
-	if len(newPaths) == 0 && len(oldPaths) == 0 {
+	SuggestGitAddCommitTo(out, newPaths, oldPaths, commitMessage)
+}
+
+// SuggestGitAddCommitTo writes the same hint to w.
+func SuggestGitAddCommitTo(w io.Writer, newPaths, oldPaths []string, commitMessage string) {
+	if w == nil || (len(newPaths) == 0 && len(oldPaths) == 0) {
 		return
 	}
 	var parts []string
@@ -34,7 +40,7 @@ func SuggestGitAddCommit(newPaths, oldPaths []string, commitMessage string) {
 		}
 	}
 	parts = append(parts, "&&", "git commit -m", strconv.Quote(commitMessage))
-	InfoText(strings.Join(parts, " "))
+	fmt.Fprintln(w, strings.Join(parts, " "))
 }
 
 func shellQuote(s string) string {

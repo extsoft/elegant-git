@@ -7,10 +7,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/extsoft/elegant-git/internal/cli/legacy"
 	"github.com/extsoft/elegant-git/internal/cmdid"
 	"github.com/extsoft/elegant-git/internal/deprecation"
 	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/legacy"
 	"github.com/extsoft/elegant-git/internal/runtime"
 	"github.com/extsoft/elegant-git/internal/text"
 )

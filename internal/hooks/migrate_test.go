@@ -1,6 +1,7 @@
-package hook
+package hooks
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,7 +9,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/runtime"
 )
 
-func TestMigrateHooksMovesExtraFilesAndRemovesWorkflows(t *testing.T) {
+func TestMigrateMovesExtraFilesAndRemovesWorkflows(t *testing.T) {
 	root := t.TempDir()
 	legacyDir := filepath.Join(root, ".workflows")
 	hooksDir := filepath.Join(root, ".config", "elegant-git", "hooks")
@@ -25,7 +26,7 @@ func TestMigrateHooksMovesExtraFilesAndRemovesWorkflows(t *testing.T) {
 	}
 
 	ws := runtime.RepoLayout{RepoRoot: root}
-	newPaths, oldPaths, err := MigrateHooks(ws, false, false)
+	newPaths, oldPaths, err := Migrate(ws, false, false, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,5 +46,19 @@ func TestMigrateHooksMovesExtraFilesAndRemovesWorkflows(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o750 {
 		t.Fatalf("mode = %o want 750", info.Mode().Perm())
+	}
+}
+
+func TestHasLegacy(t *testing.T) {
+	root := t.TempDir()
+	ws := runtime.RepoLayout{RepoRoot: root}
+	if HasLegacy(ws, false) {
+		t.Fatal("expected no legacy dir")
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".workflows"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !HasLegacy(ws, false) {
+		t.Fatal("expected legacy dir")
 	}
 }

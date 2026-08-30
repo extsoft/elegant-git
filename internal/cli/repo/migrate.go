@@ -2,16 +2,10 @@ package repo
 
 import (
 	"fmt"
-	"os"
-	"strings"
+	"io"
 
-	hookcmd "github.com/extsoft/elegant-git/internal/cli/hook"
-	"github.com/extsoft/elegant-git/internal/cli/legacy"
-	"github.com/extsoft/elegant-git/internal/config"
-	"github.com/extsoft/elegant-git/internal/git"
-	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
-	"github.com/extsoft/elegant-git/internal/memory/repoid"
-	"github.com/extsoft/elegant-git/internal/memory/shared"
+	"github.com/extsoft/elegant-git/internal/deprecation"
+	"github.com/extsoft/elegant-git/internal/hooks"
 	"github.com/extsoft/elegant-git/internal/runtime"
 	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
@@ -20,107 +14,31 @@ import (
 func newMigrateCommand() *cobra.Command {
 	var dryRun bool
 	c := &cobra.Command{
-		Use:   "migrate",
-		Short: "Migrate local aliases and hooks",
-		Long:  "Rewrites local git aliases and moves personal hooks.",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return migrateLocal(dryRun)
+		Use:    "migrate",
+		Hidden: true,
+		Short:  "Deprecated; migrations run automatically",
+		Long:   "Hidden compatibility shim. Remaining repository issues are repaired by `eg repo doctor`.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			deprecation.Record(deprecation.DEP016, "repo migrate", "eg repo doctor", "eg repo doctor")
+			fmt.Fprintln(cmd.ErrOrStderr(), "migrations now run automatically; run `eg repo doctor` for the rest")
+			return migrateHookTiers(cmd.OutOrStdout(), dryRun)
 		},
 	}
-	c.Flags().BoolVar(&dryRun, "dry-run", false, "print planned changes without applying")
+	c.Flags().BoolVar(&dryRun, "dry-run", false, "print planned hook moves without applying")
 	return c
 }
 
-func migrateLocal(dryRun bool) error {
-	text.InfoBox("Migrating local Elegant Git configuration...")
-	globalAcquired := config.IsGitAcquired()
-	if !globalAcquired {
-		if err := config.EnsureElegantAlias("--local", dryRun); err != nil {
-			return err
-		}
-		for _, legacyName := range legacy.LegacyNames() {
-			if legacyName == "show-commands" {
-				continue
-			}
-			newVal := legacy.AliasValue(legacyName)
-			cur, _ := git.Output("config", "--local", "--get", "alias."+legacyName)
-			cur = strings.TrimSpace(cur)
-			if cur != newVal {
-				config.RecordStaleAlias(cur, newVal)
-				fmt.Fprintf(os.Stdout, "  alias.%s -> %q\n", legacyName, newVal)
-				if !dryRun {
-					_ = git.Verbose("config", "--local", "alias."+legacyName, newVal)
-				}
-			}
-		}
-	} else {
-		text.InfoText("Removing redundant local configuration (global Elegant Git configuration is applied).")
-		if err := config.CleanupRedundantLocalInstall(dryRun); err != nil {
-			return err
-		}
+func migrateHookTiers(w io.Writer, dryRun bool) error {
+	ws := runtime.DefaultRepoLayout()
+	if _, _, err := hooks.Migrate(ws, true, dryRun, w); err != nil {
+		return err
 	}
-	ws := runtime.RepoLayout{RepoRoot: "."}
-	newPaths, oldPaths, err := hookcmd.MigrateHooks(ws, true, dryRun)
+	newPaths, oldPaths, err := hooks.Migrate(ws, false, dryRun, w)
 	if err != nil {
 		return err
 	}
 	if !dryRun {
-		if !globalAcquired {
-			if err := config.MigrateAcquiredValue("--local"); err != nil {
-				return err
-			}
-		}
-		if err := migrateRepoMemory(); err != nil {
-			return err
-		}
-		if err := migrateSharedMemorySchema(); err != nil {
-			return err
-		}
-		text.SuggestGitAddCommit(newPaths, oldPaths, "Migrate Elegant Git hooks")
-	}
-	if dryRun {
-		text.Complete("Local migration complete (dry run).")
-	} else {
-		text.Complete("Local migration complete.")
+		text.SuggestGitAddCommitTo(w, newPaths, oldPaths, "Migrate Elegant Git hooks")
 	}
 	return nil
-}
-
-func migrateRepoMemory() error {
-	_, err := repoid.EnsureLocal()
-	if err != nil {
-		return err
-	}
-	gitDir, err := memrepo.GitDir()
-	if err != nil {
-		return err
-	}
-	perRepo, err := memrepo.Load(gitDir)
-	if err != nil {
-		return err
-	}
-	def, prot := memrepo.ReadLegacyElegantGitSettings()
-	if def != "" {
-		perRepo.DefaultBranch = def
-	}
-	if len(prot) > 0 {
-		perRepo.ProtectedBranches = prot
-	}
-	if err := memrepo.UnsetLegacyElegantGitKeys(); err != nil {
-		return err
-	}
-	// Always save so v1 profile_id is rewritten to workspace_id when present.
-	return memrepo.Save(gitDir, perRepo)
-}
-
-func migrateSharedMemorySchema() error {
-	s, err := shared.Load()
-	if err != nil {
-		return err
-	}
-	if !shared.LastLoadHadLegacyKeys() {
-		return nil
-	}
-	fmt.Fprintln(os.Stdout, "  shared memory: rewriting profiles/profile_id -> workspaces/workspace_id")
-	return shared.Save(s)
 }

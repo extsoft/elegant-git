@@ -3,7 +3,6 @@ package legacy
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/extsoft/elegant-git/internal/deprecation"
 	"github.com/spf13/cobra"
@@ -56,13 +55,4 @@ func runTarget(root, shim *cobra.Command, path, argv []string) error {
 		return nil
 	}
 	return target.Help()
-}
-
-// NewArgPath joins legacy path for delegation.
-func NewArgPath(legacy string) string {
-	p, ok := LegacyToPath[legacy]
-	if !ok {
-		return ""
-	}
-	return strings.Join(p, " ")
 }

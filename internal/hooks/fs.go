@@ -1,4 +1,4 @@
-package hook
+package hooks
 
 import (
 	"fmt"
@@ -10,14 +10,14 @@ import (
 	"github.com/extsoft/elegant-git/internal/text"
 )
 
-func movePreservingMode(repoRoot, src, dst string, dryRun bool) (relOld, relNew string, err error) {
+func movePreservingMode(repoRoot, src, dst string, dryRun bool, w io.Writer) (relOld, relNew string, err error) {
 	info, err := os.Stat(src)
 	if err != nil {
 		return "", "", err
 	}
 	relOld = text.RepoRelPath(repoRoot, src)
 	relNew = text.RepoRelPath(repoRoot, dst)
-	fmt.Fprintf(os.Stdout, "  %s -> %s\n", relOld, relNew)
+	fmt.Fprintf(w, "  %s -> %s\n", relOld, relNew)
 	if dryRun {
 		return relOld, relNew, nil
 	}
@@ -93,7 +93,7 @@ func copyFilePreserveMode(src, dst string, mode fs.FileMode) error {
 	return os.Chmod(dst, mode.Perm())
 }
 
-func migrateRemainingLegacyEntries(repoRoot, legacyRoot, hooksRoot string, dryRun bool) (newPaths, oldPaths []string, err error) {
+func migrateRemainingLegacyEntries(repoRoot, legacyRoot, hooksRoot string, dryRun bool, w io.Writer) (newPaths, oldPaths []string, err error) {
 	if _, err := os.Stat(legacyRoot); err != nil {
 		return nil, nil, nil
 	}
@@ -106,7 +106,7 @@ func migrateRemainingLegacyEntries(repoRoot, legacyRoot, hooksRoot string, dryRu
 		dst := filepath.Join(hooksRoot, ent.Name())
 		if _, err := os.Stat(dst); err == nil {
 			if ent.IsDir() {
-				moreNew, moreOld, err := migrateRemainingLegacyEntries(repoRoot, src, dst, dryRun)
+				moreNew, moreOld, err := migrateRemainingLegacyEntries(repoRoot, src, dst, dryRun, w)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -121,7 +121,7 @@ func migrateRemainingLegacyEntries(repoRoot, legacyRoot, hooksRoot string, dryRu
 			}
 			return nil, nil, fmt.Errorf("migrate: %s already exists", dst)
 		}
-		relOld, relNew, err := movePreservingMode(repoRoot, src, dst, dryRun)
+		relOld, relNew, err := movePreservingMode(repoRoot, src, dst, dryRun, w)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -131,12 +131,12 @@ func migrateRemainingLegacyEntries(repoRoot, legacyRoot, hooksRoot string, dryRu
 	return newPaths, oldPaths, nil
 }
 
-func removeLegacyWorkflowsDir(repoRoot, legacyRoot string, dryRun bool) error {
+func removeLegacyWorkflowsDir(repoRoot, legacyRoot string, dryRun bool, w io.Writer) error {
 	if _, err := os.Stat(legacyRoot); err != nil {
 		return nil
 	}
 	rel := text.RepoRelPath(repoRoot, legacyRoot)
-	fmt.Fprintf(os.Stdout, "  remove %s\n", rel)
+	fmt.Fprintf(w, "  remove %s\n", rel)
 	if dryRun {
 		return nil
 	}

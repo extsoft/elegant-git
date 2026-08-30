@@ -18,10 +18,11 @@ const (
 
 // State is the on-disk shared memory document.
 type State struct {
-	SchemaVersion   int                    `json:"schema_version"`
-	AcquiredVersion string                 `json:"acquired_version,omitempty"`
-	Workspaces      map[string]*Workspace  `json:"workspaces"`
-	Repositories    map[string]*Repository `json:"repositories"`
+	SchemaVersion     int                    `json:"schema_version"`
+	AcquiredVersion   string                 `json:"acquired_version,omitempty"`
+	MigrationsVersion int                    `json:"migrations_version,omitempty"`
+	Workspaces        map[string]*Workspace  `json:"workspaces"`
+	Repositories      map[string]*Repository `json:"repositories"`
 }
 
 // Workspace holds git user identity fields for reuse across repos.
@@ -69,7 +70,6 @@ func Path() (string, error) {
 func Load() (*State, error) {
 	mu.Lock()
 	defer mu.Unlock()
-	lastLoadHadLegacyKeys = false
 	p, err := Path()
 	if err != nil {
 		return nil, err
@@ -93,7 +93,6 @@ func Load() (*State, error) {
 		fromVersion = 1
 	}
 	s, hadLegacy := decodeState(w)
-	lastLoadHadLegacyKeys = hadLegacy
 	needsMigrate := fromVersion < SchemaVersion || hadLegacy
 	if needsMigrate {
 		if hadLegacy {
@@ -108,7 +107,6 @@ func Load() (*State, error) {
 		}
 		fmt.Fprintf(os.Stderr, "elegant-git: migrated shared memory schema %d → %d (backup: %s)\n",
 			fromVersion, SchemaVersion, backupPath)
-		lastLoadHadLegacyKeys = false
 	}
 	cached = s
 	cachedAt = p
@@ -134,7 +132,6 @@ func Save(s *State) error {
 	if err := writeStateFileLocked(p, s); err != nil {
 		return err
 	}
-	lastLoadHadLegacyKeys = false
 	cached = s
 	cachedAt = p
 	return nil

@@ -115,9 +115,9 @@ func (m *MemoryRunner) handleConfig(args []string) (string, error) {
 	case "config":
 		if len(args) >= 3 && args[1] == "--get-regexp" {
 			var lines []string
-			prefix := args[2]
+			prefix := strings.ReplaceAll(strings.TrimPrefix(args[2], "^"), `\.`, ".")
 			for k, v := range cfg {
-				if strings.HasPrefix(k, strings.TrimPrefix(prefix, "^")) || strings.Contains(k, prefix) {
+				if strings.HasPrefix(k, prefix) {
 					lines = append(lines, k+" "+v)
 				}
 			}

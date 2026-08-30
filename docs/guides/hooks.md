@@ -67,7 +67,6 @@ The `hook` object does the file handling for you:
 - `eg hook new <command-id> <ahead|after> <personal|common>` creates the file, makes it
   executable, and opens it in your editor
 - `eg hook edit <path>` opens an existing hook in your editor
-- `eg hook migrate` moves the repo-tracked hooks to the layout above
 
 The `<command-id>` for `hook new` is the canonical dotted form of the command — `work.start`,
 `repo.clone`, `release.new`. Legacy flat names such as `start-work` are still accepted, but they
@@ -76,18 +75,11 @@ warn and will be removed.
 ## Coming from the old layout
 
 Earlier versions kept common hooks in `.workflows/` and personal ones in `.git/.workflows/`, with
-legacy file names like `save-work-ahead`. Those still run: for each tier Elegant Git prefers the new
-file and falls back to the legacy one only when the new file is absent — and when it does fall back,
-it warns you. Both locations are deprecated and will stop working.
+names like `save-work-ahead`. Those files still run until they are moved: Elegant Git prefers the
+new path and falls back to the old one only when the new file is absent, and it warns when it
+does. Both old locations are deprecated and will stop working.
 
-Migrating is two commands, because the two tiers belong to different owners:
-
-```bash
-eg hook migrate    # moves .workflows/ (common, tracked by Git)
-eg repo migrate    # moves .git/.workflows/ (personal)
-```
-
-`hook migrate` takes a `--dry-run` flag if you want to see the planned moves first, and it suggests
-the `git add` / `git commit` to record the result. One legacy name outlives the move on purpose:
-`repo clone` and `repo init` still trigger `acquire-repository-{ahead,after}` in addition to their
-own hooks, so an old repository-provisioning script keeps working until you rename it.
+`eg repo doctor` offers to move them after a confirmation. Tracked hooks need a commit afterwards,
+so doctor prints the `git add` / `git commit` to use. One old name is kept on purpose:
+`repo clone` and `repo init` still run `acquire-repository-{ahead,after}` as well as their own
+hooks, so a provisioning script from the previous layout keeps working until it is renamed.

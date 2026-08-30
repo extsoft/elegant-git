@@ -134,6 +134,16 @@ func TestRunDecideSkippedLeavesUnchanged(t *testing.T) {
 	}
 }
 
+func TestRepairableCountIgnoresAdvisory(t *testing.T) {
+	findings := []Finding{
+		{Problem: "advisory"},
+		{Problem: "fixable", Apply: func() error { return nil }},
+	}
+	if n := RepairableCount(findings); n != 1 {
+		t.Fatalf("RepairableCount = %d", n)
+	}
+}
+
 type runPrompter struct {
 	confirm      bool
 	confirmCalls int

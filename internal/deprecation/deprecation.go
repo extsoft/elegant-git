@@ -27,6 +27,7 @@ const (
 	DEP009 = "DEP-009"
 	DEP012 = "DEP-012"
 	DEP015 = "DEP-015"
+	DEP016 = "DEP-016"
 
 	// SurfaceAnnotation marks a cobra command as a deprecated renamed surface (DEP-012).
 	SurfaceAnnotation = "elegant-git.deprecated-surface"
@@ -59,17 +60,17 @@ func RecordLegacyCommand(name, replacement string) {
 	if replacement == "" {
 		replacement = "see `eg --help`"
 	}
-	Record(DEP001, name, replacement, "eg git migrate")
+	Record(DEP001, name, replacement, "")
 }
 
 // RecordLegacyPersonalHook records DEP-002.
 func RecordLegacyPersonalHook(path string) {
-	Record(DEP002, "personal hook: "+path, ".git/.config/elegant-git/hooks/<command>-<action>-{ahead,after}", "eg repo migrate")
+	Record(DEP002, "personal hook: "+path, ".git/.config/elegant-git/hooks/<command>-<action>-{ahead,after}", "eg repo doctor")
 }
 
 // RecordLegacyCommonHook records DEP-003.
 func RecordLegacyCommonHook(path string) {
-	Record(DEP003, "common hook: "+path, ".config/elegant-git/hooks/<command>-<action>-{ahead,after}", "eg hook migrate")
+	Record(DEP003, "common hook: "+path, ".config/elegant-git/hooks/<command>-<action>-{ahead,after}", "eg repo doctor")
 }
 
 // RecordShowCommands records DEP-004.
@@ -112,11 +113,20 @@ func Flush() {
 func formatWarning(e Event) string {
 	switch e.ID {
 	case DEP001:
+		if e.Migrate == "" {
+			return fmt.Sprintf(
+				"Warning: the `%s` command is deprecated; please use `%s`.\n",
+				e.Surface, e.Replacement,
+			)
+		}
 		return fmt.Sprintf(
 			"Warning: the `%s` command is deprecated; please use `%s`. Run `%s` to migrate automatically.\n",
 			e.Surface, e.Replacement, e.Migrate,
 		)
 	default:
+		if e.Migrate == "" {
+			return fmt.Sprintf("warning: %s is deprecated; use %s.\n", e.Surface, e.Replacement)
+		}
 		return fmt.Sprintf("warning: %s is deprecated; use %s. Run `%s` to migrate.\n",
 			e.Surface, e.Replacement, e.Migrate)
 	}

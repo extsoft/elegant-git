@@ -180,3 +180,20 @@ func TestLoadRejectsNewerSchema(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestLoadNonIntMigrationsVersionIsZero(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	t.Setenv("ELEGANT_GIT_STATE_FILE", path)
+	body := `{"schema_version":2,"migrations_version":"dev","workspaces":{},"repositories":{}}`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := shared.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.MigrationsVersion != 0 {
+		t.Fatalf("migrations_version = %d", s.MigrationsVersion)
+	}
+}

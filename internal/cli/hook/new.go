@@ -7,11 +7,11 @@ import (
 
 	"github.com/extsoft/elegant-git/internal/cli/argspec"
 	"github.com/extsoft/elegant-git/internal/cli/completion"
-	"github.com/extsoft/elegant-git/internal/cli/legacy"
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/cli/sources"
 	"github.com/extsoft/elegant-git/internal/cmdid"
 	"github.com/extsoft/elegant-git/internal/deprecation"
+	"github.com/extsoft/elegant-git/internal/legacy"
 	"github.com/extsoft/elegant-git/internal/runtime"
 	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/extsoft/elegant-git/internal/workflows"

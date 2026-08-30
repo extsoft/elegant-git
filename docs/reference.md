@@ -16,6 +16,7 @@ are trying to understand how something works rather than what it is called, star
 - [Configuration](reference/configuration.md) — what `eg git configure` and
   `eg repo configure` apply.
 - [Memory](reference/memory.md) — where Elegant Git keeps its own state.
+- [Migrations](reference/migrations.md) — how state is rewritten between versions, and when `doctor` asks first.
 - [CLI model](reference/cli-model.md) — how a command line is composed.
 - [Interaction](reference/interaction.md) — interactive and non-interactive execution, and the
   shape of every question.

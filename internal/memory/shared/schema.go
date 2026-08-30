@@ -1,14 +1,19 @@
 package shared
 
-import "github.com/extsoft/elegant-git/internal/deprecation"
+import (
+	"encoding/json"
+
+	"github.com/extsoft/elegant-git/internal/deprecation"
+)
 
 // stateWire accepts both v1 (profiles/profile_id) and v2 (workspaces/workspace_id) keys.
 type stateWire struct {
-	SchemaVersion   int                   `json:"schema_version"`
-	AcquiredVersion string                `json:"acquired_version,omitempty"`
-	Workspaces      map[string]*Workspace `json:"workspaces"`
-	Profiles        map[string]*Workspace `json:"profiles"` // v1
-	Repositories    map[string]*repoWire  `json:"repositories"`
+	SchemaVersion     int                   `json:"schema_version"`
+	AcquiredVersion   string                `json:"acquired_version,omitempty"`
+	MigrationsVersion json.RawMessage       `json:"migrations_version,omitempty"`
+	Workspaces        map[string]*Workspace `json:"workspaces"`
+	Profiles          map[string]*Workspace `json:"profiles"` // v1
+	Repositories      map[string]*repoWire  `json:"repositories"`
 }
 
 type repoWire struct {
@@ -18,13 +23,6 @@ type repoWire struct {
 	CurrentPath string   `json:"current_path"`
 	PathHistory []string `json:"path_history,omitempty"`
 	OriginURL   string   `json:"origin_url,omitempty"`
-}
-
-var lastLoadHadLegacyKeys bool
-
-// LastLoadHadLegacyKeys reports whether the most recent Load saw v1 keys.
-func LastLoadHadLegacyKeys() bool {
-	return lastLoadHadLegacyKeys
 }
 
 func decodeState(w stateWire) (*State, bool) {
@@ -57,12 +55,24 @@ func decodeState(w stateWire) (*State, bool) {
 		}
 	}
 	s := &State{
-		SchemaVersion:   SchemaVersion,
-		AcquiredVersion: w.AcquiredVersion,
-		Workspaces:      workspaces,
-		Repositories:    repos,
+		SchemaVersion:     SchemaVersion,
+		AcquiredVersion:   w.AcquiredVersion,
+		MigrationsVersion: parseMigrationsVersion(w.MigrationsVersion),
+		Workspaces:        workspaces,
+		Repositories:      repos,
 	}
 	return s, hadLegacy
+}
+
+func parseMigrationsVersion(raw json.RawMessage) int {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0
+	}
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return n
+	}
+	return 0
 }
 
 func recordLegacyMemoryKeys() {
@@ -70,6 +80,6 @@ func recordLegacyMemoryKeys() {
 		deprecation.DEP012,
 		"shared/per-repo memory keys: profiles, profile_id",
 		"workspaces, workspace_id",
-		"eg repo migrate",
+		"",
 	)
 }

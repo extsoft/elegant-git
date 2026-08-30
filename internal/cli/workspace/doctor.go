@@ -27,7 +27,7 @@ func newDoctorCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "doctor [name]",
 		Short: "Diagnose and repair a workspace",
-		Long:  "Finds shared memory and repository link problems for one workspace and suggests a repair for each. Interactive mode confirms yes/no repairs and asks once for branching repairs; non-interactive mode only reports and exits non-zero when issues remain. When name is omitted, uses the workspace linked to the current repository or asks interactively.",
+		Long:  "Checks one workspace and its linked repositories, then offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. When name is omitted, uses the linked workspace or asks.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 				return err
@@ -64,7 +64,10 @@ func doctorRun(cmd *cobra.Command, name string) error {
 		return err
 	}
 	if prompt.NonInteractive(p) {
-		return fmt.Errorf("%d issue(s) found; run interactively to repair", len(findings))
+		if n := doctor.RepairableCount(findings); n > 0 {
+			return fmt.Errorf("%d issue(s) found; run interactively to repair", n)
+		}
+		return nil
 	}
 	if !changed {
 		return nil

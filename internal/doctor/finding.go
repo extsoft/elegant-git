@@ -62,3 +62,14 @@ func printFindings(w io.Writer, findings []Finding) {
 		fmt.Fprintf(w, "problem: %s\n  repair: %s\n", f.Problem, f.Repair)
 	}
 }
+
+// RepairableCount is the number of findings that can be applied.
+func RepairableCount(findings []Finding) int {
+	n := 0
+	for _, f := range findings {
+		if f.Apply != nil {
+			n++
+		}
+	}
+	return n
+}

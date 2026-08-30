@@ -5,9 +5,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/extsoft/elegant-git/internal/cli/legacy"
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/legacy"
 	"github.com/extsoft/elegant-git/internal/runtime"
 	"github.com/spf13/cobra"
 )

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestRootHelpListsObjects(t *testing.T) {
@@ -118,10 +120,45 @@ func TestObjectGroupHelpHook(t *testing.T) {
 	if strings.Contains(text, "Objects:") && strings.Contains(text, "  git —") {
 		t.Fatal("hook without subcommand should not show full root catalog")
 	}
-	for _, want := range []string{"hook — manage command hooks", "status", "new", "edit", "migrate", ".config/elegant-git/hooks"} {
+	for _, want := range []string{"hook — manage command hooks", "status", "new", "edit", ".config/elegant-git/hooks"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("hook help missing %q", want)
 		}
+	}
+}
+
+func TestSkipAuto(t *testing.T) {
+	version := &cobra.Command{Use: "version"}
+	if !skipAuto(version) {
+		t.Fatal("version")
+	}
+	completion := &cobra.Command{Use: "completion"}
+	bash := &cobra.Command{Use: "bash"}
+	completion.AddCommand(bash)
+	if !skipAuto(bash) {
+		t.Fatal("completion child")
+	}
+	help := &cobra.Command{Use: "help"}
+	if !skipAuto(help) {
+		t.Fatal("help")
+	}
+	migrate := &cobra.Command{Use: "migrate"}
+	migrate.Flags().Bool("dry-run", false, "")
+	if err := migrate.Flags().Set("dry-run", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if !skipAuto(migrate) {
+		t.Fatal("migrate --dry-run")
+	}
+	if err := migrate.Flags().Set("dry-run", "false"); err != nil {
+		t.Fatal(err)
+	}
+	if skipAuto(migrate) {
+		t.Fatal("migrate without dry-run must run auto")
+	}
+	start := &cobra.Command{Use: "start"}
+	if skipAuto(start) {
+		t.Fatal("normal command")
 	}
 }
 
@@ -138,6 +175,12 @@ func TestLegacyShimStartWork(t *testing.T) {
 
 func buildTestBinary(t *testing.T) string {
 	t.Helper()
+	stateDir := t.TempDir()
+	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(stateDir, "state.json"))
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(stateDir, "repo-state.json"))
+	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(stateDir, "gitconfig"))
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	t.Setenv("ELEGANT_GIT_DEPTH", "")
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "eg")
 	root, err := filepath.Abs("../..")

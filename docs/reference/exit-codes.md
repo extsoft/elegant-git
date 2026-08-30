@@ -2,7 +2,7 @@
 layout: default
 title: Exit codes
 parent: Reference
-nav_order: 6
+nav_order: 7
 ---
 
 # Exit codes

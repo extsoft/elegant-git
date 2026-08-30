@@ -58,17 +58,11 @@ Next to it sits `<repo>/.git/elegant-git/commands.json`, the per-repo command me
 the [pipes](../guides/pipes.md) park the stash message and the branch name they have to
 restore, which is why an interrupted command can be rerun without losing your work.
 
-## Schema migration
+## Schema
 
-Both files are versioned, and both migrate themselves on load. The one migration that exists so far
-renames the version 1 vocabulary — `profiles` becomes `workspaces` and `profile_id` becomes
-`workspace_id` — and it runs like this: a backup is written next to the file as `state.json.bak`,
-the file is rewritten in the current schema, and a line naming the backup is printed to stderr. If
-the result surprises you, `mv state.json.bak state.json` puts you back.
-
-A file whose `schema_version` is **newer** than the one your binary supports is never rewritten.
-The command fails and asks you to upgrade Elegant Git, so an older installation cannot quietly
-downgrade state a newer one wrote.
+Both files carry a `schema_version`. When Elegant Git rewrites its own files, a backup is left
+next to the original. How that rewrite is classified — automatic versus a `doctor` finding — is
+on the [migrations](migrations.md) page.
 
 ## How memory gets filled
 
@@ -76,9 +70,7 @@ downgrade state a newer one wrote.
 `user.email` into `.git/config`, and prompts before applying the optional workspace fields
 (`signing_key`, `editor`, `gpg_program`). Values that already match the workspace are skipped
 without prompts, and every `git config` set or unset is printed before it runs. Branch settings
-that belong to Elegant Git live only in per-repo memory; the legacy `elegant-git.default-branch`
-and `elegant-git.protected-branches` keys are removed from `.git/config` after migration, and those
-unsets are printed too. When the origin URL yields a
+that belong to Elegant Git live only in per-repo memory. When the origin URL yields a
 [namespace](../guides/workspaces.md#how-a-namespace-is-remembered) not yet on the workspace,
 `repo configure` — and `workspace new` when it applies to the current repository — asks to remember
 it, recording it silently in non-interactive mode.

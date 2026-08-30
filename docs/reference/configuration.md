@@ -90,7 +90,7 @@ honors Git's `GIT_PREFIX` so a relative destination still lands where you were. 
 commands that take a relative path may not.
 
 When global configuration is applied, aliases are written globally only; `repo configure` and
-`repo migrate` remove redundant local elegant aliases instead. They keep `alias.elegant`.
+`repo doctor` remove redundant local elegant aliases instead. They keep `alias.elegant`.
 
 ## Level: Signature
 
@@ -118,10 +118,7 @@ The Elegant Git configuration keys:
 
 - `elegant-git.repo-id` identifies the repository in shared memory (UUIDv7). Set by `repo configure`.
 - `acquired_version` in shared memory defines whether global configuration was applied (see
-[approach](#approach) for the details). Legacy `elegant-git.acquired` in git config is migrated
-by `git configure` / `git migrate`.
+[approach](#approach) for the details).
 
-Protected branches and the default development branch are read from [per-repo memory](memory.md)
-(legacy values in `elegant-git.protected-branches` / `elegant-git.default-branch` are migrated by
-`repo configure` or `repo migrate`). The "protected" branch rules and default-branch semantics are
-unchanged; only storage moved.
+Protected branches and the default development branch are read from [per-repo memory](memory.md).
+Older gitconfig keys for the same facts are rewritten automatically; see [migrations](migrations.md).

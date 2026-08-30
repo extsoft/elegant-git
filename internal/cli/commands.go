@@ -43,7 +43,7 @@ var commandGroups = []commandGroup{
 	{object: "git", title: "configure Git installation", commands: []subCommandSpec{
 		{action: "configure", purpose: "Configures your Git installation."},
 		{action: "status", purpose: "Shows global Git installation and shared memory state."},
-		{action: "migrate", purpose: "Migrates global aliases and acquired marker."},
+		{action: "doctor", purpose: "Diagnoses and repairs your Git installation."},
 	}},
 	{object: "workspace", title: "manage git workspaces", commands: []subCommandSpec{
 		{action: "list", purpose: "Lists workspaces or shows one workspace's details."},
@@ -62,14 +62,12 @@ var commandGroups = []commandGroup{
 		{action: "configure", purpose: "Configures the current local Git repository."},
 		{action: "sync", purpose: "Re-applies workspace settings to repositories."},
 		{action: "prune", purpose: "Removes useless local branches."},
-		{action: "migrate", purpose: "Migrates local aliases and hooks."},
 		{action: "doctor", purpose: "Diagnoses and repairs the current repository."},
 	}},
 	{object: "hook", title: "manage command hooks", commands: []subCommandSpec{
 		{action: "status", purpose: "Lists configured hook file paths."},
 		{action: "new", purpose: "Creates a new hook file."},
 		{action: "edit", purpose: "Opens a hook file in your editor."},
-		{action: "migrate", purpose: "Migrates repo-tracked hooks to the new layout."},
 	}},
 	{object: "work", title: "day-to-day contributions", commands: []subCommandSpec{
 		{action: "start", purpose: "Creates a new branch."},

@@ -10,7 +10,7 @@ func TestRecordOncePerID(t *testing.T) {
 	Reset()
 	var buf bytes.Buffer
 	SetOutputWriter(&buf)
-	Record(DEP002, "personal hook: .workflows/foo", "new/path", "eg repo migrate")
+	Record(DEP002, "personal hook: .workflows/foo", "new/path", "eg repo doctor")
 	Record(DEP002, "duplicate", "ignored", "ignored")
 	Flush()
 	if strings.Count(buf.String(), "warning:") != 1 {
@@ -31,7 +31,7 @@ func TestRecordLegacyCommand(t *testing.T) {
 		t.Fatalf("replacement = %q", events[0].Replacement)
 	}
 	Flush()
-	want := "Warning: the `start-work` command is deprecated; please use `work start`. Run `eg git migrate` to migrate automatically.\n"
+	want := "Warning: the `start-work` command is deprecated; please use `work start`.\n"
 	if buf.String() != want {
 		t.Fatalf("got %q want %q", buf.String(), want)
 	}

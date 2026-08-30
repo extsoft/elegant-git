@@ -23,6 +23,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/deprecation"
 	"github.com/extsoft/elegant-git/internal/exitcode"
 	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/migrate"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/extsoft/elegant-git/internal/runtime"
 	"github.com/extsoft/elegant-git/internal/version"
@@ -79,10 +80,13 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&forceInteractive, "interactive", false, "force prompts on a TTY (overrides CI and --non-interactive)")
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		recordDeprecatedSurface(cmd)
+		git.Use(git.RealRunner{})
+		if !skipAuto(cmd) {
+			migrate.Auto()
+		}
 		if err := guardInvocationDepth(); err != nil {
 			return err
 		}
-		git.Use(git.RealRunner{})
 		ctx := cmd.Context()
 		if ctx == nil {
 			ctx = context.Background()
@@ -164,9 +168,41 @@ func recordDeprecatedSurface(cmd *cobra.Command) {
 				replacement = strings.Replace(surface, "profile", "workspace", 1)
 			}
 		}
-		deprecation.RecordRenamedSurface(surface, replacement, "eg repo migrate")
+		deprecation.RecordRenamedSurface(surface, replacement, "")
 		return
 	}
+}
+
+func skipAuto(cmd *cobra.Command) bool {
+	if flagTrue(cmd, "help") || flagTrue(cmd.Root(), "version") {
+		return true
+	}
+	for c := cmd; c != nil; c = c.Parent() {
+		switch c.Name() {
+		case "completion", "version", "help":
+			return true
+		case "migrate":
+			if flagTrue(c, "dry-run") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func flagTrue(cmd *cobra.Command, name string) bool {
+	if cmd == nil {
+		return false
+	}
+	f := cmd.Flags().Lookup(name)
+	if f == nil {
+		f = cmd.PersistentFlags().Lookup(name)
+	}
+	if f == nil {
+		return false
+	}
+	v, err := strconv.ParseBool(f.Value.String())
+	return err == nil && v
 }
 
 const invocationDepthEnv = "ELEGANT_GIT_DEPTH"

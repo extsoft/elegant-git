@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -9,14 +10,22 @@ import (
 
 	"github.com/extsoft/elegant-git/internal/config"
 	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/hooks"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/memory/repoid"
 	"github.com/extsoft/elegant-git/internal/memory/shared"
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/runtime"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
-// CurrentRepo diagnoses the repository at the current working directory.
-func CurrentRepo(s *shared.State, p prompt.Prompter) ([]Finding, error) {
+// CurrentRepo diagnoses the repository at the current working directory: registry
+// and identity drift, leftover local install markers and branch keys, personal
+// hooks under .git/.workflows/, and repo-tracked hooks under .workflows/.
+func CurrentRepo(s *shared.State, p prompt.Prompter, w io.Writer) ([]Finding, error) {
+	if w == nil {
+		w = io.Discard
+	}
 	if _, err := memrepo.GitDir(); err != nil {
 		return nil, fmt.Errorf("not a git repository")
 	}
@@ -39,6 +48,7 @@ func CurrentRepo(s *shared.State, p prompt.Prompter) ([]Finding, error) {
 	}
 	out = append(out, diagnoseRepoIdentity(s, repoID)...)
 	out = append(out, diagnoseRepoLegacy(s)...)
+	out = append(out, diagnoseLegacyHooks(w)...)
 	return out, nil
 }
 
@@ -47,7 +57,6 @@ func diagnoseRepoLinkage(s *shared.State, cwd, repoID string, p prompt.Prompter)
 
 	if repoID == "" {
 		if matchID := findRepoByPath(s, cwd); matchID != "" {
-			matchID := matchID
 			out = append(out, Finding{
 				Problem: fmt.Sprintf("%s is unset but registry entry %s matches this path", repoid.Key, matchID),
 				Repair:  "stamp the registry id into local git config",
@@ -224,31 +233,33 @@ func diagnoseRepoLegacy(s *shared.State) []Finding {
 			},
 		})
 	}
+	return out
+}
 
-	needSaveShared := shared.LastLoadHadLegacyKeys()
-	needSavePerRepo := false
-	if gitDir, err := memrepo.GitDir(); err == nil {
-		if _, err := memrepo.Load(gitDir); err == nil && memrepo.LastLoadHadLegacyKeys() {
-			needSavePerRepo = true
-		}
-	}
-	if needSaveShared || needSavePerRepo {
+func diagnoseLegacyHooks(w io.Writer) []Finding {
+	ws := runtime.DefaultRepoLayout()
+	var out []Finding
+	if hooks.HasLegacy(ws, true) {
 		out = append(out, Finding{
-			Problem: "memory still uses v1 keys (profiles / profile_id)",
-			Repair:  "rewrite memory in the current schema",
+			Problem: "personal hooks still live under .git/.workflows/",
+			Repair:  "move them to .git/.config/elegant-git/hooks/",
 			Apply: func() error {
-				if !needSavePerRepo {
-					return nil
-				}
-				gitDir, err := memrepo.GitDir()
+				_, _, err := hooks.Migrate(ws, true, false, w)
+				return err
+			},
+		})
+	}
+	if hooks.HasLegacy(ws, false) {
+		out = append(out, Finding{
+			Problem: "repo-tracked hooks still live under .workflows/",
+			Repair:  "move them to .config/elegant-git/hooks/ and commit the result",
+			Apply: func() error {
+				newPaths, oldPaths, err := hooks.Migrate(ws, false, false, w)
 				if err != nil {
 					return err
 				}
-				perRepo, err := memrepo.Load(gitDir)
-				if err != nil {
-					return err
-				}
-				return memrepo.Save(gitDir, perRepo)
+				text.SuggestGitAddCommitTo(w, newPaths, oldPaths, "Migrate Elegant Git hooks")
+				return nil
 			},
 		})
 	}

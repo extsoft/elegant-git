@@ -10,7 +10,7 @@ Notes: when any required input is missing in interactive mode, optional inputs a
 
 ### Git
 
-CLI object for installation-wide setup, inspection, and migration—not “run git” or native `git status`.
+CLI object for installation-wide setup, inspection, and doctor—not “run git” or native `git status`.
 
 ### Interactive mode
 
@@ -18,7 +18,7 @@ CLI mode where the prompter accepts input; default when stdin is a TTY and no no
 
 Aliases: TTY mode
 
-Avoid: conflating with workflow prompts inside configure/migrate commands
+Avoid: conflating with workflow prompts inside configure/doctor commands
 
 ### Non-interactive mode
 
@@ -38,7 +38,7 @@ Positional argument that must be set before the command’s main logic runs; mis
 
 Ahead/after scripts run around elegant-git commands, unless `--no-workflows` is set.
 
-Notes: repo-tracked under `<repo>/.config/elegant-git/hooks/<command>-<action>-{ahead,after}`; personal under `<repo>/.git/.config/elegant-git/hooks/...`; CLI object actions are `status`, `new`, `edit`, `migrate`.
+Notes: repo-tracked under `<repo>/.config/elegant-git/hooks/<command>-<action>-{ahead,after}`; personal under `<repo>/.git/.config/elegant-git/hooks/...`; CLI object actions are `status`, `new`, `edit`.
 
 Avoid: `.git/hooks` (git’s native hook mechanism)
 
@@ -50,7 +50,11 @@ Avoid: conflating with shared/repo memory stores or test types `MemoryRunner` / 
 
 ### Migrate
 
-Imports legacy elegant-git data; scope depends on the CLI object prefix.
+Automatic rewrite of Elegant Git-owned state (memory schema, acquired marker, legacy branch keys, dead `elegant …` aliases). Assisted layout changes are doctor findings.
+
+Notes: integer `migrations_version` generation in shared memory gates global Auto steps; local leftovers are scanned whenever cwd is a git repository; hidden `git migrate` / `repo migrate` / `hook migrate` shims remain until DEP-016 `remove_after` (`--dry-run` reports only).
+
+Avoid: adding a user-facing migrate command; using “migrate” for doctor repairs
 
 ### Workspace
 
@@ -74,7 +78,7 @@ CLI object for tagging and release notes on the default development branch.
 
 ### Repo
 
-CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `status`, `sync`, `prune`, `migrate`, `doctor`).
+CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `status`, `sync`, `prune`, `doctor`).
 
 Avoid: using “repo” when you mean the **Repository** entity in shared memory
 

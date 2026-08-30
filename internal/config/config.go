@@ -7,9 +7,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/extsoft/elegant-git/internal/cli/legacy"
 	"github.com/extsoft/elegant-git/internal/deprecation"
 	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/legacy"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/memory/shared"
 	"github.com/extsoft/elegant-git/internal/prompt"
@@ -285,7 +285,7 @@ func IsRemovableAliasValue(value string) bool {
 // RecordStaleAlias records DEP-015 when a pre-rename alias value is rewritten.
 func RecordStaleAlias(value, replacement string) {
 	if strings.HasPrefix(value, "elegant ") {
-		deprecation.Record(deprecation.DEP015, "alias value: "+value, replacement, "eg git migrate")
+		deprecation.Record(deprecation.DEP015, "alias value: "+value, replacement, "eg git doctor")
 	}
 }
 
@@ -322,9 +322,9 @@ func importAcquiredToSharedMemory(scope string) error {
 
 func migrateHint(scope string) string {
 	if scope == "--global" {
-		return "eg git migrate"
+		return "eg git doctor"
 	}
-	return "eg repo migrate"
+	return "eg repo doctor"
 }
 
 // RemoveObsoleteAcquired unsets elegant-git.acquired for scope when present.
