@@ -162,6 +162,35 @@ func TestSkipAuto(t *testing.T) {
 	}
 }
 
+func TestShouldAutoConfigure(t *testing.T) {
+	start := &cobra.Command{Use: "start"}
+	if !shouldAutoConfigure(start, false) {
+		t.Fatal("normal command")
+	}
+	if shouldAutoConfigure(start, true) {
+		t.Fatal("nested")
+	}
+	version := &cobra.Command{Use: "version"}
+	if shouldAutoConfigure(version, false) {
+		t.Fatal("version")
+	}
+}
+
+func TestInvocationNested(t *testing.T) {
+	t.Setenv("ELEGANT_GIT_DEPTH", "")
+	if invocationNested() {
+		t.Fatal("unset")
+	}
+	t.Setenv("ELEGANT_GIT_DEPTH", "0")
+	if invocationNested() {
+		t.Fatal("zero")
+	}
+	t.Setenv("ELEGANT_GIT_DEPTH", "1")
+	if !invocationNested() {
+		t.Fatal("parent depth")
+	}
+}
+
 func TestLegacyShimStartWork(t *testing.T) {
 	bin := buildTestBinary(t)
 	out, err := exec.Command(bin, "start-work", "--help").Output()

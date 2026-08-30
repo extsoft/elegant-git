@@ -7,42 +7,66 @@ permalink: /getting-started/
 
 # Getting started
 
-Once Elegant Git is [installed](02-00-installation.md), a few actions set up your machine and each
-repository you work in.
+Commands follow `eg <object> <action>`. A bare `eg` or `eg <object>` lists the available
+actions or runs context-based interactive flow.
 
-## Post-installation actions
+## Git configuration
 
-Configure your Git installation once per machine by running
-[`eg git configure`](reference/commands.md#git) and follow the instructions. To find out
-more, please read [the configuration approach](reference/configuration.md).
+Once Elegant Git is [installed](02-00-installation.md), the first interactive `eg` command
+configures your Git installation if it has not been configured yet. `eg git configure` does
+the same at any time. The [configuration](reference/configuration.md) page lists the logic.
+.
 
-The primary invocation is
+## Repository onboarding
 
-```bash
-eg <command>
+For an existing repository, run `eg repo configure`. That links the repository to a
+[workspace](guides/workspaces.md), writes user identity into `.git/config`, and records the
+default and protected branches in per-repo memory.
+
+Use `eg repo init` to create a repository, or `eg repo clone` to clone one. Both run the
+same onboarding as `repo configure`.
+
+## Making changes
+
+Regular work with Git means creating branches, committing, pushing changes, and merging
+to upstream or from upstream. `eg work` does it for you by providing contextual
+suggestions.
+
+If you run `eg work` with no action, Elegant Git looks at the repository and either runs the
+obvious next step or asks you to choose. The usual path from new work to the default
+development branch is `start` → `save` → `push` → `accept`.
+
+The state-transition diagram shows an example workflow from starting new work to merging it.
+`OnProtected` is the default development branch or any other protected branch. `OnFeature`
+is any other local branch.
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  [*] --> OnProtected
+  start --> OnFeature
+  track --> OnFeature
+  OnFeature --> OnProtected: accept
+  OnProtected --> [*]
+
+  state OnProtected {
+    [*] --> start
+    [*] --> track
+  }
+
+  state OnFeature {
+    [*] --> save
+    save --> save: amend
+    save --> save: polish
+    save --> save: sync
+    save --> push
+    push --> [*]
+  }
 ```
 
-where `<command>` is one of the commands described on the
-[commands](reference/commands.md) page or printed in a terminal after running `eg`.
+## Next steps
 
-`eg git configure` also installs a Git alias `alias.elegant = "!eg"`, so `git elegant <command>`
-still reaches Elegant Git after configure. That form runs from the repository top level (not the current
-subdirectory) and does not tab-complete — use `eg <TAB>` for completion. It also installs a Git
-alias for each of the old flat command names, so `git save-work` still reaches `eg work save`.
-Those names are deprecated — please use the object-first form in anything you write down.
-
-Also, please use [`eg repo clone`](reference/commands.md#repo) or
-[`eg repo init`](reference/commands.md#repo) instead of regular `clone` or `init` when
-starting work with a repository — both of them configure the fresh repository for you. For a
-repository you already have, run [`eg repo configure`](reference/commands.md#repo) inside
-it.
-
-P.S. Shell completion is generated on demand for `bash`, `zsh`, `fish`, and `powershell`. For
-example:
-
-```bash
-eg completion bash > ~/.local/share/bash-completion/completions/eg
-```
-
-`git elegant <TAB>` does not complete. If you previously installed completion for `git-elegant`,
-delete that file so a dead registration does not linger.
+- [Commands](reference/commands.md) — every object and action
+- [Guides](guides.md) — how the tool behaves while you use it
+- [Configuration](reference/configuration.md) — what `eg git configure` and `eg repo configure` apply
+- [Memory](reference/memory.md) — where Elegant Git keeps its own state

@@ -75,7 +75,8 @@ Cobra tree (for example `work start`, `repo clone`).
 
 1. Install [mise](https://mise.jdx.dev/)
 2. Run `mise run init` once after clone
-3. Use `mise run build` to produce `dist/eg`
+3. Use `mise run build` to produce `dist/eg`. `mise run eg-preview` cross-compiles a Linux
+   binary and opens a fresh Docker shell with `eg` on `PATH` (Git installed, empty `HOME`).
 
 ### Checks and tests
 

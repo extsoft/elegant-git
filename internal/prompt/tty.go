@@ -126,6 +126,12 @@ func (t *TTY) Optional(label, suggested string) (string, error) {
 	return t.EditOrAccept(label, suggested)
 }
 
+// ReadLine consumes one line of input, including a blank line. Any text is ignored.
+func (t *TTY) ReadLine() error {
+	_, err := t.reader().ReadString('\n')
+	return err
+}
+
 func (t *TTY) Closed(question string, options []string, defaultWord string, required bool) (string, error) {
 	return t.askClosed(question, options, defaultWord, required)
 }

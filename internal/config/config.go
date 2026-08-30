@@ -368,7 +368,7 @@ func ask(p prompt.Prompter, message, defaultVal string, required bool) (string, 
 		return defaultVal, nil
 	}
 	if required {
-		return p.EditOrAccept(message, defaultVal)
+		return p.String(message, defaultVal)
 	}
 	return p.Optional(message, defaultVal)
 }

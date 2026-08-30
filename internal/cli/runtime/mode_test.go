@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -92,5 +93,16 @@ func TestPrompterForMode(t *testing.T) {
 	p := PrompterForMode(ModeNonInteractive, nil, nil)
 	if !prompt.NonInteractive(p) {
 		t.Fatal("expected non-interactive prompter")
+	}
+}
+
+func TestStdinIsTTYRejectsDevNull(t *testing.T) {
+	f, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = f.Close() })
+	if stdinIsTTY(f) {
+		t.Fatal("/dev/null must not count as a TTY")
 	}
 }

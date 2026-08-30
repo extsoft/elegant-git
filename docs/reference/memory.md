@@ -77,7 +77,7 @@ it, recording it silently in non-interactive mode.
 
 Workspaces can be created three ways:
 
-- `git configure` offers to create one from your global values after the global setup
+- `git configure` offers to create one from your global values after basics (identity and editor)
 - `repo configure` shows a picker with the existing workspaces, `[Create new]`, and
   `[Use settings from this repository]` when the repository already has `user.name` and `user.email`
 - `workspace new` creates one by hand, suggesting values from the local and then the global

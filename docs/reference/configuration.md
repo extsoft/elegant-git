@@ -16,13 +16,21 @@ and/or to a Git installation globally (global configuration). So,
   and configures the current Git repository (workspace linkage, per-repo memory, optional local
   standards and aliases)
 - the global configuration applies by running [`eg git configure`](commands.md#git)
-  and uses `git config --global <key> <value>` for Git installation-wide settings
+  and uses `git config --global <key> <value>` for Git installation-wide settings.
+  The first interactive `eg` command runs that flow automatically when Git is not yet
+  configured; `--non-interactive` / `CI` / a non-TTY skip it. `eg git configure` re-runs it
+  at any time.
+
+The command prints what it will apply (Git basics, standards, and aliases), waits for Enter, then
+runs identity, a workspace offer, standards, then aliases (remove then add). `acquired_version` is
+recorded last so an interrupted run still auto-starts next time.
 
 If you've applied a global configuration (`acquired_version` in shared memory), `repo configure`
 does **not** add or rewrite local git aliases or local standards — those come from
 `git configure` once per Git installation. It still removes redundant **local**
 `elegant …` / `!eg …` aliases and a stale local `elegant-git.acquired` marker when present. Run
-`eg git configure` once on each machine where you use Elegant Git globally.
+`eg git configure` once on each machine where you use Elegant Git globally, or let the first
+interactive `eg` command do it.
 
 For local-only setups (no global acquired marker), `repo configure` applies the full local
 standards and alias set, same as before.
@@ -72,7 +80,7 @@ Windows with `true`
 6. `pull.rebase true` [`i`] uses `rebase` when `git pull`
 7. `rebase.autoStash false` [`i`] don't use `autostash` when `git rebase`
 8. `credential.helper osxkeychain` [`i`] configures default credentials storage on MacOS only
-9. `acquired_version` in shared memory [`g`] identifies that Elegant Git global configuration is applied (value is the installed version)
+9. `acquired_version` in shared memory [`g`] identifies that Elegant Git global configuration is applied (value is the installed version); it is written after aliases so an interrupted configure still auto-starts
 
 ## Level: Aliases
 
@@ -80,7 +88,8 @@ Windows with `true`
 Elegant Git after configure. It also registers the historical flat command names as Git aliases —
 `git save-work` reaches `eg work save`. This should significantly improve user experience.
 
-The configuration is a call of `git config "alias.<flat-name>" "!eg <object> <action>"` [`i`]
+The configuration removes existing Elegant Git aliases in that scope, then writes
+`git config "alias.<flat-name>" "!eg <object> <action>"` [`i`]
 for each of those names, `show-commands` excepted, plus `git config alias.elegant "!eg"`. The
 object-first form is always spelled in full as `eg work save`. The flat names themselves
 are deprecated, so treat those aliases as compatibility rather than as the way to drive the tool.

@@ -81,6 +81,7 @@ func init() {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		recordDeprecatedSurface(cmd)
 		git.Use(git.RealRunner{})
+		nested := invocationNested()
 		if !skipAuto(cmd) {
 			migrate.Auto()
 		}
@@ -106,6 +107,11 @@ func init() {
 		})
 		ctx = prompt.WithPrompter(ctx, cliruntime.PrompterForMode(mode, stdin, os.Stdout))
 		cmd.SetContext(ctx)
+		if shouldAutoConfigure(cmd, nested) {
+			if err := gitcmd.AutoConfigure(cmd); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 
@@ -171,6 +177,18 @@ func recordDeprecatedSurface(cmd *cobra.Command) {
 		deprecation.RecordRenamedSurface(surface, replacement, "")
 		return
 	}
+}
+
+func shouldAutoConfigure(cmd *cobra.Command, nested bool) bool {
+	return !nested && !skipAuto(cmd)
+}
+
+func invocationNested() bool {
+	d, err := strconv.Atoi(os.Getenv(invocationDepthEnv))
+	if err != nil {
+		return false
+	}
+	return d > 0
 }
 
 func skipAuto(cmd *cobra.Command) bool {

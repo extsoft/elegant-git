@@ -56,7 +56,7 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 
 | Command | Description |
 | --- | --- |
-| `git configure` | Configures your Git installation (global); offers to create a workspace from global values. |
+| `git configure` | Configures your Git installation (global); first interactive `eg` runs this when Git is not yet configured. Offers a workspace from global values. |
 | `git status` | Shows global Git installation and shared memory state (not the same as native `git status`). |
 | `git doctor` | Checks the Git installation and offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. |
 
@@ -123,5 +123,5 @@ Hooks live under `.config/elegant-git/hooks/<command>-<action>-{ahead,after}` (r
 eg completion bash > ~/.local/share/bash-completion/completions/eg
 ```
 
-`git elegant <TAB>` does not complete (the git alias is a `!` expansion). Use `eg <TAB>`.
+`eg <TAB>` does not complete (the git alias is a `!` expansion). Use `eg <TAB>`.
 If you previously installed a `git-elegant` completion file, delete it.

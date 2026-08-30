@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"golang.org/x/term"
 )
 
 // InteractionMode is whether the CLI may prompt for input.
@@ -77,9 +78,5 @@ func stdinIsTTY(r io.Reader) bool {
 	if !ok {
 		return false
 	}
-	fi, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(int(f.Fd()))
 }

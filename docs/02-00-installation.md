@@ -47,6 +47,6 @@ The binary was renamed from `git-elegant` to `eg`. Git no longer finds it as a
    `alias.elegant` git alias, so `git elegant …` keeps invoking the old program.
 2. Delete stale completion files (`~/.local/share/bash-completion/completions/git-elegant`
    and the zsh equivalent).
-3. Install Elegant Git, then run `eg git configure`. That writes `alias.elegant = "!eg"`.
-   Leftover aliases from the previous binary are rewritten on their own; `eg git doctor`
-   shows anything that still needs a decision.
+3. Install Elegant Git. The first interactive `eg` command (or `eg git configure`) writes
+   `alias.elegant = "!eg"`. Leftover aliases from the previous binary are rewritten on their
+   own; `eg git doctor` shows anything that still needs a decision.
