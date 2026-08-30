@@ -115,20 +115,14 @@ func writeObjectUsage(w io.Writer, object string) {
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "%s — %s\n\n", group.object, group.title)
 	fmt.Fprintf(w, "usage: eg %s <action> [-h | --help] [--no-workflows] [args]\n\n", group.object)
-	fmt.Fprintln(w, "    -h, --help       displays help for an action")
-	fmt.Fprintln(w, "    --no-workflows       disables available hooks")
-	fmt.Fprintln(w, "    --non-interactive    disables prompts; fails when input is missing")
+	writeAligned(w, "    ", []alignedRow{
+		{name: "-h, --help", desc: "displays help for an action"},
+		{name: "--no-workflows", desc: "disables available hooks"},
+		{name: "--non-interactive", desc: "disables prompts; fails when input is missing"},
+	})
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Actions:")
-	maxLen := 0
-	for _, c := range group.commands {
-		if len(c.action) > maxLen {
-			maxLen = len(c.action)
-		}
-	}
-	for _, c := range group.commands {
-		fmt.Fprintf(w, "  %-*s  %s\n", maxLen, c.action, c.purpose)
-	}
+	writeCommandRows(w, "  ", commandNameWidth(group.commands), group.commands)
 	if object == "hook" {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "Hooks live under:")
@@ -146,22 +140,66 @@ func writeRootUsage(w io.Writer) {
 	fmt.Fprintln(w, "usage: eg [-h | --help | --version]")
 	fmt.Fprintln(w, "   or: eg <object> <action> [-h | --help] [--no-workflows] [args]")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "    -h, --help       displays help")
-	fmt.Fprintln(w, "    --version        displays program version")
-	fmt.Fprintln(w, "    --no-workflows       disables available hooks")
-	fmt.Fprintln(w, "    --non-interactive    disables prompts; fails when input is missing")
+	writeAligned(w, "    ", []alignedRow{
+		{name: "-h, --help", desc: "displays help"},
+		{name: "--version", desc: "displays program version"},
+		{name: "--no-workflows", desc: "disables available hooks"},
+		{name: "--non-interactive", desc: "disables prompts; fails when input is missing"},
+	})
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Objects:")
+	width := actionNameWidth()
 	for _, g := range commandGroups {
 		fmt.Fprintf(w, "  %s — %s\n", g.object, g.title)
-		for _, c := range g.commands {
-			fmt.Fprintf(w, "    %-12s %s\n", g.object+" "+c.action, c.purpose)
-		}
+		writeCommandRows(w, "    ", width, g.commands)
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Also: version, completion")
 	fmt.Fprintln(w)
 	fmt.Fprintf(w, "Please visit %s to find out more.\n\n", siteURL)
+}
+
+type alignedRow struct {
+	name string
+	desc string
+}
+
+func commandNameWidth(commands []subCommandSpec) int {
+	n := 0
+	for _, c := range commands {
+		if len(c.action) > n {
+			n = len(c.action)
+		}
+	}
+	return n
+}
+
+func actionNameWidth() int {
+	n := 0
+	for _, g := range commandGroups {
+		if w := commandNameWidth(g.commands); w > n {
+			n = w
+		}
+	}
+	return n
+}
+
+func writeCommandRows(w io.Writer, indent string, width int, commands []subCommandSpec) {
+	for _, c := range commands {
+		fmt.Fprintf(w, "%s%-*s  %s\n", indent, width, c.action, c.purpose)
+	}
+}
+
+func writeAligned(w io.Writer, indent string, rows []alignedRow) {
+	width := 0
+	for _, r := range rows {
+		if len(r.name) > width {
+			width = len(r.name)
+		}
+	}
+	for _, r := range rows {
+		fmt.Fprintf(w, "%s%-*s  %s\n", indent, width, r.name, r.desc)
+	}
 }
 
 func newBaseCommand(use, short, long string) *cobra.Command {

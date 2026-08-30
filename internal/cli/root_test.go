@@ -17,13 +17,32 @@ func TestRootHelpListsObjects(t *testing.T) {
 		t.Fatalf("--help: %v", err)
 	}
 	text := string(out)
-	for _, want := range []string{"git configure", "git list", "repo clone", "memory workspaces", "work start", "hook list", "release new"} {
-		if !strings.Contains(text, want) {
-			t.Errorf("help missing %q", want)
-		}
-	}
 	if !strings.Contains(text, "Objects:") {
 		t.Error("help missing Objects section")
+	}
+	for _, heading := range []string{"git —", "repo —", "memory —", "work —", "hook —", "release —", "workspace —"} {
+		if !strings.Contains(text, heading) {
+			t.Errorf("help missing heading %q", heading)
+		}
+	}
+	for _, tc := range []struct{ object, action string }{
+		{"git", "configure"},
+		{"repo", "clone"},
+		{"memory", "workspaces"},
+		{"work", "start"},
+		{"hook", "list"},
+		{"release", "notes"},
+	} {
+		found := false
+		for _, row := range sectionRows(text, "  "+tc.object+" —", "    ") {
+			if firstField(strings.TrimSpace(row)) == tc.action {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("help missing action %q under %s", tc.action, tc.object)
+		}
 	}
 }
 
