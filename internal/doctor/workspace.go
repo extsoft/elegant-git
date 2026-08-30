@@ -16,6 +16,18 @@ import (
 	"github.com/extsoft/elegant-git/internal/text"
 )
 
+func applyWorkspaceName(ws *shared.Workspace, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return fmt.Errorf("workspace name is required")
+	}
+	if shared.IsReservedWorkspaceName(name) {
+		return fmt.Errorf("workspace name %q is reserved", name)
+	}
+	ws.Name = name
+	return nil
+}
+
 func Workspace(s *shared.State, workspaceID string, p prompt.Prompter) []Finding {
 	ws, err := shared.GetWorkspace(s, workspaceID)
 	if err != nil {
@@ -32,11 +44,7 @@ func Workspace(s *shared.State, workspaceID string, p prompt.Prompter) []Finding
 				if err != nil {
 					return err
 				}
-				if strings.TrimSpace(name) == "" {
-					return fmt.Errorf("workspace name is required")
-				}
-				ws.Name = name
-				return nil
+				return applyWorkspaceName(ws, name)
 			},
 		})
 	} else {
@@ -53,11 +61,7 @@ func Workspace(s *shared.State, workspaceID string, p prompt.Prompter) []Finding
 						if err != nil {
 							return err
 						}
-						if strings.TrimSpace(name) == "" {
-							return fmt.Errorf("workspace name is required")
-						}
-						ws.Name = name
-						return nil
+						return applyWorkspaceName(ws, name)
 					},
 				})
 				break

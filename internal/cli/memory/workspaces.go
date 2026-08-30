@@ -48,7 +48,7 @@ func newWorkspacesCommandNamed(use string) *cobra.Command {
 			return workspacecmd.PrintList(w, s, format)
 		},
 	}
-	c.Flags().StringVar(&format, "format", "table", "output format: table or json")
+	c.Flags().StringVar(&format, "format", "table", "output format: table or json (default table)")
 	c.SetHelpFunc(cliruntime.CommandHelp)
 	completion.Attach(c, spec)
 	return c

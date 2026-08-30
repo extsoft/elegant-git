@@ -18,3 +18,4 @@
 | DEP-014 | 2026-08-28 | Go import path: `github.com/bees-hive/elegant-git/...` | `github.com/extsoft/elegant-git/...` | update imports; reinstall with `go install github.com/extsoft/elegant-git/cmd/eg@latest` | 2027-06-30 | removed |
 | DEP-015 | 2026-08-29 | binary name `git-elegant` (`git-<subcommand>` dispatch), alias values `elegant …`, go install `.../cmd/git-elegant` | binary `eg`; `git elegant …` via `alias.elegant = "!eg"`; alias values `!eg …`; go install `.../cmd/eg` | automatic (aliases); `eg git doctor` (leftover binary / completions) | 2027-06-30 | active |
 | DEP-016 | 2026-08-29 | commands: `git migrate`, `repo migrate`, `hook migrate` | automatic migrations + `eg git doctor` / `eg repo doctor` | hidden shims remain | 2027-06-30 | active |
+| DEP-017 | 2026-08-30 | command: `workspace status` | `workspace list current` | use `eg workspace list current` | 2027-06-30 | active |

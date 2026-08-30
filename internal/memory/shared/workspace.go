@@ -8,6 +8,17 @@ import (
 	"github.com/extsoft/elegant-git/internal/uuidv7"
 )
 
+// Reserved workspace list selectors; they cannot be used as display names.
+const (
+	SelectorAll     = "all"
+	SelectorCurrent = "current"
+)
+
+// IsReservedWorkspaceName reports whether name is a list selector.
+func IsReservedWorkspaceName(name string) bool {
+	return name == SelectorAll || name == SelectorCurrent
+}
+
 // ListWorkspaces returns all workspaces keyed by id.
 func ListWorkspaces(s *State) map[string]*Workspace {
 	if s == nil || s.Workspaces == nil {
@@ -69,8 +80,12 @@ type CreateWorkspaceInput struct {
 
 // CreateWorkspace adds a workspace and returns its id.
 func CreateWorkspace(s *State, in CreateWorkspaceInput) (string, error) {
+	in.Name = strings.TrimSpace(in.Name)
 	if in.Name == "" || in.UserName == "" || in.UserEmail == "" {
 		return "", fmt.Errorf("name, user_name, and user_email are required")
+	}
+	if IsReservedWorkspaceName(in.Name) {
+		return "", fmt.Errorf("workspace name %q is reserved", in.Name)
 	}
 	for _, ws := range s.Workspaces {
 		if ws != nil && ws.Name == in.Name {

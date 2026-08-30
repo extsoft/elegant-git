@@ -1,6 +1,22 @@
 package shared
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestCreateWorkspaceRejectsReservedNames(t *testing.T) {
+	s := emptyState()
+	for _, name := range []string{SelectorAll, SelectorCurrent, " all ", "\tcurrent"} {
+		_, err := CreateWorkspace(s, CreateWorkspaceInput{Name: name, UserName: "U", UserEmail: "u@e.com"})
+		if err == nil {
+			t.Fatalf("name %q: expected error", name)
+		}
+		if !strings.Contains(err.Error(), "reserved") {
+			t.Fatalf("name %q: got %v", name, err)
+		}
+	}
+}
 
 func TestDeleteWorkspaceUnlinksRepos(t *testing.T) {
 	s := emptyState()

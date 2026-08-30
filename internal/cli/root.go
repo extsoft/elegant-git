@@ -161,6 +161,7 @@ func recordDeprecatedSurface(cmd *cobra.Command) {
 	replacements := map[string]string{
 		"memory profiles":  "memory workspaces",
 		"workspace create": "workspace new",
+		"workspace status": "workspace list current",
 	}
 	for c := cmd; c != nil; c = c.Parent() {
 		surface := c.Annotations[deprecation.SurfaceAnnotation]
@@ -174,7 +175,11 @@ func recordDeprecatedSurface(cmd *cobra.Command) {
 				replacement = strings.Replace(surface, "profile", "workspace", 1)
 			}
 		}
-		deprecation.RecordRenamedSurface(surface, replacement, "")
+		if surface == "workspace status" {
+			deprecation.RecordWorkspaceStatus(surface, replacement)
+		} else {
+			deprecation.RecordRenamedSurface(surface, replacement, "")
+		}
 		return
 	}
 }

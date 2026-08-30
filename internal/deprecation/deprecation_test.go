@@ -18,6 +18,22 @@ func TestRecordOncePerID(t *testing.T) {
 	}
 }
 
+func TestRecordWorkspaceStatus(t *testing.T) {
+	Reset()
+	var buf bytes.Buffer
+	SetOutputWriter(&buf)
+	RecordWorkspaceStatus("workspace status", "workspace list current")
+	events := Events()
+	if len(events) != 1 || events[0].ID != DEP017 {
+		t.Fatalf("events = %+v", events)
+	}
+	Flush()
+	want := "warning: workspace status is deprecated; use workspace list current.\n"
+	if buf.String() != want {
+		t.Fatalf("got %q want %q", buf.String(), want)
+	}
+}
+
 func TestRecordLegacyCommand(t *testing.T) {
 	Reset()
 	var buf bytes.Buffer

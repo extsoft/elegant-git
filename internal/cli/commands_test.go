@@ -39,7 +39,7 @@ func TestStatusActionsInGroups(t *testing.T) {
 		lacks  string
 	}{
 		{"git", "status", ""},
-		{"workspace", "status", ""},
+		{"workspace", "list", "status"},
 		{"repo", "status", "list"},
 		{"hook", "status", "list"},
 	} {

@@ -46,12 +46,11 @@ var commandGroups = []commandGroup{
 		{action: "doctor", purpose: "Diagnoses and repairs your Git installation."},
 	}},
 	{object: "workspace", title: "manage git workspaces", commands: []subCommandSpec{
-		{action: "list", purpose: "Lists workspaces or shows one workspace's details."},
+		{action: "list", purpose: "Lists workspaces or shows the current or named one."},
 		{action: "new", purpose: "Creates a workspace."},
 		{action: "link", purpose: "Links the current repository to a workspace."},
 		{action: "edit", purpose: "Edits a workspace and optionally applies it to linked repos."},
 		{action: "delete", purpose: "Deletes a workspace and unlinks its repositories."},
-		{action: "status", purpose: "Shows the linked workspace for the current repository."},
 		{action: "fetch", purpose: "Fetches remotes for repositories linked to a workspace."},
 		{action: "doctor", purpose: "Diagnoses and repairs a workspace."},
 	}},

@@ -52,7 +52,9 @@ That memory pays off when `repo clone` runs without a workspace argument:
 
 `eg workspace` is how you drive this. The actions are:
 
-- `list` — shows available workspaces, or the details of one
+- `list` — with no name, shows the workspace linked to the current repository when you are in a
+  git work tree, otherwise lists all workspaces. `current` and `all` are selectors; any other name
+  shows that workspace's details
 - `new` — creates a workspace and, on confirmation, applies it to the current repository
 - `link` — links the current repository to an existing workspace, writes the identity even if the
   repository already has values, and may capture the origin namespace
@@ -60,7 +62,6 @@ That memory pays off when `repo clone` runs without a workspace argument:
 - `delete` — explains what will happen, asks for confirmation, then deletes the workspace and
   clears `workspace_id` on the linked registry entries. Those repositories keep their Git config
   and files untouched
-- `status` — shows the workspace linked to the current repository
 - `fetch` — runs `git fetch --all --tags --prune` in every repository linked to the current or
   given workspace. Exits non-zero if any repository fails
 - `doctor` — finds shared memory and repository link problems of one workspace, then suggests a
@@ -119,10 +120,10 @@ flowchart TD
   inGit -->|no| outside["ask: list, new, edit, delete, doctor, quit"]
   inGit -->|yes| linked{workspace linked?}
   linked -->|no| unlinked["ask: new, link, doctor, quit"]
-  linked -->|yes| linkedAsk["ask: list, new, link, edit, delete, status, fetch, doctor, quit"]
+  linked -->|yes| linkedAsk["ask: list, new, link, edit, delete, fetch, doctor, quit"]
 ```
 
 If you have no workspaces yet, the options that need one drop out. Outside a repository you are
 offered only `new` and `quit`; an unlinked repository offers `new` and `quit` as well, without
 `link` or `doctor`. A linked repository whose registry reports zero workspaces still offers `new`,
-`status`, `fetch`, and `quit`.
+`list`, `fetch`, and `quit`.

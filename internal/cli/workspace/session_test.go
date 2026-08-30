@@ -62,7 +62,7 @@ func TestRunSessionAsksQuit(t *testing.T) {
 	}
 }
 
-func TestRunSessionDispatchStatus(t *testing.T) {
+func TestRunSessionDispatchList(t *testing.T) {
 	var ran []string
 	orig := dispatchAction
 	dispatchAction = func(_ *cobra.Command, action string, _ ...string) error {
@@ -71,7 +71,7 @@ func TestRunSessionDispatchStatus(t *testing.T) {
 	}
 	defer func() { dispatchAction = orig }()
 
-	p := &sessionPrompter{picks: []string{"status"}}
+	p := &sessionPrompter{picks: []string{"list"}}
 	c := NewCommand()
 	c.SetContext(prompt.WithPrompter(context.Background(), p))
 	if err := runSession(c, func() snapshot {
@@ -79,7 +79,7 @@ func TestRunSessionDispatchStatus(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(ran) != 1 || ran[0] != "status" {
+	if len(ran) != 1 || ran[0] != "list" {
 		t.Fatalf("ran %v", ran)
 	}
 }

@@ -67,12 +67,11 @@ func detect(s snapshot) outcome {
 }
 
 var workspaceActionPurpose = map[string]string{
-	"list":   "Shows available workspaces.",
+	"list":   "Lists workspaces or shows the current one.",
 	"new":    "Creates a workspace.",
 	"link":   "Links the current repository to a workspace.",
 	"edit":   "Edits a workspace.",
 	"delete": "Deletes a workspace.",
-	"status": "Shows the linked workspace for the current repository.",
 	"fetch":  "Fetches remotes for linked repositories.",
 	"doctor": "Diagnoses and repairs a workspace.",
 	"quit":   "Leave without another action.",
@@ -94,9 +93,9 @@ func askOptions(s snapshot) []string {
 		}
 		return append(opts, "quit")
 	}
-	opts := []string{"new", "status", "fetch"}
+	opts := []string{"new", "list", "fetch"}
 	if hasWS {
-		opts = []string{"list", "new", "link", "edit", "delete", "status", "fetch", "doctor"}
+		opts = []string{"list", "new", "link", "edit", "delete", "fetch", "doctor"}
 	}
 	return append(opts, "quit")
 }

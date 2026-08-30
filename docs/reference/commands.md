@@ -43,12 +43,11 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 | Command | Description |
 | --- | --- |
 | `workspace` | With no action: prints detection checks, then asks What now (interactive). Non-interactive mode requires an action. |
-| `workspace list [name]` | Lists workspaces (`--format=table\|json`). With a name, shows full details for that workspace. |
+| `workspace list [name]` | With no name: linked workspace when inside a git work tree, otherwise all workspaces. `current` and `all` are selectors; any other name shows that workspace's details. `--format=table\|json` applies to `all` and named details; passing `--format` without a name lists all. |
 | `workspace new <name> <user-name> <user-email> [<signing-key>] [<gpg-program>] [<editor>]` | Creates a workspace. Required arguments are prompted when missing in interactive mode. Optionally applies to the current repository on confirmation and offers to remember that repository's namespace. |
 | `workspace link <name>` | Links the current repository to an existing workspace (prompts for name when omitted in interactive mode). Applies identity and may capture the origin namespace. |
 | `workspace edit <name>` | Edits a workspace transactionally: plan changes and repo targets, summary + single confirm, then commit to shared memory and selected repos. |
 | `workspace delete <name> [--yes]` | Deletes a workspace after explaining what will happen and asking for confirmation. Linked repositories stay in the registry with `workspace_id` cleared; their git config and files are untouched. `--yes` skips the prompt; non-interactive mode requires `--yes`. |
-| `workspace status` | Shows the linked workspace for the current repository (when inside a git work tree). |
 | `workspace fetch [name]` | Runs `git fetch --all --tags --prune` in every repository linked to the workspace (prunes stale remote-tracking branches). Exits non-zero if any repository fails. On a TTY: progress bar, processed-repo list, ephemeral logs for the current fetch. When name is omitted, uses the workspace linked to the current repository. |
 | `workspace doctor [name]` | Checks one workspace and its linked repositories, then offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. When name is omitted, uses the linked workspace or asks. |
 

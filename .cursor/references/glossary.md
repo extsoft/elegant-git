@@ -60,7 +60,7 @@ Avoid: adding a user-facing migrate command; using “migrate” for doctor repa
 
 Reusable git identity bundle stored in shared memory (`user_name`, `user_email`, and optional signing, editor, gpg, and `namespaces` fields).
 
-Notes: stable id is a UUID map key (`workspace_id` in JSON); `name` is the display label; CLI object `workspace` manages list/new/link/edit/delete/status/fetch/doctor (bare `workspace` detects context then asks); `namespaces` holds confirmed `<domain>/<owner>` values used to suggest a workspace on `repo clone`.
+Notes: stable id is a UUID map key (`workspace_id` in JSON); `name` is the display label; CLI object `workspace` manages list/new/link/edit/delete/fetch/doctor (bare `workspace` detects context then asks); `namespaces` holds confirmed `<domain>/<owner>` values used to suggest a workspace on `repo clone`. `list` treats `current` and `all` as selectors, not display names.
 
 Aliases: profile (deprecated), identity profile
 

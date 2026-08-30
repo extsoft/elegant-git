@@ -28,8 +28,9 @@ const (
 	DEP012 = "DEP-012"
 	DEP015 = "DEP-015"
 	DEP016 = "DEP-016"
+	DEP017 = "DEP-017"
 
-	// SurfaceAnnotation marks a cobra command as a deprecated renamed surface (DEP-012).
+	// SurfaceAnnotation marks a cobra command as a deprecated renamed surface.
 	SurfaceAnnotation = "elegant-git.deprecated-surface"
 )
 
@@ -81,6 +82,11 @@ func RecordShowCommands() {
 // RecordRenamedSurface records DEP-012 for renamed commands or memory keys.
 func RecordRenamedSurface(surface, replacement, migrate string) {
 	Record(DEP012, surface, replacement, migrate)
+}
+
+// RecordWorkspaceStatus records DEP-017 for the hidden workspace status command.
+func RecordWorkspaceStatus(surface, replacement string) {
+	Record(DEP017, surface, replacement, "")
 }
 
 // Reset clears recorded events (tests).

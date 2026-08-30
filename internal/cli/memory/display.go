@@ -51,7 +51,7 @@ func PrintMemorySummary(w io.Writer) error {
 	fmt.Fprintln(w, "For details, run:")
 	fmt.Fprintln(w, "  eg git status")
 	fmt.Fprintln(w, "  eg repo status")
-	fmt.Fprintln(w, "  eg workspace status")
+	fmt.Fprintln(w, "  eg workspace list current")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Catalogs:")
 	fmt.Fprintln(w, "  eg memory workspaces")
