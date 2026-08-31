@@ -41,7 +41,7 @@ func TestListDefaultOutsideGitListsAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "alpha\tA <a@x.com>") {
+	if !strings.Contains(out, "alpha\n  identity:     A <a@x.com>") {
 		t.Fatalf("got:\n%s", out)
 	}
 	if strings.Contains(out, "linked workspace") || strings.Contains(out, "name:") {
@@ -89,11 +89,14 @@ func TestListAllInsideGitShowsCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "alpha\tA <a@x.com>") {
+	if !strings.Contains(out, "alpha\n  identity:     A <a@x.com>") {
 		t.Fatalf("got:\n%s", out)
 	}
 	if strings.Contains(out, "linked workspace") {
 		t.Fatalf("expected catalog, got:\n%s", out)
+	}
+	if !strings.Contains(out, "explore:      eg workspace list alpha") {
+		t.Fatalf("expected an explore pointer, got:\n%s", out)
 	}
 }
 
@@ -124,7 +127,7 @@ func TestListNamedDetails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"name:         work", "user.name:    Worker"} {
+	for _, want := range []string{"name:", "work", "user.name:", "Worker", "Linked repositories", "explore:", "eg repo list myrepo", "Further steps:"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}

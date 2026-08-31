@@ -285,7 +285,7 @@ func IsRemovableAliasValue(value string) bool {
 // RecordStaleAlias records DEP-015 when a pre-rename alias value is rewritten.
 func RecordStaleAlias(value, replacement string) {
 	if strings.HasPrefix(value, "elegant ") {
-		deprecation.Record(deprecation.DEP015, "alias value: "+value, replacement, "eg git doctor")
+		deprecation.Record(deprecation.DEP015, "alias value: "+value, replacement, "eg self doctor")
 	}
 }
 
@@ -322,7 +322,7 @@ func importAcquiredToSharedMemory(scope string) error {
 
 func migrateHint(scope string) string {
 	if scope == "--global" {
-		return "eg git doctor"
+		return "eg self doctor"
 	}
 	return "eg repo doctor"
 }

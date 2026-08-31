@@ -83,7 +83,7 @@ func TestStatusCommandLinkedProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"name:         work", "user.name:    Worker"} {
+	for _, want := range []string{"name:", "work", "user.name:", "Worker", "Further steps:"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q", want)
 		}

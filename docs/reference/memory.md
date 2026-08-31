@@ -13,9 +13,9 @@ Elegant Git keeps its own state in two JSON files — **shared memory** for ever
 **per-repo memory** for everything that belongs to one repository. Anything that does land in
 `git config` is on the [configuration](configuration.md) page instead.
 
-You never have to open these files. `eg memory list` summarizes them,
-`eg memory workspaces` and `eg memory repositories` list their contents, and
-`eg repo list` shows what the current repository resolved to.
+You never have to open these files. `eg self list` summarizes them.
+`eg workspace list all` and `eg repo list all` list their contents. Inside a git work tree,
+`eg repo list` shows the current repository; outside one, it lists all.
 
 ## Shared memory
 
@@ -34,7 +34,7 @@ The document holds four things:
 
 - `schema_version` — currently `2`
 - `acquired_version` — the Elegant Git version that applied the global configuration; its presence
-  is what [`eg git configure`](configuration.md#approach) checks for
+  is what [`eg self configure`](configuration.md#approach) checks for
 - `workspaces` — each keyed by id, with `name`, `user_name`, `user_email`, and the optional
   `signing_key`, `editor`, `gpg_program`, `namespaces`, and `linked_repos`
 - `repositories` — the registry of managed repositories, each keyed by id, with `name`,
@@ -77,7 +77,7 @@ it, recording it silently in non-interactive mode.
 
 Workspaces can be created three ways:
 
-- `git configure` offers to create one from your global values after basics (identity and editor)
+- `self configure` offers to create one from your global values after basics (identity and editor)
 - `repo configure` shows a picker with the existing workspaces, `[Create new]`, and
   `[Use settings from this repository]` when the repository already has `user.name` and `user.email`
 - `workspace new` creates one by hand, suggesting values from the local and then the global

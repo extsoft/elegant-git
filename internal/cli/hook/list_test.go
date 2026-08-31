@@ -51,18 +51,17 @@ func TestListFindsHookFiles(t *testing.T) {
 	if err := listHooks(runtime.RepoLayout{RepoRoot: root}, &buf); err != nil {
 		t.Fatal(err)
 	}
-	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
-	seen := map[string]bool{}
-	for _, line := range lines {
-		seen[line] = true
-	}
+	out := buf.String()
 	for name, path := range files {
-		if !seen[path] {
-			t.Errorf("missing %s at %s; got lines %v", name, path, lines)
+		if !strings.Contains(out, path) {
+			t.Errorf("missing %s at %s; got:\n%s", name, path, out)
 		}
 	}
-	if len(lines) < len(files) {
-		t.Fatalf("got %d lines %v want at least %d paths", len(lines), lines, len(files))
+	if !strings.Contains(out, "scope:") || !strings.Contains(out, "explore:") {
+		t.Fatalf("expected nested blocks, got:\n%s", out)
+	}
+	if !strings.Contains(out, "eg hook edit ") {
+		t.Fatalf("expected explore pointer, got:\n%s", out)
 	}
 }
 

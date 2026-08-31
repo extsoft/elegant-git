@@ -11,7 +11,9 @@ func newStatusCommand() *cobra.Command {
 		Hidden: true,
 		Short:  "Show repository memory and registry state for the current repository",
 		Long:   "Prints per-repository memory, registry linkage, and workspace association for the current repository.",
-		RunE:   runList,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return printRepoState(cmd.OutOrStdout())
+		},
 	}
 	if c.Annotations == nil {
 		c.Annotations = map[string]string{}

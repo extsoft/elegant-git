@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/extsoft/elegant-git/internal/cli/statefmt"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/memory/repoid"
 	"github.com/extsoft/elegant-git/internal/memory/shared"
@@ -50,55 +51,81 @@ func PrintWorkspaceStatus(w io.Writer) error {
 	}
 
 	PrintFields(w, "", reg.WorkspaceID, prof)
-	PrintLinkedRepos(w, s, prof, "")
+	PrintLinkedRepos(w, s, prof)
 
 	perRepo, err := memrepo.Load(gitDir)
 	if err != nil {
 		return err
 	}
 	if perRepo.WorkspaceID != "" && perRepo.WorkspaceID != reg.WorkspaceID {
+		fmt.Fprintln(w)
 		if alt, err := shared.GetWorkspace(s, perRepo.WorkspaceID); err == nil {
-			fmt.Fprintln(w)
-			fmt.Fprintln(w, "per-repo memory workspace:")
+			statefmt.PrintHeading(w, "", "Per-repo memory workspace")
 			PrintFields(w, "  ", perRepo.WorkspaceID, alt)
 		} else {
-			fmt.Fprintf(w, "\nper-repo memory workspace_id: %s\n", perRepo.WorkspaceID)
+			fmt.Fprintf(w, "per-repo memory workspace_id: %s\n", perRepo.WorkspaceID)
 		}
 	}
+	printWorkspaceFurtherSteps(w, true)
 	return nil
 }
 
-// PrintFields writes workspace identity fields to w.
-func PrintFields(w io.Writer, prefix, id string, p *shared.Workspace) {
-	fmt.Fprintf(w, "%sname:         %s\n", prefix, p.Name)
-	fmt.Fprintf(w, "%sid:           %s\n", prefix, id)
-	fmt.Fprintf(w, "%suser.name:    %s\n", prefix, p.UserName)
-	fmt.Fprintf(w, "%suser.email:   %s\n", prefix, p.UserEmail)
-	fmt.Fprintf(w, "%ssigning key:  %s\n", prefix, text.OrUnset(p.SigningKey))
-	fmt.Fprintf(w, "%sgpg program:  %s\n", prefix, text.OrUnset(p.GPGProgram))
-	fmt.Fprintf(w, "%seditor:       %s\n", prefix, text.OrUnset(p.Editor))
-	if len(p.Namespaces) == 0 {
-		fmt.Fprintf(w, "%snamespaces:   (none)\n", prefix)
-	} else {
-		fmt.Fprintf(w, "%snamespaces:   %s\n", prefix, strings.Join(p.Namespaces, ", "))
+func printWorkspaceFurtherSteps(w io.Writer, inWorkTree bool) {
+	steps := []statefmt.Step{
+		{Command: "eg workspace list all", Comment: "every workspace"},
 	}
+	if inWorkTree {
+		steps = append(steps, statefmt.Step{Command: "eg repo list", Comment: "this repository"})
+	}
+	statefmt.PrintFurtherSteps(w, steps)
 }
 
-// PrintLinkedRepos writes the workspace's linked repository list to w.
-func PrintLinkedRepos(w io.Writer, s *shared.State, p *shared.Workspace, prefix string) {
+// PrintFields writes workspace identity fields to w.
+func PrintFields(w io.Writer, indent, id string, p *shared.Workspace) {
+	namespaces := "(none)"
+	if len(p.Namespaces) > 0 {
+		namespaces = strings.Join(p.Namespaces, ", ")
+	}
+	statefmt.PrintFields(w, indent, []statefmt.Field{
+		{Key: "name", Value: p.Name},
+		{Key: "id", Value: id},
+		{Key: "user.name", Value: p.UserName},
+		{Key: "user.email", Value: p.UserEmail},
+		{Key: "signing key", Value: text.OrUnset(p.SigningKey)},
+		{Key: "gpg program", Value: text.OrUnset(p.GPGProgram)},
+		{Key: "editor", Value: text.OrUnset(p.Editor)},
+		{Key: "namespaces", Value: namespaces},
+	})
+}
+
+// PrintLinkedRepos writes the workspace's linked repositories as nested catalog blocks.
+func PrintLinkedRepos(w io.Writer, s *shared.State, p *shared.Workspace) {
+	fmt.Fprintln(w)
 	if len(p.LinkedRepos) == 0 {
-		fmt.Fprintf(w, "%slinked repos: (none)\n", prefix)
+		statefmt.PrintHeading(w, "", "Linked repositories")
+		fmt.Fprintln(w, "  (none)")
 		return
 	}
-	fmt.Fprintf(w, "%slinked repos: %d\n", prefix, len(p.LinkedRepos))
+	statefmt.PrintHeading(w, "", "Linked repositories")
+	var items []statefmt.Item
 	for _, repoID := range p.LinkedRepos {
 		repo, err := shared.GetRepo(s, repoID)
 		if err != nil {
-			fmt.Fprintf(w, "%s  - %s\n", prefix, repoID)
+			items = append(items, statefmt.Item{
+				Heading: repoID,
+				Fields:  []statefmt.Field{{Key: "explore", Value: "eg repo list " + repoID}},
+			})
 			continue
 		}
-		fmt.Fprintf(w, "%s  - %s    %s\n", prefix, repo.Name, repo.CurrentPath)
+		items = append(items, statefmt.Item{
+			Heading: repo.Name,
+			Fields: []statefmt.Field{
+				{Key: "path", Value: repo.CurrentPath},
+				{Key: "explore", Value: "eg repo list " + repo.Name},
+			},
+		})
 	}
+	statefmt.PrintCatalog(w, "  ", items)
 }
 
 // PrintList writes all workspaces as a table or JSON.
@@ -119,9 +146,18 @@ func PrintList(w io.Writer, s *shared.State, format string) error {
 		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].p.Name < rows[j].p.Name })
+	var items []statefmt.Item
 	for _, r := range rows {
-		fmt.Fprintf(w, "%s\t%s <%s>\t%d repo(s)\n", r.p.Name, r.p.UserName, r.p.UserEmail, len(r.p.LinkedRepos))
+		items = append(items, statefmt.Item{
+			Heading: r.p.Name,
+			Fields: []statefmt.Field{
+				{Key: "identity", Value: fmt.Sprintf("%s <%s>", r.p.UserName, r.p.UserEmail)},
+				{Key: "repositories", Value: fmt.Sprintf("%d", len(r.p.LinkedRepos))},
+				{Key: "explore", Value: "eg workspace list " + r.p.Name},
+			},
+		})
 	}
+	statefmt.PrintCatalog(w, "", items)
 	return nil
 }
 
@@ -140,6 +176,7 @@ func PrintDetails(w io.Writer, s *shared.State, name, format string) error {
 		})
 	}
 	PrintFields(w, "", id, p)
-	PrintLinkedRepos(w, s, p, "")
+	PrintLinkedRepos(w, s, p)
+	printWorkspaceFurtherSteps(w, false)
 	return nil
 }

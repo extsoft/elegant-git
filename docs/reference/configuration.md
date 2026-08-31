@@ -15,10 +15,10 @@ and/or to a Git installation globally (global configuration). So,
 - the local configuration applies by running [`eg repo configure`](commands.md#repo)
   and configures the current Git repository (workspace linkage, per-repo memory, optional local
   standards and aliases)
-- the global configuration applies by running [`eg git configure`](commands.md#git)
+- the global configuration applies by running [`eg self configure`](commands.md#self)
   and uses `git config --global <key> <value>` for Git installation-wide settings.
   The first interactive `eg` command runs that flow automatically when Git is not yet
-  configured; `--non-interactive` / `CI` / a non-TTY skip it. `eg git configure` re-runs it
+  configured; `--non-interactive` / `CI` / a non-TTY skip it. `eg self configure` re-runs it
   at any time.
 
 The command prints what it will apply (Git basics, standards, and aliases), waits for Enter, then
@@ -27,9 +27,9 @@ recorded last so an interrupted run still auto-starts next time.
 
 If you've applied a global configuration (`acquired_version` in shared memory), `repo configure`
 does **not** add or rewrite local git aliases or local standards — those come from
-`git configure` once per Git installation. It still removes redundant **local**
+`self configure` once per Git installation. It still removes redundant **local**
 `elegant …` / `!eg …` aliases and a stale local `elegant-git.acquired` marker when present. Run
-`eg git configure` once on each machine where you use Elegant Git globally, or let the first
+`eg self configure` once on each machine where you use Elegant Git globally, or let the first
 interactive `eg` command do it.
 
 For local-only setups (no global acquired marker), `repo configure` applies the full local
@@ -45,7 +45,7 @@ otherwise, uses in local configuration
 
 Also, there are defined [the custom configuration keys](#custom-keys) in addition to
 [the standard `git config` options](https://git-scm.com/docs/git-config). These keys are set
-automatically during `git configure` or `repo configure`; you do not need to set them manually.
+automatically during `self configure` or `repo configure`; you do not need to set them manually.
 Everything that does **not** live in `git config` — workspaces, the repository registry, protected
 branches, the default development branch — is described on the [memory](memory.md) page.
 
@@ -53,7 +53,7 @@ branches, the default development branch — is described on the [memory](memory
 
 The basics configuration sets the mandatory options for the correct user-focused operation of Git and
 Elegant Git. During the configuration, you will be asked to provide appropriate values. Furthermore,
-if you run `repo configure`, it proposes defaults that are set by `git configure`. The basics includes:
+if you run `repo configure`, it proposes defaults that are set by `self configure`. The basics includes:
 
 1. setting your full name usign `user.name` [`b`]
 2. setting your email usign `user.email` [`b`]
@@ -84,7 +84,7 @@ Windows with `true`
 
 ## Level: Aliases
 
-`eg git configure` writes `alias.elegant = "!eg"`, so `git elegant <object> <action>` still reaches
+`eg self configure` writes `alias.elegant = "!eg"`, so `git elegant <object> <action>` still reaches
 Elegant Git after configure. It also registers the historical flat command names as Git aliases —
 `git save-work` reaches `eg work save`. This should significantly improve user experience.
 

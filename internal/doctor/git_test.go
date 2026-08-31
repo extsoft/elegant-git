@@ -63,6 +63,58 @@ func TestCurrentRepoFindsLegacyHooks(t *testing.T) {
 	}
 }
 
+func TestCurrentRepoFindsGitPrefixedHooks(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
+	commonDir := filepath.Join(dir, ".config", "elegant-git", "hooks")
+	personalDir := filepath.Join(dir, ".git", ".config", "elegant-git", "hooks")
+	if err := os.MkdirAll(commonDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(personalDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(commonDir, "git-configure-ahead"), []byte("echo\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(personalDir, "git-doctor-after"), []byte("echo\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --git-dir"] = filepath.Join(dir, ".git")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	s, err := shared.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	findings, err := CurrentRepo(s, prompt.NewNonInteractive(), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var personal, common bool
+	for _, f := range findings {
+		if strings.Contains(f.Problem, "personal hook files still use the git- command prefix") {
+			personal = true
+			if f.Apply == nil {
+				t.Fatal("personal git- hooks must be repairable")
+			}
+		}
+		if strings.Contains(f.Problem, "repo-tracked hook files still use the git- command prefix") {
+			common = true
+			if f.Apply == nil {
+				t.Fatal("tracked git- hooks must be repairable")
+			}
+		}
+	}
+	if !personal || !common {
+		t.Fatalf("personal=%v common=%v findings=%v", personal, common, problems(findings))
+	}
+}
+
 func TestGitInstallRewritesDriftedAliases(t *testing.T) {
 	m := git.NewMemoryRunner()
 	m.GlobalConfig[config.ElegantAliasKey] = "elegant"

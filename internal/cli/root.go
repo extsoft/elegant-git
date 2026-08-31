@@ -9,13 +9,12 @@ import (
 	"strings"
 
 	completioncmd "github.com/extsoft/elegant-git/internal/cli/completion"
-	gitcmd "github.com/extsoft/elegant-git/internal/cli/git"
 	hookcmd "github.com/extsoft/elegant-git/internal/cli/hook"
 	legacyshim "github.com/extsoft/elegant-git/internal/cli/legacy"
-	memorycmd "github.com/extsoft/elegant-git/internal/cli/memory"
 	releasecmd "github.com/extsoft/elegant-git/internal/cli/release"
 	repocmd "github.com/extsoft/elegant-git/internal/cli/repo"
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	selfcmd "github.com/extsoft/elegant-git/internal/cli/self"
 	"github.com/extsoft/elegant-git/internal/cli/sources"
 	versioncmd "github.com/extsoft/elegant-git/internal/cli/version"
 	workcmd "github.com/extsoft/elegant-git/internal/cli/work"
@@ -108,7 +107,7 @@ func init() {
 		ctx = prompt.WithPrompter(ctx, cliruntime.PrompterForMode(mode, stdin, os.Stdout))
 		cmd.SetContext(ctx)
 		if shouldAutoConfigure(cmd, nested) {
-			if err := gitcmd.AutoConfigure(cmd); err != nil {
+			if err := selfcmd.AutoConfigure(cmd); err != nil {
 				return err
 			}
 		}
@@ -118,13 +117,9 @@ func init() {
 	rootCmd.AddCommand(versioncmd.NewCommand())
 	rootCmd.AddCommand(completioncmd.NewCommand())
 
-	memoryCmd := memorycmd.NewCommand()
-	AttachObjectGroup(memoryCmd, "memory")
-	rootCmd.AddCommand(memoryCmd)
-
-	gitCmd := gitcmd.NewCommand()
-	AttachObjectGroup(gitCmd, "git")
-	rootCmd.AddCommand(gitCmd)
+	selfCmd := selfcmd.NewCommand()
+	AttachObjectGroup(selfCmd, "self")
+	rootCmd.AddCommand(selfCmd)
 
 	repoCmd := repocmd.NewCommand()
 	AttachObjectGroup(repoCmd, "repo")
@@ -150,6 +145,7 @@ func init() {
 	AttachObjectGroup(releaseCmd, "release")
 	rootCmd.AddCommand(releaseCmd)
 	legacyshim.RegisterShims(rootCmd)
+	legacyshim.RegisterObjectShims(rootCmd)
 	cliruntime.ConfigureCommandTree(rootCmd)
 }
 
@@ -163,13 +159,21 @@ func recordDeprecatedSurface(cmd *cobra.Command) {
 		replacement string
 	}
 	renames := map[string]rename{
-		"memory profiles":  {id: deprecation.DEP012, replacement: "memory workspaces"},
-		"workspace create": {id: deprecation.DEP012, replacement: "workspace new"},
-		"workspace status": {id: deprecation.DEP017, replacement: "workspace list current"},
-		"memory status":    {id: deprecation.DEP018, replacement: "memory list"},
-		"git status":       {id: deprecation.DEP018, replacement: "git list"},
-		"repo status":      {id: deprecation.DEP018, replacement: "repo list"},
-		"hook status":      {id: deprecation.DEP018, replacement: "hook list"},
+		"memory profiles":     {id: deprecation.DEP012, replacement: "workspace list all"},
+		"workspace create":    {id: deprecation.DEP012, replacement: "workspace new"},
+		"workspace status":    {id: deprecation.DEP017, replacement: "workspace list current"},
+		"memory status":       {id: deprecation.DEP018, replacement: "self list"},
+		"git status":          {id: deprecation.DEP018, replacement: "self list"},
+		"repo status":         {id: deprecation.DEP018, replacement: "repo list"},
+		"hook status":         {id: deprecation.DEP018, replacement: "hook list"},
+		"git":                 {id: deprecation.DEP019, replacement: "self"},
+		"git configure":       {id: deprecation.DEP019, replacement: "self configure"},
+		"git list":            {id: deprecation.DEP019, replacement: "self list"},
+		"git doctor":          {id: deprecation.DEP019, replacement: "self doctor"},
+		"memory":              {id: deprecation.DEP019, replacement: "self"},
+		"memory list":         {id: deprecation.DEP019, replacement: "self list"},
+		"memory workspaces":   {id: deprecation.DEP019, replacement: "workspace list all"},
+		"memory repositories": {id: deprecation.DEP019, replacement: "repo list all"},
 	}
 	for c := cmd; c != nil; c = c.Parent() {
 		surface := c.Annotations[deprecation.SurfaceAnnotation]

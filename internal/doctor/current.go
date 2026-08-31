@@ -21,7 +21,8 @@ import (
 
 // CurrentRepo diagnoses the repository at the current working directory: registry
 // and identity drift, leftover local install markers and branch keys, personal
-// hooks under .git/.workflows/, and repo-tracked hooks under .workflows/.
+// hooks under .git/.workflows/, repo-tracked hooks under .workflows/, and hook
+// files that still use the git- command prefix.
 func CurrentRepo(s *shared.State, p prompt.Prompter, w io.Writer) ([]Finding, error) {
 	if w == nil {
 		w = io.Discard
@@ -49,6 +50,7 @@ func CurrentRepo(s *shared.State, p prompt.Prompter, w io.Writer) ([]Finding, er
 	out = append(out, diagnoseRepoIdentity(s, repoID)...)
 	out = append(out, diagnoseRepoLegacy(s)...)
 	out = append(out, diagnoseLegacyHooks(w)...)
+	out = append(out, diagnoseRenamedHooks(w)...)
 	return out, nil
 }
 
@@ -259,6 +261,36 @@ func diagnoseLegacyHooks(w io.Writer) []Finding {
 					return err
 				}
 				text.SuggestGitAddCommitTo(w, newPaths, oldPaths, "Migrate Elegant Git hooks")
+				return nil
+			},
+		})
+	}
+	return out
+}
+
+func diagnoseRenamedHooks(w io.Writer) []Finding {
+	ws := runtime.DefaultRepoLayout()
+	var out []Finding
+	if hooks.HasObjectPrefix(ws, true, "git", nil) {
+		out = append(out, Finding{
+			Problem: "personal hook files still use the git- command prefix",
+			Repair:  "rename them to the self- prefix",
+			Apply: func() error {
+				_, _, err := hooks.RenamePrefix(ws, true, "git", "self", nil, w)
+				return err
+			},
+		})
+	}
+	if hooks.HasObjectPrefix(ws, false, "git", nil) {
+		out = append(out, Finding{
+			Problem: "repo-tracked hook files still use the git- command prefix",
+			Repair:  "rename them to the self- prefix and commit the result",
+			Apply: func() error {
+				newPaths, oldPaths, err := hooks.RenamePrefix(ws, false, "git", "self", nil, w)
+				if err != nil {
+					return err
+				}
+				text.SuggestGitAddCommitTo(w, newPaths, oldPaths, "Rename Elegant Git hooks")
 				return nil
 			},
 		})

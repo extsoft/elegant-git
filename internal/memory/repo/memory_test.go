@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/extsoft/elegant-git/internal/git"
 )
 
 func TestSaveLoadRoundTrip(t *testing.T) {
@@ -104,5 +106,17 @@ func TestDefaultBranchName(t *testing.T) {
 	}
 	if DefaultBranchName(&State{DefaultBranch: "dev"}) != "dev" {
 		t.Fatal()
+	}
+}
+
+func TestGitDirOutsideRepository(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("GIT_DIR", "")
+	t.Setenv("GIT_WORK_TREE", "")
+	git.Use(git.RealRunner{})
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	_, err := GitDir()
+	if err == nil {
+		t.Fatal("expected error outside a git repository")
 	}
 }

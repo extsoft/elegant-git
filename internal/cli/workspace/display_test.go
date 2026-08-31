@@ -25,15 +25,20 @@ func TestPrintListTable(t *testing.T) {
 	if err := PrintList(&buf, s, "table"); err != nil {
 		t.Fatal(err)
 	}
-	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("lines: %q", lines)
-	}
-	if lines[0] != "alpha\tA <a@x.com>\t0 repo(s)" {
-		t.Fatalf("first line: %q", lines[0])
-	}
-	if lines[1] != "beta\tB <b@x.com>\t1 repo(s)" {
-		t.Fatalf("second line: %q", lines[1])
+	want := strings.Join([]string{
+		"alpha",
+		"  identity:     A <a@x.com>",
+		"  repositories: 0",
+		"  explore:      eg workspace list alpha",
+		"",
+		"beta",
+		"  identity:     B <b@x.com>",
+		"  repositories: 1",
+		"  explore:      eg workspace list beta",
+		"",
+	}, "\n")
+	if buf.String() != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", buf.String(), want)
 	}
 }
 
@@ -63,7 +68,7 @@ func TestPrintDetailsTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"name:         work", "id:           id-1", "user.name:    Worker", "namespaces:   (none)", "linked repos:"} {
+	for _, want := range []string{"name:", "id:", "id-1", "user.name:", "Worker", "namespaces:", "Linked repositories", "Further steps:"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q", want)
 		}
@@ -139,7 +144,7 @@ func TestPrintWorkspaceStatusBranches(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"name:         work", "user.name:    Worker", "namespaces:   (none)", "linked repos:"} {
+	for _, want := range []string{"name:", "user.name:", "Worker", "namespaces:", "Linked repositories", "Further steps:", "eg repo list"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)
 		}
@@ -184,7 +189,7 @@ func TestPrintWorkspaceStatusPerRepoOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "per-repo memory workspace:") || !strings.Contains(out, "name:         alt") {
+	if !strings.Contains(out, "Per-repo memory workspace") || !strings.Contains(out, "name:") || !strings.Contains(out, "alt") {
 		t.Fatalf("got:\n%s", out)
 	}
 }

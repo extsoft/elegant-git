@@ -309,7 +309,7 @@ execute() {
   log_info ""
   log_info "  Then configure Git and a repository:"
   log_info ""
-  log_info "    eg git configure"
+  log_info "    eg self configure"
   log_info "    eg repo configure"
 }
 

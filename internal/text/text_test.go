@@ -19,6 +19,21 @@ func TestCommandTextNoTTYPlain(t *testing.T) {
 	}
 }
 
+func TestColoredBufferFalse(t *testing.T) {
+	var buf bytes.Buffer
+	if Colored(&buf) {
+		t.Fatal("buffer is not a TTY")
+	}
+}
+
+func TestFinfoNoTTYPlain(t *testing.T) {
+	var buf bytes.Buffer
+	Finfo(&buf, "Branch")
+	if got := buf.String(); got != "Branch\n" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestPlainText(t *testing.T) {
 	var buf bytes.Buffer
 	SetOutput(&buf)

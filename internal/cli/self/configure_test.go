@@ -1,4 +1,4 @@
-package git
+package self
 
 import (
 	"bytes"
@@ -122,17 +122,31 @@ func TestAutoConfigureSkipsWhenAcquired(t *testing.T) {
 	}
 }
 
-func TestAutoConfigureSkipsGitConfigure(t *testing.T) {
+func TestAutoConfigureSkipsSelfConfigure(t *testing.T) {
 	m, cmd := setupConfigure(t)
 	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewTTY(strings.NewReader("\n"), &bytes.Buffer{})))
 	if err := AutoConfigure(cmd); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := m.GlobalConfig["pull.rebase"]; ok {
-		t.Fatal("must not run configure from AutoConfigure on git configure")
+		t.Fatal("must not run configure from AutoConfigure on self configure")
 	}
 	if config.IsGitAcquired() {
 		t.Fatal("must not mark acquired")
+	}
+}
+
+func TestAutoConfigureSkipsGitConfigureShim(t *testing.T) {
+	m, _ := setupConfigure(t)
+	gitCmd := &cobra.Command{Use: "git"}
+	cmd := &cobra.Command{Use: "configure"}
+	gitCmd.AddCommand(cmd)
+	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewTTY(strings.NewReader("\n"), &bytes.Buffer{})))
+	if err := AutoConfigure(cmd); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m.GlobalConfig["pull.rebase"]; ok {
+		t.Fatal("must not run configure from AutoConfigure on git configure")
 	}
 }
 
@@ -183,7 +197,7 @@ func TestAutoConfigureThenList(t *testing.T) {
 	if err := listCmd.RunE(listCmd, nil); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "global git identity:") {
+	if !strings.Contains(buf.String(), "Global git identity") {
 		t.Fatalf("list missing identity section:\n%s", buf.String())
 	}
 }
@@ -237,9 +251,9 @@ func setupConfigure(t *testing.T) (*git.MemoryRunner, *cobra.Command) {
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
 	m := git.NewMemoryRunner()
 	git.Use(m)
-	gitCmd := &cobra.Command{Use: "git"}
+	selfCmd := &cobra.Command{Use: "self"}
 	c := newConfigureCommand()
-	gitCmd.AddCommand(c)
+	selfCmd.AddCommand(c)
 	return m, c
 }
 

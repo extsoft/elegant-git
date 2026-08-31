@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/extsoft/elegant-git/internal/cmdid"
 	"github.com/extsoft/elegant-git/internal/legacy"
 	"github.com/extsoft/elegant-git/internal/runtime"
 	"github.com/extsoft/elegant-git/internal/text"
@@ -61,6 +62,52 @@ func migrateCanonicalLegacyHooks(ws runtime.RepoLayout, personal bool, hooksRoot
 			}
 			newPath := ws.NewHookFile(hooksRoot, id, hookType)
 			relOld, relNew, err := movePreservingMode(ws.RepoRoot, oldPath, newPath, dryRun, w)
+			if err != nil {
+				return nil, nil, err
+			}
+			oldPaths = append(oldPaths, relOld)
+			newPaths = append(newPaths, relNew)
+		}
+	}
+	return newPaths, oldPaths, nil
+}
+
+var selfHookActions = []string{"configure", "list", "doctor"}
+
+// HasObjectPrefix reports whether any oldObject-action-{ahead,after} hook files exist.
+func HasObjectPrefix(ws runtime.RepoLayout, personal bool, oldObject string, actions []string) bool {
+	if len(actions) == 0 {
+		actions = selfHookActions
+	}
+	hooksRoot := ws.HooksDir(personal)
+	for _, action := range actions {
+		for _, hookType := range []string{"ahead", "after"} {
+			p := ws.NewHookFile(hooksRoot, cmdid.ID{Command: oldObject, Action: action}, hookType)
+			if _, err := os.Stat(p); err == nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// RenamePrefix moves hook files from oldObject-action-type to newObject-action-type.
+func RenamePrefix(ws runtime.RepoLayout, personal bool, oldObject, newObject string, actions []string, w io.Writer) (newPaths, oldPaths []string, err error) {
+	if w == nil {
+		w = io.Discard
+	}
+	if len(actions) == 0 {
+		actions = selfHookActions
+	}
+	hooksRoot := ws.HooksDir(personal)
+	for _, action := range actions {
+		for _, hookType := range []string{"ahead", "after"} {
+			oldPath := ws.NewHookFile(hooksRoot, cmdid.ID{Command: oldObject, Action: action}, hookType)
+			if _, statErr := os.Stat(oldPath); statErr != nil {
+				continue
+			}
+			newPath := ws.NewHookFile(hooksRoot, cmdid.ID{Command: newObject, Action: action}, hookType)
+			relOld, relNew, err := movePreservingMode(ws.RepoRoot, oldPath, newPath, false, w)
 			if err != nil {
 				return nil, nil, err
 			}

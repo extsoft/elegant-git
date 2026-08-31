@@ -19,6 +19,9 @@ func TestAliasValueUsesNewForm(t *testing.T) {
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
+	if got := AliasValue("acquire-git"); got != "!eg self configure" {
+		t.Fatalf("acquire-git alias = %q", got)
+	}
 }
 
 func TestShowWorkflowsMapsToHookList(t *testing.T) {

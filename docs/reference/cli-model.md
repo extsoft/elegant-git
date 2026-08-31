@@ -18,14 +18,14 @@ seen yet, and to script the tool without surprises. So, one part at a time.
 
 ## Binary
 
-The binary is called `eg`. After `eg git configure`,
+The binary is called `eg`. After `eg self configure`,
 `git elegant …` still works via the git alias `alias.elegant = "!eg"`. That form
 runs from the repository top level (Git sets `GIT_PREFIX` to the subdirectory you
 started in) and does not tab-complete. Treat `eg …` as the primary form.
 
 ## Object
 
-An object is the thing you are talking to. There are seven of them: `memory`, `git`, `workspace`,
+An object is the thing you are talking to. There are six of them: `self`, `workspace`,
 `repo`, `hook`, `work`, and `release`.
 
 `version` and `completion` sit on the binary itself, without an object, because they are about the

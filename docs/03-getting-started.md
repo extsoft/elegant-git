@@ -13,7 +13,7 @@ actions or runs context-based interactive flow.
 ## Git configuration
 
 Once Elegant Git is [installed](02-00-installation.md), the first interactive `eg` command
-configures your Git installation if it has not been configured yet. `eg git configure` does
+configures your Git installation if it has not been configured yet. `eg self configure` does
 the same at any time. The [configuration](reference/configuration.md) page lists the logic.
 .
 
@@ -68,5 +68,5 @@ stateDiagram-v2
 
 - [Commands](reference/commands.md) — every object and action
 - [Guides](guides.md) — how the tool behaves while you use it
-- [Configuration](reference/configuration.md) — what `eg git configure` and `eg repo configure` apply
+- [Configuration](reference/configuration.md) — what `eg self configure` and `eg repo configure` apply
 - [Memory](reference/memory.md) — where Elegant Git keeps its own state

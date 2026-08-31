@@ -1,4 +1,4 @@
-package git
+package self
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var configureID = cmdid.ID{Command: "git", Action: "configure"}
+var configureID = cmdid.ID{Command: "self", Action: "configure"}
 
 func newConfigureCommand() *cobra.Command {
 	c := &cobra.Command{
@@ -34,13 +34,13 @@ func newConfigureCommand() *cobra.Command {
 }
 
 // AutoConfigure runs configure when Git is not yet acquired, this is not
-// `git configure` (or acquire-git), and the session is interactive.
+// `self configure` (or acquire-git / git configure), and the session is interactive.
 func AutoConfigure(cmd *cobra.Command) error {
 	return shared.WithLock(func() error {
 		if config.IsGitAcquired() {
 			return nil
 		}
-		if isGitConfigureCommand(cmd) {
+		if isSelfConfigureCommand(cmd) {
 			return nil
 		}
 		if prompt.NonInteractive(prompt.FromContext(cmd.Context())) {
@@ -50,15 +50,18 @@ func AutoConfigure(cmd *cobra.Command) error {
 	})
 }
 
-func isGitConfigureCommand(cmd *cobra.Command) bool {
+func isSelfConfigureCommand(cmd *cobra.Command) bool {
 	if cmd == nil {
 		return false
 	}
-	if cmd.Name() == "configure" && cmd.Parent() != nil && cmd.Parent().Name() == "git" {
-		return true
+	if cmd.Name() == "configure" && cmd.Parent() != nil {
+		switch cmd.Parent().Name() {
+		case "self", "git":
+			return true
+		}
 	}
 	path, ok := legacy.LegacyToPath[cmd.Name()]
-	return ok && len(path) == 2 && path[0] == "git" && path[1] == "configure"
+	return ok && len(path) == 2 && path[0] == "self" && path[1] == "configure"
 }
 
 func configureRun(cmd *cobra.Command) error {

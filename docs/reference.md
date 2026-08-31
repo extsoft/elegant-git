@@ -13,7 +13,7 @@ are trying to understand how something works rather than what it is called, star
 [guides](guides.md) instead.
 
 - [Commands](reference/commands.md) — every object and action with a one-line description.
-- [Configuration](reference/configuration.md) — what `eg git configure` and
+- [Configuration](reference/configuration.md) — what `eg self configure` and
   `eg repo configure` apply.
 - [Memory](reference/memory.md) — where Elegant Git keeps its own state.
 - [Migrations](reference/migrations.md) — how state is rewritten between versions, and when `doctor` asks first.

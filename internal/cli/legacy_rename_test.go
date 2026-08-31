@@ -94,6 +94,41 @@ func TestLegacyMemoryProfilesAliasParsesFormat(t *testing.T) {
 	}
 }
 
+func TestLegacyGitAndMemoryAliasRecordsDeprecation(t *testing.T) {
+	bin := buildTestBinary(t)
+	dir := t.TempDir()
+	state := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(state, []byte(`{"schema_version":2,"workspaces":{},"repositories":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		args        []string
+		surface     string
+		replacement string
+	}{
+		{[]string{"git", "doctor"}, "git doctor", "self doctor"},
+		{[]string{"git", "list"}, "git list", "self list"},
+		{[]string{"memory", "list"}, "memory list", "self list"},
+		{[]string{"memory", "workspaces"}, "memory workspaces", "workspace list all"},
+		{[]string{"memory", "repositories"}, "memory repositories", "repo list all"},
+	} {
+		t.Run(tc.surface, func(t *testing.T) {
+			cmd := exec.Command(bin, tc.args...)
+			cmd.Dir = dir
+			cmd.Env = append(os.Environ(), "ELEGANT_GIT_STATE_FILE="+state, "ELEGANT_GIT_NON_INTERACTIVE=1")
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			_ = cmd.Run()
+			if !strings.Contains(stderr.String(), "deprecated") || !strings.Contains(stderr.String(), tc.surface) {
+				t.Fatalf("expected %s deprecation warning, stderr=%q", tc.surface, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), tc.replacement) {
+				t.Fatalf("expected %s replacement hint, stderr=%q", tc.replacement, stderr.String())
+			}
+		})
+	}
+}
+
 func TestLegacyStatusAliasRecordsDeprecation(t *testing.T) {
 	bin := buildTestBinary(t)
 	dir := t.TempDir()
@@ -105,8 +140,8 @@ func TestLegacyStatusAliasRecordsDeprecation(t *testing.T) {
 		object      string
 		replacement string
 	}{
-		{"memory", "memory list"},
-		{"git", "git list"},
+		{"memory", "self list"},
+		{"git", "self list"},
 		{"repo", "repo list"},
 		{"hook", "hook list"},
 	} {

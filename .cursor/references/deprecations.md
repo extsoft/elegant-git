@@ -18,8 +18,8 @@ Minimum policy: keep **active** for at least two minor releases or six months af
 | Hook path | `.workflows/start-work-ahead` | `eg repo doctor` |
 | Config key | `elegant.start-work-stash` | already removed |
 | Alias value | `elegant start-work` | automatic |
-| Completion script | hand-written `_git-elegant` | `eg git doctor` / `eg completion <shell>` |
-| Binary name | `git-elegant` / `git elegant` dispatch | automatic aliases; `eg git doctor` for leftovers |
+| Completion script | hand-written `_git-elegant` | `eg self doctor` / `eg completion <shell>` |
+| Binary name | `git-elegant` / `git elegant` dispatch | automatic aliases; `eg self doctor` for leftovers |
 | Migrate command | `git migrate`, `repo migrate`, `hook migrate` | automatic + `eg <object> doctor` |
 
 See [docs/reference/migrations.md](../../docs/reference/migrations.md) for the automatic vs assisted split.

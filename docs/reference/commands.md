@@ -26,17 +26,17 @@ A question is one line when there are 0–1 options: `<prompt> [<suggested>] (<a
 
 Interactive mode is the default when stdin is a TTY. Non-TTY stdin is always non-interactive. On a TTY, `--non-interactive` / `ELEGANT_GIT_NON_INTERACTIVE=1` or `CI` disable prompts; `--interactive` / `ELEGANT_GIT_INTERACTIVE=1` forces prompts (overrides `CI` and `--non-interactive`).
 
-Workflow prompts inside commands (for example `git configure`, `repo configure`, uncommitted changes during `work start`) use the same question line and honor `--interactive` / `--non-interactive`.
+Workflow prompts inside commands (for example `self configure`, `repo configure`, uncommitted changes during `work start`) use the same question line and honor `--interactive` / `--non-interactive`.
 
 ## Objects
 
-### memory
+### self
 
 | Command | Description |
 | --- | --- |
-| `memory list` | Summarizes shared memory paths, workspace/repository counts, and current repository hint. |
-| `memory workspaces` | Lists workspaces (`--format=table\|json`). `memory workspaces <name>` shows full details for one workspace. |
-| `memory repositories` | Lists managed repositories (`name`, workspace, path). `memory repositories <name-or-path>` shows full details for one. |
+| `self configure` | Configures your Git installation (global); first interactive `eg` runs this when Git is not yet configured. Offers a workspace from global values. |
+| `self list` | Shows shared memory paths and counts plus the global Git identity. |
+| `self doctor` | Checks the Git installation and offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. |
 
 ### workspace
 
@@ -51,14 +51,6 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 | `workspace fetch [name]` | Runs `git fetch --all --tags --prune` in every repository linked to the workspace (prunes stale remote-tracking branches). Exits non-zero if any repository fails. On a TTY: progress bar, processed-repo list, ephemeral logs for the current fetch. When name is omitted, uses the workspace linked to the current repository. |
 | `workspace doctor [name]` | Checks one workspace and its linked repositories, then offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. When name is omitted, uses the linked workspace or asks. |
 
-### git
-
-| Command | Description |
-| --- | --- |
-| `git configure` | Configures your Git installation (global); first interactive `eg` runs this when Git is not yet configured. Offers a workspace from global values. |
-| `git list` | Shows global Git installation and shared memory state (not the same as native `git status`). |
-| `git doctor` | Checks the Git installation and offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. |
-
 ### repo
 
 | Command | Description |
@@ -66,7 +58,7 @@ Workflow prompts inside commands (for example `git configure`, `repo configure`,
 | `repo configure <workspace>` | Configures the current local repository. Signature setup is skipped whenever a workspace is assigned — including when that workspace has no signing key (change signing via `workspace edit`). |
 | `repo clone <repository> [<workspace>] [<directory>]` | Clones a remote repository and configures it. When workspace is omitted, suggests one from the repository namespace (`<domain>/<owner>`). |
 | `repo init <workspace>` | Initializes a new repository and configures it. |
-| `repo list` | Shows per-repo memory, registry linkage, branch settings, and local git identity for the current repository. |
+| `repo list [name-or-path]` | With no name: the current repository when inside a git work tree, otherwise all repositories. `current` and `all` are selectors; any other name-or-path shows that repository's details. `--format=table\|json` applies to `all` and named details; passing `--format` without a name lists all. |
 | `repo sync` | Re-applies workspace settings (`--all` for every managed repo; `[yes/no/all/skip]` per repo). |
 | `repo doctor` | Checks the current repository and offers repairs. Interactive mode confirms each repair; non-interactive mode only reports. |
 | `repo prune` | Removes useless local branches. |
@@ -77,7 +69,7 @@ Hooks live under `.config/elegant-git/hooks/<command>-<action>-{ahead,after}` (r
 
 | Command | Description |
 | --- | --- |
-| `hook list` | Lists hook file paths. |
+| `hook list` | Lists existing hook files as nested blocks (scope, path, explore). |
 | `hook new` | Creates a new hook file. |
 | `hook edit` | Opens a hook file in your editor. |
 

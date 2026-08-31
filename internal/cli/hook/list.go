@@ -1,11 +1,12 @@
 package hook
 
 import (
-	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/cli/statefmt"
 	"github.com/extsoft/elegant-git/internal/cmdid"
 	"github.com/extsoft/elegant-git/internal/legacy"
 	"github.com/extsoft/elegant-git/internal/runtime"
@@ -20,7 +21,7 @@ func newListCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list",
 		Short: "Lists configured hook file paths",
-		Long:  "Prints paths of ahead/after hook scripts (new and legacy layouts).",
+		Long:  "Prints ahead/after hook scripts (new and legacy layouts) as nested blocks.",
 		RunE:  runList,
 	}
 	c.SetHelpFunc(cliruntime.CommandHelp)
@@ -39,29 +40,39 @@ func runList(cmd *cobra.Command, _ []string) error {
 }
 
 func listHooks(ws runtime.RepoLayout, w io.Writer) error {
+	var items []statefmt.Item
 	for _, id := range legacy.AllIDs() {
 		legacyName, _ := legacy.IDToLegacy(id)
 		for _, hookType := range []string{"ahead", "after"} {
-			listIfExists(w, ws.NewHookFile(ws.PersonalHookDir(id), id, hookType))
-			listIfExists(w, ws.NewHookFile(ws.CommonHookDir(id), id, hookType))
+			appendHook(&items, ws.NewHookFile(ws.PersonalHookDir(id), id, hookType), "personal")
+			appendHook(&items, ws.NewHookFile(ws.CommonHookDir(id), id, hookType), "common")
 			if legacyName != "" {
-				listIfExists(w, ws.LegacyPersonalHookFile(legacyName, hookType))
-				listIfExists(w, ws.LegacyCommonHookFile(legacyName, hookType))
+				appendHook(&items, ws.LegacyPersonalHookFile(legacyName, hookType), "legacy personal")
+				appendHook(&items, ws.LegacyCommonHookFile(legacyName, hookType), "legacy common")
 			}
 		}
 	}
 	for _, hookType := range []string{"ahead", "after"} {
-		listIfExists(w, ws.NewHookFile(ws.PersonalHookDir(statusID), statusID, hookType))
-		listIfExists(w, ws.NewHookFile(ws.CommonHookDir(statusID), statusID, hookType))
+		appendHook(&items, ws.NewHookFile(ws.PersonalHookDir(statusID), statusID, hookType), "personal")
+		appendHook(&items, ws.NewHookFile(ws.CommonHookDir(statusID), statusID, hookType), "common")
 	}
+	statefmt.PrintCatalog(w, "", items)
 	return nil
 }
 
-func listIfExists(w io.Writer, path string) {
+func appendHook(items *[]statefmt.Item, path, scope string) {
 	if path == "" {
 		return
 	}
-	if _, err := os.Stat(path); err == nil {
-		fmt.Fprintln(w, path)
+	if _, err := os.Stat(path); err != nil {
+		return
 	}
+	*items = append(*items, statefmt.Item{
+		Heading: filepath.Base(path),
+		Fields: []statefmt.Field{
+			{Key: "scope", Value: scope},
+			{Key: "path", Value: path},
+			{Key: "explore", Value: "eg hook edit " + path},
+		},
+	})
 }

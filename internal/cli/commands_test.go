@@ -24,9 +24,9 @@ func hasAction(actions []string, action string) bool {
 	return slices.Contains(actions, action)
 }
 
-func TestMemoryGroupActions(t *testing.T) {
-	got := findGroupActions("memory")
-	want := []string{"list", "workspaces", "repositories"}
+func TestSelfGroupActions(t *testing.T) {
+	got := findGroupActions("self")
+	want := []string{"configure", "list", "doctor"}
 	slices.Sort(got)
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
@@ -40,11 +40,10 @@ func TestListActionsInGroups(t *testing.T) {
 		has    string
 		lacks  string
 	}{
-		{"git", "list", "status"},
+		{"self", "list", "status"},
 		{"workspace", "list", "status"},
 		{"repo", "list", "status"},
 		{"hook", "list", "status"},
-		{"memory", "list", "status"},
 		{"work", "list", "status"},
 	} {
 		actions := findGroupActions(tc.object)
@@ -85,7 +84,7 @@ func TestWriteRootUsageActionOnlyAligned(t *testing.T) {
 
 func TestWriteObjectUsageAligned(t *testing.T) {
 	var buf bytes.Buffer
-	writeObjectUsage(&buf, "git")
+	writeObjectUsage(&buf, "self")
 	text := buf.String()
 
 	if strings.Contains(text, "Objects:") {
@@ -93,8 +92,8 @@ func TestWriteObjectUsageAligned(t *testing.T) {
 	}
 	assertAlignedSection(t, text, "    -")
 	rows := sectionRows(text, "Actions:", "  ")
-	assertSameDescColumn(t, "git", rows)
-	actions := findGroupActions("git")
+	assertSameDescColumn(t, "self", rows)
+	actions := findGroupActions("self")
 	if len(rows) != len(actions) {
 		t.Fatalf("got %d action rows, want %d", len(rows), len(actions))
 	}

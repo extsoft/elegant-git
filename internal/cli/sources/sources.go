@@ -90,6 +90,26 @@ func forEachRefChoices(pattern, format string) []argspec.Choice {
 // WorkspaceCreateNew is the picker sentinel for creating a workspace during repo configure.
 const WorkspaceCreateNew = "[Create new]"
 
+// Repositories returns managed repository display names from shared memory.
+func Repositories(_ context.Context) ([]argspec.Choice, error) {
+	s, err := shared.Load()
+	if err != nil {
+		return nil, err
+	}
+	var out []argspec.Choice
+	for _, r := range shared.ListRepos(s) {
+		if r == nil {
+			continue
+		}
+		out = append(out, argspec.Choice{
+			Value:       r.Name,
+			Description: r.CurrentPath,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
+	return out, nil
+}
+
 // Workspaces returns workspace display names from shared memory.
 func Workspaces(_ context.Context) ([]argspec.Choice, error) {
 	s, err := shared.Load()

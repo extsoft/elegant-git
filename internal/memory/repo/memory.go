@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/extsoft/elegant-git/internal/deprecation"
 	"github.com/extsoft/elegant-git/internal/git"
@@ -155,8 +156,9 @@ func backupStateFile(path string) (string, error) {
 
 // GitDir returns the absolute .git directory for the current repository.
 func GitDir() (string, error) {
-	out := git.OutputOK("rev-parse", "--git-dir")
-	if out == "" {
+	out, err := git.Output("rev-parse", "--git-dir")
+	out = strings.TrimSpace(out)
+	if err != nil || out == "" {
 		return "", fmt.Errorf("not a git repository")
 	}
 	if !filepath.IsAbs(out) {

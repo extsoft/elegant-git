@@ -88,7 +88,7 @@ func (RealRunner) Output(args ...string) (string, error) {
 	if err := cmd.Run(); err != nil {
 		return buf.String(), err
 	}
-	return strings.TrimSpace(buf.String()), nil
+	return strings.TrimRight(buf.String(), " \t\r\n"), nil
 }
 
 func (RealRunner) OutputOK(args ...string) string {

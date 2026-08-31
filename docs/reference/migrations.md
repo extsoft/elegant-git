@@ -43,7 +43,7 @@ requested command. Rewrites of Elegant Git's own files keep a backup next to the
 
 ## What doctor repairs
 
-`eg git doctor`, `eg repo doctor`, and `eg workspace doctor` each diagnose one scope and
+`eg self doctor`, `eg repo doctor`, and `eg workspace doctor` each diagnose one scope and
 suggest a repair for every finding.
 
 Interactive mode prints each finding and asks `Fix?` before applying a repair. Non-interactive

@@ -63,7 +63,7 @@ like `eg --no-workflows work save`.
 
 The `hook` object does the file handling for you:
 
-- `eg hook list` prints the path of every hook file that currently exists
+- `eg hook list` prints every hook file that currently exists as nested blocks (scope, path, and `eg hook edit`)
 - `eg hook new <command-id> <ahead|after> <personal|common>` creates the file, makes it
   executable, and opens it in your editor
 - `eg hook edit <path>` opens an existing hook in your editor

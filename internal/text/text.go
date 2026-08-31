@@ -25,7 +25,16 @@ func SetOutput(w io.Writer) {
 }
 
 func isTTY() bool {
-	f, ok := out.(*os.File)
+	return colorTo(out)
+}
+
+// Colored reports whether w should receive ANSI color (stdout TTY).
+func Colored(w io.Writer) bool {
+	return colorTo(w)
+}
+
+func colorTo(w io.Writer) bool {
+	f, ok := w.(*os.File)
 	if !ok {
 		return false
 	}
@@ -71,7 +80,17 @@ func PlainText(parts ...string) {
 
 // InfoText prints a regular informational message.
 func InfoText(parts ...string) {
-	coloredText(formatNormal, colorGreen, parts...)
+	Finfo(out, parts...)
+}
+
+// Finfo writes an informational line to w (green on a TTY).
+func Finfo(w io.Writer, parts ...string) {
+	msg := strings.Join(parts, " ")
+	if colorTo(w) {
+		fmt.Fprintf(w, "\x1b[%d;%dm%s\x1b[m\n", formatNormal, colorGreen, msg)
+		return
+	}
+	fmt.Fprintln(w, msg)
 }
 
 // ErrorText prints an error message on one line.

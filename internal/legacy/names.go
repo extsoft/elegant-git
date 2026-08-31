@@ -5,7 +5,7 @@ import "github.com/extsoft/elegant-git/internal/cmdid"
 
 // LegacyToPath maps legacy name -> new CLI args (without "elegant").
 var LegacyToPath = map[string][]string{
-	"acquire-git":        {"git", "configure"},
+	"acquire-git":        {"self", "configure"},
 	"acquire-repository": {"repo", "configure"},
 	"clone-repository":   {"repo", "clone"},
 	"init-repository":    {"repo", "init"},
@@ -28,7 +28,7 @@ var LegacyToPath = map[string][]string{
 
 // LegacyToID maps legacy flat name -> canonical id.
 var LegacyToID = map[string]cmdid.ID{
-	"acquire-git":        {Command: "git", Action: "configure"},
+	"acquire-git":        {Command: "self", Action: "configure"},
 	"acquire-repository": {Command: "repo", Action: "configure"},
 	"clone-repository":   {Command: "repo", Action: "clone"},
 	"init-repository":    {Command: "repo", Action: "init"},

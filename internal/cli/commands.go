@@ -35,14 +35,9 @@ type subCommandSpec struct {
 }
 
 var commandGroups = []commandGroup{
-	{object: "memory", title: "inspect elegant-git memory", commands: []subCommandSpec{
-		{action: "list", purpose: "Summarizes shared memory paths and counts."},
-		{action: "workspaces", purpose: "Lists workspaces or shows one workspace's details."},
-		{action: "repositories", purpose: "Lists managed repositories or shows one repository's details."},
-	}},
-	{object: "git", title: "configure Git installation", commands: []subCommandSpec{
+	{object: "self", title: "set up and inspect Elegant Git", commands: []subCommandSpec{
 		{action: "configure", purpose: "Configures your Git installation."},
-		{action: "list", purpose: "Shows global Git installation and shared memory state."},
+		{action: "list", purpose: "Shows Elegant Git and global Git installation state."},
 		{action: "doctor", purpose: "Diagnoses and repairs your Git installation."},
 	}},
 	{object: "workspace", title: "manage git workspaces", commands: []subCommandSpec{
@@ -55,7 +50,7 @@ var commandGroups = []commandGroup{
 		{action: "doctor", purpose: "Diagnoses and repairs a workspace."},
 	}},
 	{object: "repo", title: "manage repositories", commands: []subCommandSpec{
-		{action: "list", purpose: "Shows repository memory and registry state for the current repository."},
+		{action: "list", purpose: "Lists repositories or shows the current or named one."},
 		{action: "init", purpose: "Initializes a new repository and configures it."},
 		{action: "clone", purpose: "Clones a remote repository and configures it."},
 		{action: "configure", purpose: "Configures the current local Git repository."},

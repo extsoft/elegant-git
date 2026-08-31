@@ -8,9 +8,13 @@ Policy that fills required and optional command inputs before business logic run
 
 Notes: when any required input is missing in interactive mode, optional inputs are reviewed with edit-or-accept even if already passed on the CLI.
 
-### Git
+### Self
 
-CLI object for installation-wide setup, inspection, and doctor—not “run git” or native `git status`.
+CLI object for installation-wide setup, inspection, and doctor.
+
+Notes: `configure` writes global git config and aliases; `list` shows shared memory and global identity; `doctor` repairs the Git installation. Hidden `git` and `memory` shims remain until DEP-019 `remove_after`.
+
+Avoid: using “self” for a git repository or workspace; conflating with native `git` commands
 
 ### Interactive mode
 
@@ -42,17 +46,11 @@ Notes: repo-tracked under `<repo>/.config/elegant-git/hooks/<command>-<action>-{
 
 Avoid: `.git/hooks` (git’s native hook mechanism)
 
-### Memory
-
-CLI object for read-only inspection of shared memory and its contents.
-
-Avoid: conflating with shared/repo memory stores or test types `MemoryRunner` / `MemoryRepo`
-
 ### Migrate
 
 Automatic rewrite of Elegant Git-owned state (memory schema, acquired marker, legacy branch keys, dead `elegant …` aliases). Assisted layout changes are doctor findings.
 
-Notes: integer `migrations_version` generation in shared memory gates global Auto steps; local leftovers are scanned whenever cwd is a git repository; hidden `git migrate` / `repo migrate` / `hook migrate` shims remain until DEP-016 `remove_after` (`--dry-run` reports only).
+Notes: integer `migrations_version` generation in shared memory gates global Auto steps; local leftovers are scanned whenever cwd is a git repository; hidden `git migrate` / `repo migrate` / `hook migrate` shims remain until DEP-016 `remove_after` (`--dry-run` reports only). Assisted repairs are `eg self doctor` and `eg repo doctor`.
 
 Avoid: adding a user-facing migrate command; using “migrate” for doctor repairs
 
@@ -80,6 +78,8 @@ CLI object for tagging and release notes on the default development branch.
 
 CLI object for repository lifecycle and maintenance commands (`configure`, `clone`, `init`, `list`, `sync`, `prune`, `doctor`).
 
+Notes: `list` treats `current` and `all` as selectors, not display names. With no argument it shows the current repository when inside a git work tree, otherwise lists all.
+
 Avoid: using “repo” when you mean the **Repository** entity in shared memory
 
 ### Repo memory
@@ -96,7 +96,7 @@ Avoid: “git config” for default or protected branches
 
 A git working copy tracked in shared memory (`workspace_id`, `current_path`, `path_history`, optional `origin_url`).
 
-Notes: stable id is UUID (`elegant-git.repo-id` in local git config, `repo_id` in repo memory); `name` is the display label; entries live in the `Repositories` map in shared memory (listed via `memory repositories`).
+Notes: stable id is UUID (`elegant-git.repo-id` in local git config, `repo_id` in repo memory); `name` is the display label; entries live in the `Repositories` map in shared memory (listed via `repo list all`).
 Avoid: “managed repository”; unqualified “repository” when meaning any clone
 
 ### Shared memory
@@ -107,7 +107,7 @@ Aliases: shared state
 
 Notes: override `ELEGANT_GIT_STATE_FILE`
 
-Avoid: “memory” alone; “config file” when meaning git config
+Avoid: “memory” alone; “config file” when meaning git config; conflating with test types `MemoryRunner` / `MemoryRepo`
 
 ### Sync
 

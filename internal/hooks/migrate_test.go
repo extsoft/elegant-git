@@ -62,3 +62,35 @@ func TestHasLegacy(t *testing.T) {
 		t.Fatal("expected legacy dir")
 	}
 }
+
+func TestRenamePrefixMovesGitHooksToSelf(t *testing.T) {
+	root := t.TempDir()
+	hooksDir := filepath.Join(root, ".config", "elegant-git", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := filepath.Join(hooksDir, "git-configure-ahead")
+	if err := os.WriteFile(old, []byte("echo ahead\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ws := runtime.RepoLayout{RepoRoot: root}
+	if !HasObjectPrefix(ws, false, "git", nil) {
+		t.Fatal("expected git- prefix hook")
+	}
+	newPaths, oldPaths, err := RenamePrefix(ws, false, "git", "self", nil, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(newPaths) != 1 || len(oldPaths) != 1 {
+		t.Fatalf("paths: new=%v old=%v", newPaths, oldPaths)
+	}
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Fatal("old hook should be gone")
+	}
+	if _, err := os.Stat(filepath.Join(hooksDir, "self-configure-ahead")); err != nil {
+		t.Fatal("renamed hook missing")
+	}
+	if HasObjectPrefix(ws, false, "git", nil) {
+		t.Fatal("git- prefix should be gone")
+	}
+}

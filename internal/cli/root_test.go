@@ -20,15 +20,17 @@ func TestRootHelpListsObjects(t *testing.T) {
 	if !strings.Contains(text, "Objects:") {
 		t.Error("help missing Objects section")
 	}
-	for _, heading := range []string{"git —", "repo —", "memory —", "work —", "hook —", "release —", "workspace —"} {
+	for _, heading := range []string{"self —", "repo —", "work —", "hook —", "release —", "workspace —"} {
 		if !strings.Contains(text, heading) {
 			t.Errorf("help missing heading %q", heading)
 		}
 	}
+	if strings.Contains(text, "  git —") || strings.Contains(text, "  memory —") {
+		t.Error("help still lists git or memory objects")
+	}
 	for _, tc := range []struct{ object, action string }{
-		{"git", "configure"},
+		{"self", "configure"},
 		{"repo", "clone"},
-		{"memory", "workspaces"},
 		{"work", "start"},
 		{"hook", "list"},
 		{"release", "notes"},
@@ -60,7 +62,7 @@ func TestUnknownCommandExit46(t *testing.T) {
 
 func TestUnknownFlagShowsHelp(t *testing.T) {
 	bin := buildTestBinary(t)
-	cmd := exec.Command(bin, "memory", "workspaces", "--unknown-flag")
+	cmd := exec.Command(bin, "workspace", "list", "--unknown-flag")
 	out, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatal("expected error exit")
@@ -136,7 +138,7 @@ func TestObjectGroupHelpHook(t *testing.T) {
 		t.Fatalf("hook: %v", err)
 	}
 	text := string(out)
-	if strings.Contains(text, "Objects:") && strings.Contains(text, "  git —") {
+	if strings.Contains(text, "Objects:") && strings.Contains(text, "  self —") {
 		t.Fatal("hook without subcommand should not show full root catalog")
 	}
 	for _, want := range []string{"hook — manage command hooks", "list", "new", "edit", ".config/elegant-git/hooks"} {
