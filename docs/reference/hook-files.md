@@ -1,17 +1,19 @@
 ---
 layout: default
-title: Hooks
-nav_order: 7
+title: Hook files
+parent: Reference
+nav_order: 6
+permalink: /reference/hook-files/
 ---
 
-# Hooks
+# Hook files
 
 While developing something, it may be required to format code prior to committing modifications or
 to open several URLs to report release notes after a new release. All these and similar actions,
 which you're performing in addition to Git actions, are the **_hooks_**. And Elegant Git allows
 automating them — it's like
 [Git Hooks](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks), but for Elegant Git
-commands.
+commands. Creating and editing the files is the [`hook`](../10-00-hook.md) object.
 
 ## Where hooks live
 
@@ -28,7 +30,7 @@ A hook is a single executable file, and its name says when it runs:
 ```
 
 `<command>` and `<action>` are the object and the action of an Elegant Git command — the same pair
-you see on the [commands](../reference/commands.md) page — and `<type>` is either `ahead` (runs
+you see in the [CLI anatomy](../04-cli-anatomy.md) — and `<type>` is either `ahead` (runs
 prior to the command) or `after` (runs after the command). So a script that formats your code
 before every `eg work save` is `work-save-ahead`.
 
@@ -59,19 +61,6 @@ is what saves you from a `work-save-ahead` hook that calls `eg work save`.
 If you want to skip hooks for the current command execution, just use the `--no-workflows` option
 like `eg --no-workflows work save`.
 
-## Managing hooks
-
-The `hook` object does the file handling for you:
-
-- `eg hook list` prints every hook file that currently exists as nested blocks (scope, path, and `eg hook edit`)
-- `eg hook new <command-id> <ahead|after> <personal|common>` creates the file, makes it
-  executable, and opens it in your editor
-- `eg hook edit <path>` opens an existing hook in your editor
-
-The `<command-id>` for `hook new` is the canonical dotted form of the command — `work.start`,
-`repo.clone`, `release.new`. Legacy flat names such as `start-work` are still accepted, but they
-warn and will be removed.
-
 ## Coming from the old layout
 
 Earlier versions kept common hooks in `.workflows/` and personal ones in `.git/.workflows/`, with
@@ -79,7 +68,8 @@ names like `save-work-ahead`. Those files still run until they are moved: Elegan
 new path and falls back to the old one only when the new file is absent, and it warns when it
 does. Both old locations are deprecated and will stop working.
 
-`eg repo doctor` offers to move them after a confirmation. Tracked hooks need a commit afterwards,
-so doctor prints the `git add` / `git commit` to use. One old name is kept on purpose:
-`repo clone` and `repo init` still run `acquire-repository-{ahead,after}` as well as their own
-hooks, so a provisioning script from the previous layout keeps working until it is renamed.
+[`eg repo doctor`](../07-07-repo-doctor.md) offers to move them after a confirmation. Tracked
+hooks need a commit afterwards, so doctor prints the `git add` / `git commit` to use. One old name
+is kept on purpose: `repo clone` and `repo init` still run `acquire-repository-{ahead,after}` as
+well as their own hooks, so a provisioning script from the previous layout keeps working until it
+is renamed.

@@ -1,7 +1,9 @@
 ---
 layout: default
 title: Pipes
-nav_order: 8
+parent: Reference
+nav_order: 5
+permalink: /reference/pipes/
 ---
 
 # Pipes
@@ -29,4 +31,4 @@ If a "piped" command is used, each pipe stores the state in per-repo command mem
 command is successful. If the command is failed and it reruns, the pipes do not preserve the state
 again but will restore the initial preserved state if the command is successful.
 
-The file itself is described with the rest of [per-repo memory](../reference/memory.md#per-repo-memory).
+The file itself is described with the rest of [per-repo memory](memory.md#per-repo-memory).

@@ -58,3 +58,7 @@ The binary was renamed from `git-elegant` to `eg`. Git no longer finds it as a
 3. Install Elegant Git. The first interactive `eg` command (or `eg self configure`) writes
    `alias.elegant = "!eg"`. Leftover aliases from the previous binary are rewritten on their
    own; `eg self doctor` shows anything that still needs a decision.
+
+## Next steps
+
+- [Getting started](03-getting-started.md) — configure Git, onboard a repository, try `eg work`

@@ -2,7 +2,7 @@
 layout: default
 title: Configuration
 parent: Reference
-nav_order: 2
+nav_order: 1
 permalink: /reference/configuration/
 ---
 
@@ -10,13 +10,13 @@ permalink: /reference/configuration/
 
 Elegant Git aims to standardize how a work environment should be configured. It operates several
 levels of configurations (see below) that can be applied to a Git repository (local configuration)
-and/or to a Git installation globally (global configuration). So,
+and/or globally (global configuration). So,
 
-- the local configuration applies by running [`eg repo configure`](commands.md#repo)
+- the local configuration applies by running [`eg repo configure`](../07-01-repo-configure.md)
   and configures the current Git repository (workspace linkage, per-repo memory, optional local
   standards and aliases)
-- the global configuration applies by running [`eg self configure`](commands.md#self)
-  and uses `git config --global <key> <value>` for Git installation-wide settings.
+- the global configuration applies by running [`eg self configure`](../05-01-self-configure.md)
+  and uses `git config --global <key> <value>` for Git-wide settings.
   The first interactive `eg` command runs that flow automatically when Git is not yet
   configured; `--non-interactive` / `CI` / a non-TTY skip it. `eg self configure` re-runs it
   at any time.
@@ -27,7 +27,7 @@ recorded last so an interrupted run still auto-starts next time.
 
 If you've applied a global configuration (`acquired_version` in shared memory), `repo configure`
 does **not** add or rewrite local git aliases or local standards — those come from
-`self configure` once per Git installation. It still removes redundant **local**
+`self configure` once per Elegant Git installation. It still removes redundant **local**
 `elegant …` / `!eg …` aliases and a stale local `elegant-git.acquired` marker when present. Run
 `eg self configure` once on each machine where you use Elegant Git globally, or let the first
 interactive `eg` command do it.

@@ -12,7 +12,7 @@ Notes: when any required input is missing in interactive mode, optional inputs a
 
 CLI object for installation-wide setup, inspection, and doctor.
 
-Notes: `configure` writes global git config and aliases; `list` shows shared memory and global identity; `doctor` repairs the Git installation. Hidden `git` and `memory` shims remain until DEP-019 `remove_after`.
+Notes: `configure` writes Git configuration globally and marks the Elegant Git installation acquired; `list` shows Elegant Git installation and Git configuration state; `doctor` repairs both. Hidden `git` and `memory` shims remain until DEP-019 `remove_after`.
 
 Avoid: using “self” for a git repository or workspace; conflating with native `git` commands
 

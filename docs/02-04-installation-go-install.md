@@ -20,3 +20,7 @@ That directory has to be on your `PATH`.
 Replace `@latest` with a tag — for example `@v2026.8.29` — to build a specific release. Note that a
 binary built this way reports the version baked in at build time, so `eg --version` may
 read `dev` for a source build outside a release tag.
+
+## Next steps
+
+- [Getting started](03-getting-started.md) — configure Git, onboard a repository, try `eg work`

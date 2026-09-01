@@ -27,3 +27,7 @@ mise upgrade github:extsoft/elegant-git
 
 That installs the newest version that still matches the pin in your config — so `@latest`
 keeps moving. If you pinned a specific tag, add `--bump` so mise rewrites the pin as well.
+
+## Next steps
+
+- [Getting started](03-getting-started.md) — configure Git, onboard a repository, try `eg work`

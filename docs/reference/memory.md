@@ -2,7 +2,7 @@
 layout: default
 title: Memory
 parent: Reference
-nav_order: 3
+nav_order: 2
 ---
 
 # Memory
@@ -55,7 +55,7 @@ When nothing is recorded yet, Elegant Git falls back to `main` for both the defa
 branch and the protected branches, and to `origin` for the remote.
 
 Next to it sits `<repo>/.git/elegant-git/commands.json`, the per-repo command memory. That is where
-the [pipes](../guides/pipes.md) park the stash message and the branch name they have to
+the [pipes](pipes.md) park the stash message and the branch name they have to
 restore, which is why an interrupted command can be rerun without losing your work.
 
 ## Schema
@@ -71,7 +71,7 @@ on the [migrations](migrations.md) page.
 (`signing_key`, `editor`, `gpg_program`). Values that already match the workspace are skipped
 without prompts, and every `git config` set or unset is printed before it runs. Branch settings
 that belong to Elegant Git live only in per-repo memory. When the origin URL yields a
-[namespace](../guides/workspaces.md#how-a-namespace-is-remembered) not yet on the workspace,
+[namespace](../06-00-workspace.md#how-a-namespace-is-remembered) not yet on the workspace,
 `repo configure` — and `workspace new` when it applies to the current repository — asks to remember
 it, recording it silently in non-interactive mode.
 

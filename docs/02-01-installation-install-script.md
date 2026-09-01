@@ -34,3 +34,7 @@ The installer prints an `export PATH=…` line when the chosen directory is not 
 It does **not** create the directory for you, so `mkdir -p ~/.local/bin` first if you have never
 used it. When none of the candidates exists it asks where to install; with no terminal to ask on it
 stops and tells you to pass `-d`.
+
+## Next steps
+
+- [Getting started](03-getting-started.md) — configure Git, onboard a repository, try `eg work`

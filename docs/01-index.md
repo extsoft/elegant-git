@@ -13,17 +13,17 @@ Its primary goal is to save mental energy and speed up Git interactions by provi
 Main capabilities
 
 - standardized repository management
-  - careful [configuration](reference/configuration.md) of your Git installation and of every
+  - careful [Git configuration](reference/configuration.md) of this machine and of every
     repository you work in
-  - a protected [contribution lifecycle](guides/daily-work.md) that keeps a change in a branch of
+  - a protected [contribution lifecycle](08-00-work.md) that keeps a change in a branch of
     its own until it is ready for the default development branch
-  - many repositories managed as a single project (aka [workspaces](guides/workspaces.md))
+  - many repositories managed as a single project (aka [workspaces](06-00-workspace.md))
 - human-focused usability
   - an [interactive mode](reference/interaction.md) that reads the current state and suggests what
     fits it
   - every Git command which modifies a state of Git is printed before it runs
   - unsaved modifications preserved and restored, or carried over to another branch (aka
-    [pipes](guides/pipes.md))
+    [pipes](reference/pipes.md))
 
 Used philosophy
 

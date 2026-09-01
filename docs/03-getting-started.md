@@ -13,14 +13,14 @@ actions or runs context-based interactive flow.
 ## Git configuration
 
 Once Elegant Git is [installed](02-00-installation.md), the first interactive `eg` command
-configures your Git installation if it has not been configured yet. `eg self configure` does
+configures Git if it has not been configured yet. `eg self configure` does
 the same at any time. The [configuration](reference/configuration.md) page lists the logic.
 .
 
 ## Repository onboarding
 
 For an existing repository, run `eg repo configure`. That links the repository to a
-[workspace](guides/workspaces.md), writes user identity into `.git/config`, and records the
+[workspace](06-00-workspace.md), writes user identity into `.git/config`, and records the
 default and protected branches in per-repo memory.
 
 Use `eg repo init` to create a repository, or `eg repo clone` to clone one. Both run the
@@ -66,7 +66,7 @@ stateDiagram-v2
 
 ## Next steps
 
-- [Commands](reference/commands.md) — every object and action
-- [Guides](guides.md) — how the tool behaves while you use it
-- [Configuration](reference/configuration.md) — what `eg self configure` and `eg repo configure` apply
-- [Memory](reference/memory.md) — where Elegant Git keeps its own state
+- [CLI anatomy](04-cli-anatomy.md) — the five parts of every command line
+- ["work" guide](08-00-work.md) — how `eg work` picks the next action, and every action
+- ["workspace" guide](06-00-workspace.md) — one identity shared across many repositories
+- [Reference](reference.md) — configuration, memory, interaction, and the rest

@@ -19,3 +19,7 @@ That puts `eg` on your `PATH`. To pick up a newer release:
 ```bash
 brew upgrade elegant-git
 ```
+
+## Next steps
+
+- [Getting started](03-getting-started.md) — configure Git, onboard a repository, try `eg work`

@@ -2,7 +2,7 @@
 layout: default
 title: Interaction
 parent: Reference
-nav_order: 6
+nav_order: 4
 ---
 
 # Interaction
@@ -51,8 +51,8 @@ interactive mode — Elegant Git detects the action from the context, or asks yo
 fits. In non-interactive mode there is nothing to detect against, so an action is required and the
 command fails without one.
 
-Which checks apply depends on the object: see [daily work](../guides/daily-work.md) for `work` and
-[workspaces](../guides/workspaces.md) for `workspace`.
+Which checks apply depends on the object: see [work](../08-00-work.md) for `work` and
+[workspace](../06-00-workspace.md) for `workspace`.
 
 ### How detection is printed
 
