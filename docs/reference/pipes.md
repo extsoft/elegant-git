@@ -18,13 +18,17 @@ automatically.
 
 There are the following pipes:
 
-- **branch pipe** which preserves and restores current branch
+- **branch pipe** which preserves and restores current branch when that local ref still exists
 - **stash pipe** which preserves and restores uncommitted changes
 
 The stash pipe is used by `work sync`, `work polish`, `work push`, `work accept`, and
 `release new`. It also wraps `work start` when you ask that command to carry your uncommitted
-changes over to the new branch. The branch pipe is used by `work accept` and `release new`, so both
-of them can walk away from your branch and bring you back to it.
+changes over to the new branch. If the branch the stash was taken from is gone — for example
+because `work accept` deleted it — the stash is left in place instead of being popped onto the
+current branch. The branch pipe is used by `work accept` and `release new`, so both of them can
+walk away from your branch and bring you back to it. If the saved branch is gone — for example
+because `work accept` deleted the local branch you were on — the pipe leaves you on whatever
+branch the command checked out.
 
 If a "piped" command is used, each pipe stores the state in per-repo command memory
 (`.git/elegant-git/commands.json`), runs the original command, and restores saved state if the

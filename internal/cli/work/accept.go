@@ -69,7 +69,8 @@ func acceptLogic(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 		return err
 	}
 	branch := spec.Inputs[0].Get()
-	if cliruntime.LocalBranchExists(branch) {
+	wasLocal := cliruntime.LocalBranchExists(branch)
+	if wasLocal {
 		if err := git.Verbose("fetch", "--all"); err != nil {
 			return err
 		}
@@ -109,5 +110,11 @@ func acceptLogic(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 			}
 		}
 	}
-	return config.ClearBranchSourceBranch(branch)
+	if err := config.ClearBranchSourceBranch(branch); err != nil {
+		return err
+	}
+	if wasLocal && branch != defaultBranch && branch != acceptWorkBranch && !config.IsBranchProtected(branch) {
+		return git.Verbose("branch", "--delete", "--force", branch)
+	}
+	return nil
 }

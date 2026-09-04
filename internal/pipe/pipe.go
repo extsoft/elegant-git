@@ -9,6 +9,8 @@ import (
 	"github.com/extsoft/elegant-git/internal/cmdid"
 	"github.com/extsoft/elegant-git/internal/git"
 	cmdmem "github.com/extsoft/elegant-git/internal/memory/cmd"
+	"github.com/extsoft/elegant-git/internal/state"
+	"github.com/extsoft/elegant-git/internal/text"
 )
 
 // HasChanges reports whether HEAD has staged or unstaged changes.
@@ -48,13 +50,18 @@ func StashPipe(id cmdid.ID, fn func() error) error {
 		_ = gitQuiet("update-index", "-q", "--really-refresh")
 		_ = cmdmem.Unset(id, cmdmem.FieldStash)
 		if sid := stashID(saved); sid != "" {
+			if source := stashWIPBranch(saved); source != "" && !state.LocalBranchExists(source) {
+				text.InfoText(fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists.", source))
+				return nil
+			}
 			return git.Verbose("stash", "pop", sid)
 		}
 	}
 	return nil
 }
 
-// BranchPipe restores the original branch after fn if checkout changed it.
+// BranchPipe restores the original branch after fn if checkout changed it and
+// that local branch still exists.
 func BranchPipe(id cmdid.ID, fn func() error) error {
 	previous, _ := cmdmem.Get(id, cmdmem.FieldBranch)
 	if previous == "" {
@@ -75,15 +82,33 @@ func BranchPipe(id cmdid.ID, fn func() error) error {
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(now) != previous {
-		return git.Verbose("checkout", previous)
+	if strings.TrimSpace(now) == previous {
+		return nil
 	}
-	return nil
+	if !state.LocalBranchExists(previous) {
+		text.InfoText(fmt.Sprintf("The '%s' branch no longer exists; staying on '%s'.", previous, strings.TrimSpace(now)))
+		return nil
+	}
+	return git.Verbose("checkout", previous)
 }
 
 func stashID(message string) string {
 	out := git.OutputOK("stash", "list", "--grep="+message, "--format=%gd")
 	return strings.TrimSpace(strings.Split(out, "\n")[0])
+}
+
+func stashWIPBranch(message string) string {
+	const mark = " auto-stash: WIP in '"
+	i := strings.Index(message, mark)
+	if i < 0 {
+		return ""
+	}
+	rest := message[i+len(mark):]
+	j := strings.Index(rest, "' branch on ")
+	if j < 0 {
+		return ""
+	}
+	return rest[:j]
 }
 
 func gitQuiet(args ...string) error {
