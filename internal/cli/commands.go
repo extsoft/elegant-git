@@ -66,7 +66,6 @@ var commandGroups = []commandGroup{
 	{object: "work", title: "day-to-day contributions", commands: []subCommandSpec{
 		{action: "start", purpose: "Creates a new branch."},
 		{action: "save", purpose: "Commits current modifications."},
-		{action: "amend", purpose: "Amends the last commit."},
 		{action: "list", purpose: "Prints HEAD state."},
 		{action: "polish", purpose: "Rebases HEAD interactively."},
 		{action: "sync", purpose: "Actualizes the branch with upstream commits."},

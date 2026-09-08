@@ -104,7 +104,7 @@ func stashWIPBranch(message string) string {
 		return ""
 	}
 	rest := message[i+len(mark):]
-	j := strings.Index(rest, "' branch on ")
+	j := strings.LastIndex(rest, "' branch on ")
 	if j < 0 {
 		return ""
 	}

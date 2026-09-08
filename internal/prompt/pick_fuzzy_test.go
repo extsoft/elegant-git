@@ -55,6 +55,17 @@ func TestFilterChoices(t *testing.T) {
 	}
 }
 
+func TestFilterChoicesMatchesDisplay(t *testing.T) {
+	choices := []Choice{
+		{Value: "aaa", Display: "[ 2 h ago]  aaa", Description: "newest"},
+		{Value: "bbb", Display: "[ 3 d ago]  bbb", Description: "older"},
+	}
+	got := filterChoices(choices, "2 h")
+	if len(got) != 1 || got[0].Value != "aaa" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
 func TestPickSelectedValue(t *testing.T) {
 	if got := pickSelectedValue("origin/main\tabc123"); got != "origin/main" {
 		t.Fatalf("got %q", got)
@@ -116,6 +127,14 @@ func TestFormatPickLineColumns(t *testing.T) {
 	}
 	if got := formatPickLine(true, true, Choice{Value: "main"}, 4); got != ">*main" {
 		t.Fatalf("both marks = %q", got)
+	}
+}
+
+func TestFormatPickLineUsesDisplay(t *testing.T) {
+	c := Choice{Value: "aaa", Display: "[ 2 h ago]  aaa", Description: "newest subject"}
+	line := formatPickLine(false, false, c, len(c.Display))
+	if line != "  [ 2 h ago]  aaa  newest subject" {
+		t.Fatalf("got %q", line)
 	}
 }
 

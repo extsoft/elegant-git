@@ -117,4 +117,4 @@ Notes: `repo sync` re-applies linked workspace settings to one or all tracked re
 
 ### Work
 
-CLI object for day-to-day branch workflow (start, save, amend, list, polish, sync, push, track, accept).
+CLI object for day-to-day branch workflow (start, save, list, polish, sync, push, track, accept).

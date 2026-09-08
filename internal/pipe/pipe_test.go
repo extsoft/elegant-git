@@ -62,6 +62,25 @@ func TestStashPipePopsWhenSourceBranchExists(t *testing.T) {
 	}
 }
 
+func TestStashPipePopsWhenSourceBranchHasApostrophe(t *testing.T) {
+	m := setupBranchPipeTest(t, "main")
+	name := "feat/don't"
+	stubLocalBranch(m, name)
+	id := cmdid.ID{Command: "work", Action: "accept"}
+	msg := "eg work.accept auto-stash: WIP in '" + name + "' branch on 2020-01-01T00:00:00"
+	if err := cmdmem.Set(id, cmdmem.FieldStash, msg); err != nil {
+		t.Fatal(err)
+	}
+	m.Outputs["stash list --grep="+msg+" --format=%gd"] = "stash@{0}"
+
+	if err := StashPipe(id, func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if !hasStashPop(m, "stash@{0}") {
+		t.Fatalf("missing stash pop, calls=%v", m.Calls)
+	}
+}
+
 func TestStashPipeSkipsPopWhenSourceBranchGone(t *testing.T) {
 	m := setupBranchPipeTest(t, "main")
 	id := cmdid.ID{Command: "work", Action: "accept"}

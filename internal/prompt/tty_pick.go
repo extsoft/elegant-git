@@ -30,7 +30,7 @@ func (t *TTY) Pick(label string, choices []Choice, defaultWord string) (string, 
 func normalizeChoices(choices []Choice) []Choice {
 	out := make([]Choice, len(choices))
 	for i, c := range choices {
-		out[i] = Choice{Value: c.Value, Description: truncateDesc(c.Description, descMaxLen)}
+		out[i] = Choice{Value: c.Value, Display: c.Display, Description: truncateDesc(c.Description, descMaxLen)}
 	}
 	return out
 }
@@ -122,9 +122,9 @@ func (t *TTY) pickInline(in *os.File, label string, choices []Choice, defaultWor
 			if len(matches) == 0 {
 				continue
 			}
-			selected := matches[cursor].Value
-			finalizePickScreen(t.out, label, selected, prevLines)
-			return selected, nil
+			selected := matches[cursor]
+			finalizePickScreen(t.out, label, choiceLabel(selected), prevLines)
+			return selected.Value, nil
 		case pickKeyUp:
 			if cursor > 0 {
 				cursor--

@@ -34,7 +34,8 @@ development branch, fast-forward merges `__eg`, and deletes the helper. If there
 pushes the default branch to `origin`, and if the accepted branch's upstream was on `origin` it
 deletes that remote branch. The recorded source for the accepted branch is cleared. When the
 accepted name was a local branch that is not protected, that local branch is deleted last, so a
-failed push still leaves it available to retry.
+failed push still leaves it available to retry. If Git cannot delete it (for example it is checked
+out in another worktree), accept still succeeds and the branch is left in place.
 
 This is the intended path onto a protected default branch, so there is no protected-branch
 refusal.

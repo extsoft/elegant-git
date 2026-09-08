@@ -20,7 +20,7 @@ func filterChoices(choices []Choice, query string) []Choice {
 	}
 	var out []Choice
 	for _, c := range choices {
-		if fuzzyMatch(query, c.Value) || fuzzyMatch(query, c.Description) {
+		if fuzzyMatch(query, c.Value) || fuzzyMatch(query, choiceLabel(c)) || fuzzyMatch(query, c.Description) {
 			out = append(out, c)
 		}
 	}
@@ -58,7 +58,7 @@ func truncateDesc(s string, max int) string {
 func valueColumnWidth(choices []Choice) int {
 	w := 0
 	for _, c := range choices {
-		if n := len(c.Value); n > w {
+		if n := len(choiceLabel(c)); n > w {
 			w = n
 		}
 	}
@@ -84,7 +84,7 @@ func formatPickLine(current, selected bool, c Choice, valueWidth int) string {
 	default:
 		prefix = "  "
 	}
-	line := prefix + padRight(c.Value, valueWidth)
+	line := prefix + padRight(choiceLabel(c), valueWidth)
 	if c.Description != "" {
 		// Spaces for display columns; tabs expand unpredictably and break redraw.
 		line += "  " + c.Description

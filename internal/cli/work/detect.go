@@ -161,7 +161,6 @@ func evenOrNoUpstream(s snapshot) bool {
 var workActionPurpose = map[string]string{
 	"start":  "Creates a new branch.",
 	"save":   "Commits current modifications.",
-	"amend":  "Amends the last commit.",
 	"list":   "Prints HEAD state.",
 	"polish": "Rebases HEAD interactively.",
 	"sync":   "Actualizes the branch with upstream commits.",

@@ -90,6 +90,20 @@ func TestAcceptLogicKeepsLocalWorkBranchWhenPushFails(t *testing.T) {
 	}
 }
 
+func TestAcceptLogicSucceedsWhenLocalWorkBranchDeleteFails(t *testing.T) {
+	m := setupAcceptTest(t)
+	stubLocalBranch(m, "feat")
+	m.Outputs["for-each-ref --format=%(refname:short)\t%(upstream:short) refs/heads"] = "feat\nmain"
+	m.FailOn["branch --delete --force feat"] = fmt.Errorf("used by worktree")
+
+	if err := runAcceptLogic(t, "feat"); err != nil {
+		t.Fatal(err)
+	}
+	if callIndex(m, "branch", "--delete", "--force", "feat") < 0 {
+		t.Fatalf("missing local work branch delete attempt, calls=%v", m.Calls)
+	}
+}
+
 func TestAcceptLogicDoesNotDeleteHelperTwice(t *testing.T) {
 	m := setupAcceptTest(t)
 	stubLocalBranch(m, acceptWorkBranch)

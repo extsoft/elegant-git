@@ -56,7 +56,6 @@ stateDiagram-v2
 
   state OnFeature {
     [*] --> save
-    save --> save: amend
     save --> save: polish
     save --> save: sync
     save --> push

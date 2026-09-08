@@ -13,6 +13,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/pipe"
 	"github.com/extsoft/elegant-git/internal/state"
+	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/extsoft/elegant-git/internal/workflows"
 	"github.com/spf13/cobra"
 )
@@ -114,7 +115,9 @@ func acceptLogic(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 		return err
 	}
 	if wasLocal && branch != defaultBranch && branch != acceptWorkBranch && !config.IsBranchProtected(branch) {
-		return git.Verbose("branch", "--delete", "--force", branch)
+		if err := git.Verbose("branch", "--delete", "--force", branch); err != nil {
+			text.InfoText(fmt.Sprintf("The '%s' branch could not be deleted; it is still present.", branch))
+		}
 	}
 	return nil
 }

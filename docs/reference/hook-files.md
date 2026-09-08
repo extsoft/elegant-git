@@ -32,7 +32,9 @@ A hook is a single executable file, and its name says when it runs:
 `<command>` and `<action>` are the object and the action of an Elegant Git command — the same pair
 you see in the [CLI anatomy](../04-cli-anatomy.md) — and `<type>` is either `ahead` (runs
 prior to the command) or `after` (runs after the command). So a script that formats your code
-before every `eg work save` is `work-save-ahead`.
+before every `eg work save` is `work-save-ahead`. Amending through `work save` (picker, `HEAD`, or
+the last unique commit hash) also runs `work-amend-ahead` and `work-amend-after` around
+`git commit --amend`.
 
 A sample hook execution:
 
