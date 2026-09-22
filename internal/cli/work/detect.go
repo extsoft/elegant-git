@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/extsoft/elegant-git/internal/cli/catalog"
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/config"
 	"github.com/extsoft/elegant-git/internal/git"
@@ -158,46 +159,34 @@ func evenOrNoUpstream(s snapshot) bool {
 	return s.Ahead == 0 && s.Behind == 0
 }
 
-var workActionPurpose = map[string]string{
-	"start":  "Creates a new branch.",
-	"save":   "Commits current modifications.",
-	"list":   "Prints HEAD state.",
-	"polish": "Rebases HEAD interactively.",
-	"sync":   "Actualizes the branch with upstream commits.",
-	"push":   "Publishes HEAD to a remote repository.",
-	"track":  "Checks out a remote-tracking branch.",
-	"accept": "Adds modifications to the default development branch.",
-	"quit":   "Leave without another action.",
-}
-
 func askOptions(s snapshot) []string {
 	if s.Detached {
 		if s.Remotes {
-			return []string{"start", "track", "quit"}
+			return []string{"start", "track", "help", "quit"}
 		}
-		return []string{"start", "quit"}
+		return []string{"start", "help", "quit"}
 	}
 	if s.Protected {
-		return []string{"start", "track", "accept", "list", "quit"}
+		return []string{"start", "track", "accept", "list", "help", "quit"}
 	}
 	if s.HasUpstream && s.Ahead > 0 && s.Behind > 0 {
-		return []string{"sync", "push", "accept", "list", "quit"}
+		return []string{"sync", "push", "accept", "list", "help", "quit"}
 	}
 	if s.UniqueCommits && (!s.HasUpstream || s.Ahead > 0) {
-		return []string{"polish", "push", "accept", "list", "quit"}
+		return []string{"polish", "push", "accept", "list", "help", "quit"}
 	}
 	opts := []string{"start", "accept", "list"}
 	if s.Remotes {
 		opts = append(opts, "push", "track")
 	}
-	return append(opts, "quit")
+	return append(opts, "help", "quit")
 }
 
 func askChoices(s snapshot) []prompt.Choice {
 	opts := askOptions(s)
 	out := make([]prompt.Choice, len(opts))
 	for i, action := range opts {
-		c := prompt.Choice{Value: action, Description: workActionPurpose[action]}
+		c := prompt.Choice{Value: action, Description: catalog.Purpose("work", action)}
 		if action != "quit" {
 			c.Display = "work " + action
 		}

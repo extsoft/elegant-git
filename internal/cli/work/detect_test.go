@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/extsoft/elegant-git/internal/cli/catalog"
 	"github.com/extsoft/elegant-git/internal/git"
 )
 
@@ -143,42 +144,42 @@ func TestAskOptions(t *testing.T) {
 		{
 			name: "protected clean",
 			snap: snapshot{Protected: true},
-			want: []string{"start", "track", "accept", "list", "quit"},
+			want: []string{"start", "track", "accept", "list", "help", "quit"},
 		},
 		{
 			name: "unique ahead",
 			snap: snapshot{UniqueCommits: true, HasUpstream: true, Ahead: 2},
-			want: []string{"polish", "push", "accept", "list", "quit"},
+			want: []string{"polish", "push", "accept", "list", "help", "quit"},
 		},
 		{
 			name: "unique no upstream",
 			snap: snapshot{UniqueCommits: true},
-			want: []string{"polish", "push", "accept", "list", "quit"},
+			want: []string{"polish", "push", "accept", "list", "help", "quit"},
 		},
 		{
 			name: "diverged",
 			snap: snapshot{HasUpstream: true, Ahead: 1, Behind: 2, UniqueCommits: true},
-			want: []string{"sync", "push", "accept", "list", "quit"},
+			want: []string{"sync", "push", "accept", "list", "help", "quit"},
 		},
 		{
 			name: "detached remotes",
 			snap: snapshot{Detached: true, Remotes: true},
-			want: []string{"start", "track", "quit"},
+			want: []string{"start", "track", "help", "quit"},
 		},
 		{
 			name: "detached no remotes",
 			snap: snapshot{Detached: true},
-			want: []string{"start", "quit"},
+			want: []string{"start", "help", "quit"},
 		},
 		{
 			name: "idle feature remotes",
 			snap: snapshot{Remotes: true},
-			want: []string{"start", "accept", "list", "push", "track", "quit"},
+			want: []string{"start", "accept", "list", "push", "track", "help", "quit"},
 		},
 		{
 			name: "idle feature no remotes",
 			snap: snapshot{},
-			want: []string{"start", "accept", "list", "quit"},
+			want: []string{"start", "accept", "list", "help", "quit"},
 		},
 	}
 	for _, tc := range tests {
@@ -195,7 +196,7 @@ func TestAskOptions(t *testing.T) {
 				if c.Value != tc.want[i] {
 					t.Fatalf("choice[%d]=%q want %q", i, c.Value, tc.want[i])
 				}
-				if workActionPurpose[c.Value] == "" || c.Description != workActionPurpose[c.Value] {
+				if catalog.Purpose("work", c.Value) == "" || c.Description != catalog.Purpose("work", c.Value) {
 					t.Fatalf("choice[%d] desc=%q", i, c.Description)
 				}
 				wantDisplay := ""

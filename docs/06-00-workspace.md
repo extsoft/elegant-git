@@ -71,13 +71,15 @@ an action is required.
 flowchart TD
   start[workspace no action]
   start --> inGit{in a git repository?}
-  inGit -->|no| outside["ask: list, new, edit, delete, doctor, quit"]
+  inGit -->|no| outside["ask: list, new, edit, delete, doctor, help, quit"]
   inGit -->|yes| linked{workspace linked?}
-  linked -->|no| unlinked["ask: new, link, doctor, quit"]
-  linked -->|yes| linkedAsk["ask: list, new, link, edit, delete, fetch, doctor, quit"]
+  linked -->|no| unlinked["ask: new, link, doctor, help, quit"]
+  linked -->|yes| linkedAsk["ask: list, new, link, edit, delete, fetch, doctor, help, quit"]
 ```
 
 If you have no workspaces yet, the options that need one drop out. Outside a repository you are
-offered only `new` and `quit`; an unlinked repository offers `new` and `quit` as well, without
-`link` or `doctor`. A linked repository whose registry reports zero workspaces still offers `new`,
-`list`, `fetch`, and `quit`.
+offered only `new`, `help`, and `quit`; an unlinked repository offers `new`, `help`, and `quit`
+as well, without `link` or `doctor`. A linked repository whose registry reports zero workspaces
+still offers `new`, `list`, `fetch`, `help`, and `quit`.
+
+`help` prints the action list and asks again.

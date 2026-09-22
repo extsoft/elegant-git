@@ -22,8 +22,8 @@ excluded from prosefmt (`.config/hk.pkl`); wrap prose near 100 columns yourself.
 
 ## Object landing (`xx-00`)
 
-Short lead, then `## Actions` first — unordered list, one-line purposes from `commandGroups` in
-`internal/cli/commands.go`. Then concept. No per-action `##` plus fenced `bash`.
+Short lead, then `## Actions` first — unordered list, one-line purposes from `Groups` in
+`internal/cli/catalog/catalog.go`. Then concept. No per-action `##` plus fenced `bash`.
 
 ```markdown
 # BAD

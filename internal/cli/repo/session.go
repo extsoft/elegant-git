@@ -1,4 +1,4 @@
-package workspace
+package repo
 
 import (
 	"fmt"
@@ -45,7 +45,7 @@ func dispatch(cmd *cobra.Command, action string, args ...string) error {
 		return cliruntime.NewUsageError(cmd, err)
 	}
 	if sub == cmd {
-		return cliruntime.NewUsageError(cmd, fmt.Errorf("unknown workspace action %q", action))
+		return cliruntime.NewUsageError(cmd, fmt.Errorf("unknown repo action %q", action))
 	}
 	sub.SetContext(cmd.Context())
 	sub.SetOut(cmd.OutOrStdout())

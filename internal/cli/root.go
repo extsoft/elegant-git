@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	clicatalog "github.com/extsoft/elegant-git/internal/cli/catalog"
 	completioncmd "github.com/extsoft/elegant-git/internal/cli/completion"
 	hookcmd "github.com/extsoft/elegant-git/internal/cli/hook"
 	legacyshim "github.com/extsoft/elegant-git/internal/cli/legacy"
@@ -42,7 +43,7 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 	Version:       version.Version,
 	Run: func(cmd *cobra.Command, _ []string) {
-		writeRootUsage(cmd.OutOrStdout())
+		clicatalog.WriteRootUsage(cmd.OutOrStdout())
 	},
 }
 
@@ -53,7 +54,7 @@ func Execute() {
 		if isUnknownCommand(err) {
 			name := unknownCommandName(err)
 			fmt.Fprintf(os.Stderr, "Unknown command: eg %s\n", name)
-			writeRootUsage(os.Stderr)
+			clicatalog.WriteRootUsage(os.Stderr)
 			os.Exit(exitcode.UnknownCommand)
 		}
 		var ue *cliruntime.UsageError
@@ -70,7 +71,7 @@ func Execute() {
 func init() {
 	sources.SetHookCommandIDsProvider(AllCanonicalCommandIDs)
 	rootCmd.SetHelpFunc(func(cmd *cobra.Command, _ []string) {
-		writeRootUsage(cmd.OutOrStdout())
+		clicatalog.WriteRootUsage(cmd.OutOrStdout())
 	})
 	rootCmd.SetVersionTemplate("{{.Version}}\n")
 
@@ -122,7 +123,7 @@ func init() {
 	rootCmd.AddCommand(selfCmd)
 
 	repoCmd := repocmd.NewCommand()
-	AttachObjectGroup(repoCmd, "repo")
+	AttachObjectHelp(repoCmd, "repo")
 	rootCmd.AddCommand(repoCmd)
 
 	workspaceCmd := workspacecmd.NewCommand()

@@ -5,14 +5,16 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	clicatalog "github.com/extsoft/elegant-git/internal/cli/catalog"
 )
 
 func findGroupActions(object string) []string {
-	for _, g := range commandGroups {
-		if g.object == object {
+	for _, g := range clicatalog.Groups {
+		if g.Object == object {
 			var actions []string
-			for _, c := range g.commands {
-				actions = append(actions, c.action)
+			for _, c := range g.Commands {
+				actions = append(actions, c.Action)
 			}
 			return actions
 		}
@@ -58,22 +60,22 @@ func TestListActionsInGroups(t *testing.T) {
 
 func TestWriteRootUsageActionOnlyAligned(t *testing.T) {
 	var buf bytes.Buffer
-	writeRootUsage(&buf)
+	clicatalog.WriteRootUsage(&buf)
 	text := buf.String()
 
 	assertAlignedSection(t, text, "    -")
 	var allRows []string
-	for _, g := range commandGroups {
-		rows := sectionRows(text, "  "+g.object+" —", "    ")
-		if len(rows) != len(g.commands) {
-			t.Errorf("%s: got %d action rows, want %d", g.object, len(rows), len(g.commands))
+	for _, g := range clicatalog.Groups {
+		rows := sectionRows(text, "  "+g.Object+" —", "    ")
+		if len(rows) != len(g.Commands) {
+			t.Errorf("%s: got %d action rows, want %d", g.Object, len(rows), len(g.Commands))
 		}
 		for i, row := range rows {
 			name := firstField(strings.TrimSpace(row))
-			if i < len(g.commands) && name != g.commands[i].action {
-				t.Errorf("%s: row %q name %q, want action %q", g.object, row, name, g.commands[i].action)
+			if i < len(g.Commands) && name != g.Commands[i].Action {
+				t.Errorf("%s: row %q name %q, want action %q", g.Object, row, name, g.Commands[i].Action)
 			}
-			if strings.HasPrefix(strings.TrimSpace(row), g.object+" ") {
+			if strings.HasPrefix(strings.TrimSpace(row), g.Object+" ") {
 				t.Errorf("action row prefixes object: %q", row)
 			}
 		}
@@ -84,7 +86,7 @@ func TestWriteRootUsageActionOnlyAligned(t *testing.T) {
 
 func TestWriteObjectUsageAligned(t *testing.T) {
 	var buf bytes.Buffer
-	writeObjectUsage(&buf, "self")
+	clicatalog.WriteObjectUsage(&buf, "self")
 	text := buf.String()
 
 	if strings.Contains(text, "Objects:") {

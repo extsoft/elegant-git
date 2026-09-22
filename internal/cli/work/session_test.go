@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/extsoft/elegant-git/internal/cli/catalog"
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/extsoft/elegant-git/internal/text"
@@ -89,6 +90,37 @@ func TestRunSessionListThenAskQuit(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, "==>> Detection action...") || !strings.Contains(out, "selected: eg work list") || !strings.Contains(out, "selected: ask") {
 		t.Fatalf("eval=%q", out)
+	}
+}
+
+func TestRunSessionHelpThenQuit(t *testing.T) {
+	var ran []string
+	orig := dispatchAction
+	dispatchAction = func(_ *cobra.Command, action string, _ ...string) error {
+		ran = append(ran, action)
+		return nil
+	}
+	defer func() { dispatchAction = orig }()
+
+	var buf bytes.Buffer
+	c := NewCommand()
+	catalog.AttachObjectHelp(c, "work")
+	c.SetOut(&buf)
+	p := &sessionPrompter{picks: []string{"help", "quit"}}
+	c.SetContext(prompt.WithPrompter(context.Background(), p))
+	if err := runSession(c, func() snapshot {
+		return snapshot{Branch: "feat", UniqueCommits: true}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(ran) != 0 {
+		t.Fatalf("ran %v", ran)
+	}
+	if len(p.asked) != 2 {
+		t.Fatalf("asked=%v", p.asked)
+	}
+	if !strings.Contains(buf.String(), "work — day-to-day contributions") {
+		t.Fatalf("usage=%q", buf.String())
 	}
 }
 

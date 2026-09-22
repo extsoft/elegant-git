@@ -1,4 +1,4 @@
-package workspace
+package repo
 
 import (
 	"bytes"
@@ -8,21 +8,22 @@ import (
 	"testing"
 
 	"github.com/extsoft/elegant-git/internal/cli/catalog"
-	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
 
 func TestRunBareNonInteractive(t *testing.T) {
+	var buf bytes.Buffer
 	c := NewCommand()
+	catalog.AttachObjectHelp(c, "repo")
+	c.SetOut(&buf)
 	c.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
-	err := runBare(c, nil)
-	if !cliruntime.IsUsageError(err) {
-		t.Fatalf("got %v", err)
+	if err := runBare(c, nil); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(err.Error(), "action is required") {
-		t.Fatalf("msg=%v", err)
+	if !strings.Contains(buf.String(), "repo — manage repositories") {
+		t.Fatalf("usage=%q", buf.String())
 	}
 }
 
@@ -43,7 +44,7 @@ func TestRunSessionAsksQuit(t *testing.T) {
 	c := NewCommand()
 	c.SetContext(prompt.WithPrompter(context.Background(), p))
 	err := runSession(c, func() snapshot {
-		return snapshot{InGit: true, Linked: true, WorkspaceName: "github", WorkspaceCount: 1}
+		return snapshot{InGit: true, Configured: true}
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -58,39 +59,8 @@ func TestRunSessionAsksQuit(t *testing.T) {
 	if !strings.Contains(out, "==>> Detection action...") || !strings.Contains(out, "selected: ask") {
 		t.Fatalf("eval=%q", out)
 	}
-	if !strings.Contains(out, "workspace linked? yes (github)") {
+	if !strings.Contains(out, "configured? yes") {
 		t.Fatalf("eval=%q", out)
-	}
-}
-
-func TestRunSessionHelpThenQuit(t *testing.T) {
-	var ran []string
-	orig := dispatchAction
-	dispatchAction = func(_ *cobra.Command, action string, _ ...string) error {
-		ran = append(ran, action)
-		return nil
-	}
-	defer func() { dispatchAction = orig }()
-
-	var buf bytes.Buffer
-	c := NewCommand()
-	catalog.AttachObjectHelp(c, "workspace")
-	c.SetOut(&buf)
-	p := &sessionPrompter{picks: []string{"help", "quit"}}
-	c.SetContext(prompt.WithPrompter(context.Background(), p))
-	if err := runSession(c, func() snapshot {
-		return snapshot{InGit: true, Linked: true, WorkspaceName: "github", WorkspaceCount: 1}
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if len(ran) != 0 {
-		t.Fatalf("ran %v", ran)
-	}
-	if len(p.asked) != 2 {
-		t.Fatalf("asked=%v", p.asked)
-	}
-	if !strings.Contains(buf.String(), "workspace — manage git workspaces") {
-		t.Fatalf("usage=%q", buf.String())
 	}
 }
 
@@ -107,12 +77,43 @@ func TestRunSessionDispatchList(t *testing.T) {
 	c := NewCommand()
 	c.SetContext(prompt.WithPrompter(context.Background(), p))
 	if err := runSession(c, func() snapshot {
-		return snapshot{InGit: true, Linked: true, WorkspaceName: "github", WorkspaceCount: 1}
+		return snapshot{InGit: true, Configured: true}
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if len(ran) != 1 || ran[0] != "list" {
 		t.Fatalf("ran %v", ran)
+	}
+}
+
+func TestRunSessionHelpThenQuit(t *testing.T) {
+	var ran []string
+	orig := dispatchAction
+	dispatchAction = func(_ *cobra.Command, action string, _ ...string) error {
+		ran = append(ran, action)
+		return nil
+	}
+	defer func() { dispatchAction = orig }()
+
+	var buf bytes.Buffer
+	c := NewCommand()
+	catalog.AttachObjectHelp(c, "repo")
+	c.SetOut(&buf)
+	p := &sessionPrompter{picks: []string{"help", "quit"}}
+	c.SetContext(prompt.WithPrompter(context.Background(), p))
+	if err := runSession(c, func() snapshot {
+		return snapshot{InGit: true, Configured: true}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(ran) != 0 {
+		t.Fatalf("ran %v", ran)
+	}
+	if len(p.asked) != 2 {
+		t.Fatalf("asked=%v", p.asked)
+	}
+	if !strings.Contains(buf.String(), "repo — manage repositories") {
+		t.Fatalf("usage=%q", buf.String())
 	}
 }
 

@@ -30,7 +30,7 @@ func runSession(cmd *cobra.Command, inspectFn func() snapshot) error {
 
 func askOnce(cmd *cobra.Command, snap snapshot) error {
 	p := prompt.FromContext(cmd.Context())
-	ans, err := p.Pick("What now", askChoices(snap), "quit")
+	ans, err := cliruntime.PickActionOrHelp(cmd, p, "What now", askChoices(snap), "quit")
 	if err != nil {
 		return err
 	}

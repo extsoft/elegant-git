@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"github.com/extsoft/elegant-git/internal/cli/catalog"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/memory/repoid"
 	"github.com/extsoft/elegant-git/internal/memory/shared"
@@ -66,17 +67,6 @@ func detect(s snapshot) outcome {
 	return outcome{Steps: steps}
 }
 
-var workspaceActionPurpose = map[string]string{
-	"list":   "Lists workspaces or shows the current one.",
-	"new":    "Creates a workspace.",
-	"link":   "Links the current repository to a workspace.",
-	"edit":   "Edits a workspace.",
-	"delete": "Deletes a workspace.",
-	"fetch":  "Fetches remotes for linked repositories.",
-	"doctor": "Diagnoses and repairs a workspace.",
-	"quit":   "Leave without another action.",
-}
-
 func askOptions(s snapshot) []string {
 	hasWS := s.WorkspaceCount > 0
 	if !s.InGit {
@@ -84,27 +74,27 @@ func askOptions(s snapshot) []string {
 		if hasWS {
 			opts = []string{"list", "new", "edit", "delete", "doctor"}
 		}
-		return append(opts, "quit")
+		return append(opts, "help", "quit")
 	}
 	if !s.Linked {
 		opts := []string{"new"}
 		if hasWS {
 			opts = append(opts, "link", "doctor")
 		}
-		return append(opts, "quit")
+		return append(opts, "help", "quit")
 	}
 	opts := []string{"new", "list", "fetch"}
 	if hasWS {
 		opts = []string{"list", "new", "link", "edit", "delete", "fetch", "doctor"}
 	}
-	return append(opts, "quit")
+	return append(opts, "help", "quit")
 }
 
 func askChoices(s snapshot) []prompt.Choice {
 	opts := askOptions(s)
 	out := make([]prompt.Choice, len(opts))
 	for i, action := range opts {
-		c := prompt.Choice{Value: action, Description: workspaceActionPurpose[action]}
+		c := prompt.Choice{Value: action, Description: catalog.Purpose("workspace", action)}
 		if action != "quit" {
 			c.Display = "workspace " + action
 		}
