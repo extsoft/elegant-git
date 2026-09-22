@@ -52,5 +52,10 @@ On a protected branch, Elegant Git does not commit. On a TTY it warns and runs
 [`work start`](08-01-work-start.md) first, then saves on the new branch. In non-interactive mode
 it refuses with the protected-branch exit code.
 
+After a successful commit on a feature branch, when the repository has at least one remote,
+interactive mode asks `Push?` with yes as the default. Accepting runs [`work push`](08-07-work-push.md);
+declining or cancelling leaves the commit local. Non-interactive mode skips the question and does
+not push.
+
 This command does not use the stash pipe. Uncommitted changes you do not stage stay in the work
 tree, except during the autosquash rebase noted above.

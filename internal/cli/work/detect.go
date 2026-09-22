@@ -188,7 +188,7 @@ func askOptions(s snapshot) []string {
 	}
 	opts := []string{"start", "accept", "list"}
 	if s.Remotes {
-		opts = append(opts, "track")
+		opts = append(opts, "push", "track")
 	}
 	return append(opts, "quit")
 }

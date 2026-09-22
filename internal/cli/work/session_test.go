@@ -171,10 +171,11 @@ type sessionPrompter struct {
 	idx         int
 	asked       []string
 	pickChoices [][]prompt.Choice
+	confirmYes  bool
 }
 
 func (p *sessionPrompter) String(string, string) (string, error) { return "", nil }
-func (p *sessionPrompter) Confirm(string, bool) (bool, error)    { return false, nil }
+func (p *sessionPrompter) Confirm(string, bool) (bool, error)    { return p.confirmYes, nil }
 func (p *sessionPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
 }

@@ -173,7 +173,7 @@ func TestAskOptions(t *testing.T) {
 		{
 			name: "idle feature remotes",
 			snap: snapshot{Remotes: true},
-			want: []string{"start", "accept", "list", "track", "quit"},
+			want: []string{"start", "accept", "list", "push", "track", "quit"},
 		},
 		{
 			name: "idle feature no remotes",

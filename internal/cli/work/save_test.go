@@ -78,6 +78,41 @@ func TestFormatSaveRelTimePadsNumber(t *testing.T) {
 	}
 }
 
+func TestSaveCommitOffersPushOnConfirmYes(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.Remotes = []string{"origin"}
+	p := &sessionPrompter{confirmYes: true}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !saveGitHasPush(m) {
+		t.Fatalf("expected push after confirm yes, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitSkipsPushOnConfirmNo(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.Remotes = []string{"origin"}
+	p := &sessionPrompter{confirmYes: false}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if saveGitHasPush(m) {
+		t.Fatalf("unexpected push, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitSkipsPushNonInteractive(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.Remotes = []string{"origin"}
+	if err := runSaveCommit(prompt.NewNonInteractive(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if saveGitHasPush(m) {
+		t.Fatalf("unexpected push, git %v", saveAllGitActions(m))
+	}
+}
+
 func TestSaveCommitNoUniqueCommits(t *testing.T) {
 	m := setupSave(t)
 	p := &sessionPrompter{picks: []string{"should-not-be-used"}}
@@ -424,4 +459,23 @@ func saveGitActions(m *git.MemoryRunner) []string {
 		}
 	}
 	return out
+}
+
+func saveAllGitActions(m *git.MemoryRunner) []string {
+	out := make([]string, 0, len(m.Calls))
+	for _, c := range m.Calls {
+		if len(c.Args) > 0 {
+			out = append(out, strings.Join(c.Args, " "))
+		}
+	}
+	return out
+}
+
+func saveGitHasPush(m *git.MemoryRunner) bool {
+	for _, c := range m.Calls {
+		if len(c.Args) > 0 && c.Args[0] == "push" {
+			return true
+		}
+	}
+	return false
 }

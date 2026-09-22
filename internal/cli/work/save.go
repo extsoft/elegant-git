@@ -14,6 +14,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/config"
 	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/state"
 	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
@@ -111,7 +112,27 @@ func saveCommit(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 	if err := git.Verbose("add", "--interactive"); err != nil {
 		return err
 	}
-	return applySaveTarget(cmd, target)
+	if err := applySaveTarget(cmd, target); err != nil {
+		return err
+	}
+	return offerPushAfterSave(cmd, branch)
+}
+
+func offerPushAfterSave(cmd *cobra.Command, branch string) error {
+	if branch == "HEAD" || config.IsBranchProtected(branch) || !state.AreThereRemotes() {
+		return nil
+	}
+	p := prompt.FromContext(cmd.Context())
+	ok, err := p.Confirm("Push?", true)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	return cliruntime.RunWithWorkflows(cmd, pushID, func() error {
+		return pushRun(cmd, nil)
+	})
 }
 
 func pickSaveTarget(cmd *cobra.Command, branch string) (string, error) {
