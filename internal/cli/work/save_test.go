@@ -78,27 +78,127 @@ func TestFormatSaveRelTimePadsNumber(t *testing.T) {
 	}
 }
 
-func TestSaveCommitOffersPushOnConfirmYes(t *testing.T) {
-	m := setupSave(t)
-	m.Repo.Remotes = []string{"origin"}
-	p := &sessionPrompter{confirmYes: true}
-	if err := runSaveCommit(p, nil); err != nil {
-		t.Fatal(err)
-	}
-	if !saveGitHasPush(m) {
-		t.Fatalf("expected push after confirm yes, git %v", saveAllGitActions(m))
+func TestPushAfterSaveChoicesDisplaySentinels(t *testing.T) {
+	choices := pushAfterSaveChoices("feature")
+	for _, c := range choices {
+		switch c.Value {
+		case pushAfterSaveDifferent:
+			if c.Display != "different" {
+				t.Fatalf("different display=%q", c.Display)
+			}
+		case pushAfterSaveSkip:
+			if c.Display != "no" {
+				t.Fatalf("skip display=%q", c.Display)
+			}
+		case "feature":
+			if c.Display != "" {
+				t.Fatalf("branch display=%q", c.Display)
+			}
+		default:
+			t.Fatalf("unexpected value %q", c.Value)
+		}
 	}
 }
 
-func TestSaveCommitSkipsPushOnConfirmNo(t *testing.T) {
+func TestSaveCommitOffersPushOnDefaultBranch(t *testing.T) {
 	m := setupSave(t)
 	m.Repo.Remotes = []string{"origin"}
-	p := &sessionPrompter{confirmYes: false}
+	p := &sessionPrompter{}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !saveGitHasPushRef(m, "feature:feature") {
+		t.Fatalf("expected push to feature, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitSkipsPushOnPickNo(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.Remotes = []string{"origin"}
+	p := &sessionPrompter{picks: []string{pushAfterSaveSkip}}
 	if err := runSaveCommit(p, nil); err != nil {
 		t.Fatal(err)
 	}
 	if saveGitHasPush(m) {
 		t.Fatalf("unexpected push, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitPushNewBranchName(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.Remotes = []string{"origin"}
+	p := &sessionPrompter{picks: []string{pushAfterSaveDifferent}, strings: []string{"other-branch"}}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !saveGitHasPushRef(m, "feature:other-branch") {
+		t.Fatalf("expected push to other-branch, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitPushRejectsInvalidBranchName(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.Remotes = []string{"origin"}
+	p := &sessionPrompter{picks: []string{pushAfterSaveDifferent}, strings: []string{"bad name", "datadog-alerts"}}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if p.stringIdx != 2 {
+		t.Fatalf("string prompts=%d", p.stringIdx)
+	}
+	if !saveGitHasPushRef(m, "feature:datadog-alerts") {
+		t.Fatalf("expected push to datadog-alerts, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitPushBranchNamedNew(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.CurrentBranch = "new"
+	m.Repo.Remotes = []string{"origin"}
+	p := &sessionPrompter{}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !saveGitHasPushRef(m, "new:new") {
+		t.Fatalf("expected push to new:new, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitPushBranchNamedNo(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.CurrentBranch = "no"
+	m.Repo.Remotes = []string{"origin"}
+	p := &sessionPrompter{}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !saveGitHasPushRef(m, "no:no") {
+		t.Fatalf("expected push to no:no, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitSaveSucceedsWhenPushCancelled(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.Remotes = []string{"origin"}
+	p := &sessionPrompter{pickErr: prompt.ErrUserCancelled}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if saveGitHasPush(m) {
+		t.Fatalf("unexpected push, git %v", saveAllGitActions(m))
+	}
+}
+
+func TestSaveCommitSaveSucceedsWhenPushFails(t *testing.T) {
+	m := setupSave(t)
+	m.Repo.Remotes = []string{"origin"}
+	m.FailOn["push --set-upstream --force origin feature:feature"] = errors.New("rejected")
+	p := &sessionPrompter{}
+	if err := runSaveCommit(p, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !saveGitHasPush(m) {
+		t.Fatal("expected push attempt")
 	}
 }
 
@@ -474,6 +574,15 @@ func saveAllGitActions(m *git.MemoryRunner) []string {
 func saveGitHasPush(m *git.MemoryRunner) bool {
 	for _, c := range m.Calls {
 		if len(c.Args) > 0 && c.Args[0] == "push" {
+			return true
+		}
+	}
+	return false
+}
+
+func saveGitHasPushRef(m *git.MemoryRunner, refSpec string) bool {
+	for _, c := range m.Calls {
+		if len(c.Args) > 0 && c.Args[0] == "push" && slices.Contains(c.Args, refSpec) {
 			return true
 		}
 	}

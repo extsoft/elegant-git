@@ -171,17 +171,29 @@ type sessionPrompter struct {
 	idx         int
 	asked       []string
 	pickChoices [][]prompt.Choice
-	confirmYes  bool
+	pickErr     error
+	strings     []string
+	stringIdx   int
 }
 
-func (p *sessionPrompter) String(string, string) (string, error) { return "", nil }
-func (p *sessionPrompter) Confirm(string, bool) (bool, error)    { return p.confirmYes, nil }
+func (p *sessionPrompter) String(string, string) (string, error) {
+	if p.stringIdx < len(p.strings) {
+		v := p.strings[p.stringIdx]
+		p.stringIdx++
+		return v, nil
+	}
+	return "", nil
+}
+func (p *sessionPrompter) Confirm(string, bool) (bool, error) { return false, nil }
 func (p *sessionPrompter) Choose(string, []string) (int, error) {
 	return -1, prompt.ErrNonInteractive
 }
 func (p *sessionPrompter) Pick(question string, choices []prompt.Choice, def string) (string, error) {
 	p.asked = append(p.asked, question)
 	p.pickChoices = append(p.pickChoices, append([]prompt.Choice(nil), choices...))
+	if p.pickErr != nil {
+		return "", p.pickErr
+	}
 	if p.idx < len(p.picks) {
 		v := p.picks[p.idx]
 		p.idx++

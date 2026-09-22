@@ -254,7 +254,7 @@ func TestFinalizePickScreen(t *testing.T) {
 	fmt.Fprintln(out, "prior output")
 	finalizePickScreen(out, "What now", "quit", 0)
 	got := out.String()
-	if !strings.Contains(got, "\033[1;34mWhat now: \033[mquit\r\n\r\n") {
+	if !strings.Contains(got, "\033[1;34mWhat now: \033[mquit\r\n") {
 		t.Fatalf("got %q", got)
 	}
 }
@@ -266,7 +266,7 @@ func TestFinalizePickScreenClearsListThenCRLF(t *testing.T) {
 	if !strings.Contains(got, "\033[4A") {
 		t.Fatalf("expected cursor back to prompt after erasing 5 lines: %q", got)
 	}
-	if !strings.Contains(got, "\033[1;34mWhat now: \033[mlist\r\n\r\n") {
+	if !strings.Contains(got, "\033[1;34mWhat now: \033[mlist\r\n") {
 		t.Fatalf("got %q", got)
 	}
 }

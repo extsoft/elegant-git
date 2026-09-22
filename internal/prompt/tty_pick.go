@@ -248,7 +248,7 @@ func erasePickBlock(out io.Writer, lines int) {
 
 func finalizePickScreen(out io.Writer, label, value string, prevLines int) {
 	erasePickBlock(out, prevLines)
-	fmt.Fprintf(out, "\r\033[1;34m%s: \033[m%s\r\n\r\n", label, value)
+	fmt.Fprintf(out, "\r\033[1;34m%s: \033[m%s\r\n", label, value)
 	flushWriter(out)
 }
 

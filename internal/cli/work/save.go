@@ -2,6 +2,7 @@ package work
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -23,6 +24,8 @@ var saveID = cmdid.ID{Command: "work", Action: "save"}
 
 const saveTargetNew = "new"
 const saveTargetHEAD = "HEAD"
+const pushAfterSaveDifferent = "__push_different__"
+const pushAfterSaveSkip = "__push_skip__"
 const saveCommitLogFormat = "%h%x09%at%x09%s"
 
 var saveNowUnix = func() int64 { return time.Now().Unix() }
@@ -123,16 +126,65 @@ func offerPushAfterSave(cmd *cobra.Command, branch string) error {
 		return nil
 	}
 	p := prompt.FromContext(cmd.Context())
-	ok, err := p.Confirm("Push?", true)
-	if err != nil {
-		return err
-	}
-	if !ok {
+	if prompt.NonInteractive(p) {
 		return nil
 	}
-	return cliruntime.RunWithWorkflows(cmd, pushID, func() error {
-		return pushRun(cmd, nil)
-	})
+	defaultBranch := pushRemoteBranch(branch, "", cliruntime.BranchUpstreamShort(branch))
+	choices := pushAfterSaveChoices(defaultBranch)
+	ans, err := p.Pick("Push?", choices, defaultBranch)
+	if err != nil {
+		if errors.Is(err, prompt.ErrUserCancelled) {
+			return nil
+		}
+		return err
+	}
+	if ans == pushAfterSaveSkip {
+		return nil
+	}
+	remoteBranch := ans
+	if ans == pushAfterSaveDifferent {
+		remoteBranch, err = pickPushRemoteBranchName(p)
+		if err != nil {
+			if errors.Is(err, prompt.ErrUserCancelled) {
+				return nil
+			}
+			return err
+		}
+	}
+	if err := cliruntime.RunWithWorkflows(cmd, pushID, func() error {
+		return pushRun(cmd, []string{remoteBranch})
+	}); err != nil {
+		text.ErrorText("Saved, but push failed: " + err.Error())
+		return nil
+	}
+	return nil
+}
+
+func pushAfterSaveChoices(defaultBranch string) []prompt.Choice {
+	return []prompt.Choice{
+		{Value: defaultBranch, Description: "Publish to this branch."},
+		{Value: pushAfterSaveDifferent, Display: "different", Description: "Publish to a different branch name."},
+		{Value: pushAfterSaveSkip, Display: "no", Description: "Do not push."},
+	}
+}
+
+func pickPushRemoteBranchName(p prompt.Prompter) (string, error) {
+	for {
+		name, err := p.String("Branch name", "")
+		if err != nil {
+			return "", err
+		}
+		name = strings.TrimSpace(name)
+		if name == "" {
+			text.ErrorText("Branch name is required.")
+			continue
+		}
+		if err := git.CheckBranchName(name); err != nil {
+			text.ErrorText(fmt.Sprintf("Invalid branch name %q: %s", name, err.Error()))
+			continue
+		}
+		return name, nil
+	}
 }
 
 func pickSaveTarget(cmd *cobra.Command, branch string) (string, error) {

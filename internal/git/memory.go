@@ -151,6 +151,12 @@ func (m *MemoryRunner) simulate(args []string) (string, error) {
 	if len(args) > 0 && args[0] == "config" {
 		return m.handleConfig(args)
 	}
+	if len(args) == 3 && args[0] == "check-ref-format" && args[1] == "--branch" {
+		if err := validateBranchName(args[2]); err != nil {
+			return "", fmt.Errorf("fatal: bad refname %s", args[2])
+		}
+		return "", nil
+	}
 	switch m.key(args) {
 	case "rev-parse --show-toplevel":
 		return "/repo", nil
