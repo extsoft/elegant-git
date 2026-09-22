@@ -197,7 +197,11 @@ func askChoices(s snapshot) []prompt.Choice {
 	opts := askOptions(s)
 	out := make([]prompt.Choice, len(opts))
 	for i, action := range opts {
-		out[i] = prompt.Choice{Value: action, Description: workActionPurpose[action]}
+		c := prompt.Choice{Value: action, Description: workActionPurpose[action]}
+		if action != "quit" {
+			c.Display = "work " + action
+		}
+		out[i] = c
 	}
 	return out
 }

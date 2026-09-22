@@ -198,6 +198,13 @@ func TestAskOptions(t *testing.T) {
 				if workActionPurpose[c.Value] == "" || c.Description != workActionPurpose[c.Value] {
 					t.Fatalf("choice[%d] desc=%q", i, c.Description)
 				}
+				wantDisplay := ""
+				if c.Value != "quit" {
+					wantDisplay = "work " + c.Value
+				}
+				if c.Display != wantDisplay {
+					t.Fatalf("choice[%d] display=%q want %q", i, c.Display, wantDisplay)
+				}
 			}
 		})
 	}

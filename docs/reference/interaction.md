@@ -83,10 +83,10 @@ or more options you get [the picker](#picker), showing each action and its purpo
 
 ```text
 What now:
-> quit    Leave without another action.
-  start   Creates a new branch.
-  track   Checks out a remote-tracking branch.
-  list    Prints HEAD state.
+> quit          Leave without another action.
+  work start    Creates a new branch.
+  work track    Checks out a remote-tracking branch.
+  work list     Prints HEAD state.
 ```
 
 ## Questions
@@ -178,17 +178,17 @@ instead.
 
 ```text
 What now:
-> start   Creates a new branch.
-  save    Commits current modifications.
-  list    Prints HEAD state.
-  quit    Leave without another action.
+> work start    Creates a new branch.
+  work save     Commits current modifications.
+  work list     Prints HEAD state.
+  quit          Leave without another action.
 ```
 
 Descriptions are not free text — each list has its own convention:
 
 | List | Description |
 | --- | --- |
-| `work` and `workspace` "What now" | The purpose of the action (`start` → "Creates a new branch."). `quit` → "Leave without another action." |
+| `work` and `workspace` "What now" | Object and action in the option (`work start`, `workspace list`); purpose from the action catalog. `quit` has no object prefix. |
 | Local branches | The upstream remote-tracking ref when one is set (`feat` → `origin/feat`), and nothing otherwise |
 | Remote-only lists, tags | None |
 | Workspaces | The identity, as `Name <email>`, truncated to 70 characters |

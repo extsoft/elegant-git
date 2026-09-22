@@ -61,6 +61,13 @@ func TestDetectAlwaysAsks(t *testing.T) {
 				if c.Description == "" {
 					t.Fatalf("missing description for %q", c.Value)
 				}
+				wantDisplay := ""
+				if c.Value != "quit" {
+					wantDisplay = "workspace " + c.Value
+				}
+				if c.Display != wantDisplay {
+					t.Fatalf("display for %q=%q want %q", c.Value, c.Display, wantDisplay)
+				}
 			}
 		})
 	}
