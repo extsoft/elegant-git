@@ -59,6 +59,12 @@ An action is what you do to an object. Together they are named `{object}.{action
 `work.start`. That dotted form is what you pass to [`hook new`](10-02-hook-new.md)
 and what appears in per-command state, so it is worth recognizing.
 
+Running `eg` with no object prints help outside a work tree, in a repository with no
+commits, and when prompts are off
+(`--non-interactive`, `CI`, or a non-TTY). Inside a repository with prompts on, it runs the
+detected work action. When detection does not choose an action, or that action still leaves a
+choice, it opens a picker of the commands that fit that repository and runs the one you choose.
+
 Running `eg <object>` with no action prints the action list, except for `work` and `workspace`:
 in interactive mode those two detect the next action from context, or ask you when more than one
 fits. In non-interactive mode an action is always required. See

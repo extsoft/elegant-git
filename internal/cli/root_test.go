@@ -1,12 +1,20 @@
 package cli
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/extsoft/elegant-git/internal/cli/catalog"
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -46,6 +54,514 @@ func TestRootHelpListsObjects(t *testing.T) {
 			t.Errorf("help missing action %q under %s", tc.action, tc.object)
 		}
 	}
+}
+
+func TestBareEgOutsideRepoPrintsHelp(t *testing.T) {
+	bin := buildTestBinary(t)
+	dir := t.TempDir()
+	cmd := exec.Command(bin)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_CEILING_DIRECTORIES="+dir)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("bare eg: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "Objects:") {
+		t.Fatalf("expected help, got: %s", out)
+	}
+}
+
+func TestBareEgInRepoNonInteractivePrintsHelp(t *testing.T) {
+	bin := buildTestBinary(t)
+	dir := t.TempDir()
+	init := exec.Command("git", "init")
+	init.Dir = dir
+	if out, err := init.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	cmd := exec.Command(bin, "--non-interactive")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("bare eg: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "Objects:") {
+		t.Fatalf("expected help, got: %s", out)
+	}
+}
+
+func TestBareEgPickerRunsPickedCommand(t *testing.T) {
+	_, dir := pickerRepo(t)
+	p := &rootPrompter{picks: []string{"work list"}}
+	out := runRootWithPrompter(t, p)
+	if !slices.Equal(choiceValues(p.choices[0]), pickerChoices()) {
+		t.Fatalf("choices %v", choiceValues(p.choices[0]))
+	}
+	if p.labels[0] != filepath.Base(dir) {
+		t.Fatalf("label %q", p.labels[0])
+	}
+	if p.defs[0] != "work start" {
+		t.Fatalf("default %q", p.defs[0])
+	}
+	start := p.choices[0][0]
+	if start.Value != "work start" || start.Description != catalog.Purpose("work", "start") {
+		t.Fatalf("first choice %+v", start)
+	}
+	if !strings.Contains(out, "Branch") {
+		t.Fatalf("work list did not run: %q", out)
+	}
+}
+
+func TestBareEgGitFailureReturnsError(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.FailOn["rev-parse --is-inside-work-tree"] = fmt.Errorf("detected dubious ownership")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(context.Background())
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	err := runRoot(rootCmd, nil)
+	if err == nil {
+		t.Fatal("expected git error")
+	}
+	if strings.Contains(buf.String(), "Objects:") {
+		t.Fatalf("printed help: %s", buf.String())
+	}
+}
+
+func TestBareEgNotRepoMessagePrintsHelp(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.FailOn["rev-parse --is-inside-work-tree"] = fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(context.Background())
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	if err := runRoot(rootCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "Objects:") {
+		t.Fatalf("expected help, got: %s", buf.String())
+	}
+}
+
+func TestBareEgNonInteractiveSkipsGitFailure(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.FailOn["rev-parse --is-inside-work-tree"] = fmt.Errorf("detected dubious ownership")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	if err := runRoot(rootCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "Objects:") {
+		t.Fatalf("expected help, got: %s", buf.String())
+	}
+	if len(m.Calls) != 0 {
+		t.Fatalf("git called: %+v", m.Calls)
+	}
+}
+
+func TestBareEgNotWorkTreePrintsHelp(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --is-inside-work-tree"] = "false"
+	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(context.Background())
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	if err := runRoot(rootCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "Objects:") {
+		t.Fatalf("expected help, got: %s", buf.String())
+	}
+	if hasGitCall(m, "add", "--interactive") {
+		t.Fatal("ran save outside a work tree")
+	}
+}
+
+type cLocaleRunner struct {
+	*git.MemoryRunner
+	locale  string
+	userErr error
+}
+
+func (r *cLocaleRunner) OutputLocale(locale string, args ...string) (string, error) {
+	if strings.Join(args, " ") == "rev-parse --is-inside-work-tree" {
+		r.locale = locale
+		if r.userErr != nil {
+			return "", fmt.Errorf("detected dubious ownership")
+		}
+		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
+	}
+	return r.MemoryRunner.Output(args...)
+}
+
+func (r *cLocaleRunner) Output(args ...string) (string, error) {
+	if r.userErr != nil && strings.Join(args, " ") == "rev-parse --is-inside-work-tree" {
+		return "", r.userErr
+	}
+	return r.MemoryRunner.Output(args...)
+}
+
+func TestBareEgRepoCheckUsesCLocale(t *testing.T) {
+	t.Setenv("LC_ALL", "de_DE.UTF-8")
+	m := &cLocaleRunner{MemoryRunner: git.NewMemoryRunner()}
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(context.Background())
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	if err := runRoot(rootCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	if m.locale != "C" {
+		t.Fatalf("locale during check %q", m.locale)
+	}
+	if os.Getenv("LC_ALL") != "de_DE.UTF-8" {
+		t.Fatalf("LC_ALL left as %q", os.Getenv("LC_ALL"))
+	}
+	if !strings.Contains(buf.String(), "Objects:") {
+		t.Fatalf("expected help, got: %s", buf.String())
+	}
+}
+
+func TestBareEgGitFailureUsesUserLocale(t *testing.T) {
+	t.Setenv("LC_ALL", "de_DE.UTF-8")
+	m := &cLocaleRunner{
+		MemoryRunner: git.NewMemoryRunner(),
+		userErr:      fmt.Errorf("fatal: zweifelhafte Eigentumsverhältnisse"),
+	}
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(context.Background())
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	err := runRoot(rootCmd, nil)
+	if err == nil || !strings.Contains(err.Error(), "zweifelhafte") {
+		t.Fatalf("err %v", err)
+	}
+	if m.locale != "C" || os.Getenv("LC_ALL") != "de_DE.UTF-8" {
+		t.Fatalf("locale %q env %q", m.locale, os.Getenv("LC_ALL"))
+	}
+	if strings.Contains(buf.String(), "Objects:") {
+		t.Fatalf("printed help: %s", buf.String())
+	}
+}
+
+func TestBareEgUnbornHeadPrintsHelp(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --is-inside-work-tree"] = "true"
+	m.FailOn["rev-parse --verify HEAD^{commit}"] = fmt.Errorf("fatal: Needed a single revision")
+	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(context.Background())
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	if err := runRoot(rootCmd, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "Objects:") {
+		t.Fatalf("expected help, got: %s", buf.String())
+	}
+	if hasGitCall(m, "add", "--interactive") {
+		t.Fatal("ran save with no commits")
+	}
+}
+
+func TestBareEgBrokenHeadReturnsError(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --is-inside-work-tree"] = "true"
+	m.Outputs["rev-list --all -1"] = "abc"
+	m.FailOn["rev-parse --verify HEAD^{commit}"] = fmt.Errorf("fatal: Needed a single revision")
+	m.FailOn["rev-list -1 HEAD"] = fmt.Errorf("fatal: bad object HEAD")
+	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(context.Background())
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	err := runRoot(rootCmd, nil)
+	if err == nil || !strings.Contains(err.Error(), "bad object HEAD") {
+		t.Fatalf("err %v", err)
+	}
+	if strings.Contains(buf.String(), "Objects:") {
+		t.Fatalf("printed help: %s", buf.String())
+	}
+	if hasGitCall(m, "add", "--interactive") {
+		t.Fatal("ran save with a broken HEAD")
+	}
+}
+
+func TestBareEgPickerLabelFallsBack(t *testing.T) {
+	m, _ := pickerRepo(t)
+	m.FailOn["rev-parse --show-toplevel"] = fmt.Errorf("fatal: this operation must be run in a work tree")
+	p := &rootPrompter{picks: []string{"quit"}}
+	runRootWithPrompter(t, p)
+	if len(p.labels) != 1 || p.labels[0] != "eg" {
+		t.Fatalf("label %v", p.labels)
+	}
+}
+
+func TestBareEgListThenPickerSkipsList(t *testing.T) {
+	m, _ := pickerRepo(t)
+	m.Outputs["rev-list main..feat"] = ""
+	p := &rootPrompter{picks: []string{"quit"}}
+	runRootWithPrompter(t, p)
+	if len(p.defs) != 1 || p.defs[0] != "work start" {
+		t.Fatalf("default %v choices %v", p.defs, choiceValues(p.choices[0]))
+	}
+}
+
+func TestBareEgDirtyFeatureRunsSave(t *testing.T) {
+	m, _ := pickerRepo(t)
+	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	p := &rootPrompter{}
+	runRootWithPrompter(t, p)
+	if len(p.labels) != 0 {
+		t.Fatalf("prompted %v", p.labels)
+	}
+	if !hasGitCall(m, "add", "--interactive") || !hasGitCall(m, "commit") {
+		t.Fatalf("calls %+v", m.Calls)
+	}
+}
+
+func TestBareEgSyncThenPickerSkipsSync(t *testing.T) {
+	m, _ := pickerRepo(t)
+	m.Outputs["rev-list --left-right --count HEAD...@{upstream}"] = "0\t2"
+	p := &rootPrompter{picks: []string{"quit"}}
+	runRootWithPrompter(t, p)
+	if len(p.choices) != 1 || len(p.choices[0]) == 0 || p.choices[0][0].Value != "work sync" {
+		t.Fatalf("choices %v", p.choices)
+	}
+	if len(p.defs) != 1 || p.defs[0] != "work start" {
+		t.Fatalf("default %v", p.defs)
+	}
+}
+
+func TestBareEgProtectedDivergedInsertsSync(t *testing.T) {
+	m, _ := pickerRepo(t)
+	m.Repo.CurrentBranch = "main"
+	m.Outputs["rev-list --left-right --count HEAD...@{upstream}"] = "1\t2"
+	p := &rootPrompter{picks: []string{"quit"}}
+	runRootWithPrompter(t, p)
+	if len(p.choices) != 1 || len(p.choices[0]) == 0 || p.choices[0][0].Value != "work sync" {
+		t.Fatalf("choices %v", p.choices)
+	}
+	if len(p.defs) != 1 || p.defs[0] != "work sync" {
+		t.Fatalf("default %v", p.defs)
+	}
+}
+
+func TestBareEgAcceptPassesBranch(t *testing.T) {
+	m, _ := pickerRepo(t)
+	m.Outputs["for-each-ref --format=%(refname:short)\t%(upstream:short) refs/heads"] = "feat"
+	p := &rootPrompter{picks: []string{"work accept"}}
+	_, err := runRootErr(t, p)
+	if !hasGitCall(m, "checkout", "-B", "__eg", "feat") {
+		t.Fatalf("accept branch: err=%v calls=%+v", err, m.Calls)
+	}
+}
+
+func TestBareEgPickerCancelReturnsError(t *testing.T) {
+	pickerRepo(t)
+	p := &rootPrompter{pickErr: prompt.ErrUserCancelled}
+	_, err := runRootErr(t, p)
+	if !errors.Is(err, prompt.ErrUserCancelled) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestBareEgPickerQuitRunsNothing(t *testing.T) {
+	pickerRepo(t)
+	p := &rootPrompter{picks: []string{"quit"}}
+	out := runRootWithPrompter(t, p)
+	if !slices.Equal(choiceValues(p.choices[0]), pickerChoices()) {
+		t.Fatalf("choices %v", choiceValues(p.choices[0]))
+	}
+	if strings.Contains(out, "Branch") || strings.Contains(out, "Objects:") {
+		t.Fatalf("quit ran something: %q", out)
+	}
+}
+
+func TestBareEgPickerHelpThenQuit(t *testing.T) {
+	pickerRepo(t)
+	p := &rootPrompter{picks: []string{"help", "quit"}}
+	out := runRootWithPrompter(t, p)
+	if len(p.labels) != 2 {
+		t.Fatalf("asked %v", p.labels)
+	}
+	if !strings.Contains(out, "Objects:") {
+		t.Fatalf("help missing: %q", out)
+	}
+	if strings.Contains(out, "Branch") {
+		t.Fatalf("help ran a command: %q", out)
+	}
+}
+
+func pickerRepo(t *testing.T) (*git.MemoryRunner, string) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(dir, "state.json"))
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(dir, "repo-state.json"))
+	m := git.NewMemoryRunner()
+	m.Repo.CurrentBranch = "feat"
+	m.Outputs["rev-parse --git-dir"] = filepath.Join(dir, ".git")
+	m.Outputs["rev-parse --is-inside-work-tree"] = "true"
+	m.Outputs["rev-parse --show-toplevel"] = dir
+	m.Outputs["rev-list main..feat"] = "abc"
+	m.Repo.LocalConfig["elegant-git.repo-id"] = "abc"
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	return m, dir
+}
+
+func hasGitCall(m *git.MemoryRunner, args ...string) bool {
+	for _, c := range m.Calls {
+		if slices.Equal(c.Args, args) {
+			return true
+		}
+	}
+	return false
+}
+
+func pickerChoices() []string {
+	return []string{
+		"work start", "work accept", "work list",
+		"repo list", "repo sync", "repo prune", "repo configure", "repo doctor",
+		"workspace new",
+		"hook list", "hook new", "hook edit",
+		"release new", "release notes",
+		"help", "quit",
+	}
+}
+
+func choiceValues(choices []prompt.Choice) []string {
+	out := make([]string, len(choices))
+	for i, c := range choices {
+		out[i] = c.Value
+	}
+	return out
+}
+
+func runRootWithPrompter(t *testing.T, p *rootPrompter) string {
+	t.Helper()
+	out, err := runRootErr(t, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func runRootErr(t *testing.T, p *rootPrompter) (string, error) {
+	t.Helper()
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetContext(prompt.WithPrompter(context.Background(), p))
+	t.Cleanup(func() {
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
+		rootCmd.SetContext(context.Background())
+	})
+	err := runRoot(rootCmd, nil)
+	return buf.String(), err
+}
+
+type rootPrompter struct {
+	picks   []string
+	pickErr error
+	idx     int
+	labels  []string
+	defs    []string
+	choices [][]prompt.Choice
+}
+
+func (p *rootPrompter) String(string, string) (string, error) { return "", prompt.ErrNonInteractive }
+func (p *rootPrompter) Confirm(string, bool) (bool, error)    { return false, nil }
+func (p *rootPrompter) Choose(string, []string) (int, error) {
+	return -1, prompt.ErrNonInteractive
+}
+func (p *rootPrompter) Pick(label string, choices []prompt.Choice, def string) (string, error) {
+	p.labels = append(p.labels, label)
+	p.defs = append(p.defs, def)
+	p.choices = append(p.choices, append([]prompt.Choice(nil), choices...))
+	if p.pickErr != nil {
+		return "", p.pickErr
+	}
+	if p.idx < len(p.picks) {
+		v := p.picks[p.idx]
+		p.idx++
+		return v, nil
+	}
+	if def != "" {
+		return def, nil
+	}
+	return "", prompt.ErrNonInteractive
+}
+func (p *rootPrompter) Required(string, string) error { return nil }
+func (p *rootPrompter) EditOrAccept(string, string) (string, error) {
+	return "", prompt.ErrNonInteractive
+}
+func (p *rootPrompter) Optional(string, string) (string, error) { return "", nil }
+func (p *rootPrompter) Closed(string, []string, string, bool) (string, error) {
+	return "", prompt.ErrNonInteractive
+}
+func (p *rootPrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
+	return prompt.BatchSkip, nil
 }
 
 func TestUnknownCommandExit46(t *testing.T) {

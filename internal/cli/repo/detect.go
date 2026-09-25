@@ -2,6 +2,7 @@ package repo
 
 import (
 	"github.com/extsoft/elegant-git/internal/cli/catalog"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/memory/repoid"
 	"github.com/extsoft/elegant-git/internal/prompt"
@@ -56,6 +57,11 @@ func askOptions(s snapshot) []string {
 		return []string{"configure", "list", "prune", "doctor", "help", "quit"}
 	}
 	return []string{"list", "sync", "prune", "configure", "doctor", "help", "quit"}
+}
+
+// RelevantActions returns in-repo repo actions. help and quit are omitted.
+func RelevantActions() []string {
+	return cliruntime.WithoutHelpQuit(askOptions(inspect()))
 }
 
 func askChoices(s snapshot) []prompt.Choice {

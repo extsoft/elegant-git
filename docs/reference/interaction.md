@@ -51,6 +51,24 @@ interactive mode — Elegant Git detects the action from the context, or asks yo
 fits. In non-interactive mode there is nothing to detect against, so an action is required and the
 command fails without one.
 
+A bare `eg` on a terminal inside a git repository runs the work action that detection would run for
+`eg work`. A final action, such as `save` on a dirty feature branch, ends the command. When
+detection runs an action and then asks, or chooses nothing, `eg` opens one picker of commands that
+fit that repository. The rows are the `work`, `repo`, and `workspace` actions those objects would
+already offer, with the detected `work` action first, then every `hook` and `release` action, then
+`help` and `quit`. When the branch is behind upstream and detection still asks, `work sync` is
+inserted at the front of that list. A protected branch that is ahead as well as behind is the usual
+case; the usual `work` list omits `sync` there. A detached `HEAD` or a rebase in progress does not
+gain `sync`. The first row is selected, unless that row is the action detection just ran; then the
+next row is selected. `quit` runs nothing. `help` prints root help and asks again.
+Esc cancels the picker and the command fails, as `eg work` does.
+`work accept` passes the current branch the same way bare `eg work` does.
+When detection chooses nothing, the picker opens without the detection block. `eg work`
+prints that block in the same situation.
+Outside a repository, inside a bare repository or a `.git` directory, in a repository
+with no commits, or when prompts are off, bare `eg` prints help. Prompts are checked
+first, so a git error does not replace that help.
+
 Which checks apply depends on the object: see [work](../08-00-work.md) for `work` and
 [workspace](../06-00-workspace.md) for `workspace`.
 
@@ -191,6 +209,7 @@ Descriptions are not free text — each list has its own convention:
 | List | Description |
 | --- | --- |
 | `work`, `workspace`, and `repo` "What now" | Object and action in the option (`work start`, `workspace list`, `repo help`); purpose from the action catalog. `quit` has no object prefix. |
+| Bare `eg` | Full command (`work save`) and the catalog purpose. `help` and `quit` have no object prefix. |
 | Local branches | The upstream remote-tracking ref when one is set (`feat` → `origin/feat`), and nothing otherwise |
 | Remote-only lists, tags | None |
 | Workspaces | The identity, as `Name <email>`, truncated to 70 characters |

@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"github.com/extsoft/elegant-git/internal/cli/catalog"
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/memory/repoid"
 	"github.com/extsoft/elegant-git/internal/memory/shared"
@@ -88,6 +89,11 @@ func askOptions(s snapshot) []string {
 		opts = []string{"list", "new", "link", "edit", "delete", "fetch", "doctor"}
 	}
 	return append(opts, "help", "quit")
+}
+
+// RelevantActions returns in-repo workspace actions. help and quit are omitted.
+func RelevantActions() []string {
+	return cliruntime.WithoutHelpQuit(askOptions(inspect()))
 }
 
 func askChoices(s snapshot) []prompt.Choice {

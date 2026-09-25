@@ -7,8 +7,11 @@ permalink: /getting-started/
 
 # Getting started
 
-Commands follow `eg <object> <action>`. A bare `eg` or `eg <object>` lists the available
-actions or runs context-based interactive flow.
+Commands follow `eg <object> <action>`. Outside a work tree, in a repository with no commits, or when prompts are off, a bare
+`eg` prints help. Inside a repository it runs the work action detected from the current state, the
+same way `eg work` does. When that detection has nothing to run, or it runs an action and still
+needs a choice, it opens a picker of the commands that fit and runs the one you choose. A bare
+`eg <object>` lists that object's actions or runs its context-based flow.
 
 ## Git configuration
 

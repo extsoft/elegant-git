@@ -1,6 +1,8 @@
 package work
 
 import (
+	"fmt"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -208,6 +210,71 @@ func TestAskOptions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRelevantActionsDirtySaveFirst(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(dir, "repo-state.json"))
+	m := git.NewMemoryRunner()
+	m.Repo.CurrentBranch = "feat"
+	m.Outputs["rev-parse --git-dir"] = filepath.Join(dir, ".git")
+	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	got := relevantFrom(inspect())
+	if len(got) == 0 || got[0] != "save" {
+		t.Fatalf("got %v", got)
+	}
+	if slices.Contains(got, "help") || slices.Contains(got, "quit") || slices.Contains(got, "sync") {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestRelevantActionsSyncWhenBehind(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(dir, "repo-state.json"))
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --git-dir"] = filepath.Join(dir, ".git")
+	m.Outputs["rev-list --left-right --count HEAD...@{upstream}"] = "0\t3"
+	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	m.Repo.CurrentBranch = "feat"
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	got := relevantFrom(inspect())
+	if len(got) < 2 || got[0] != "sync" || got[1] != "save" {
+		t.Fatalf("dirty behind: %v", got)
+	}
+
+	m.FailOn["diff-index --quiet HEAD"] = nil
+	m.Outputs["rev-list --left-right --count HEAD...@{upstream}"] = "1\t2"
+	m.Repo.CurrentBranch = "main"
+	got = relevantFrom(inspect())
+	if len(got) == 0 || got[0] != "sync" {
+		t.Fatalf("protected diverged: %v", got)
+	}
+
+	m.Repo.CurrentBranch = "HEAD"
+	got = relevantFrom(inspect())
+	if slices.Contains(got, "sync") {
+		t.Fatalf("detached: %v", got)
+	}
+}
+
+func TestAcceptArgs(t *testing.T) {
+	if !slices.Equal(acceptArgs(snapshot{Branch: "feat"}), []string{"feat"}) {
+		t.Fatal("feat")
+	}
+	if args := acceptArgs(snapshot{Branch: "main", Protected: true}); len(args) != 0 {
+		t.Fatalf("protected %v", args)
+	}
+	if args := acceptArgs(snapshot{Branch: "HEAD", Detached: true}); len(args) != 0 {
+		t.Fatalf("detached %v", args)
+	}
+	if args := acceptArgs(snapshot{}); len(args) != 0 {
+		t.Fatalf("empty %v", args)
 	}
 }
 

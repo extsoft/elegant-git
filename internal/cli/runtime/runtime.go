@@ -21,6 +21,37 @@ import (
 
 const SiteURL = "https://elegant-git.extsoft.pro"
 
+// Bind copies the parent's context and output streams onto sub.
+func Bind(parent, sub *cobra.Command) {
+	sub.SetContext(parent.Context())
+	sub.SetOut(parent.OutOrStdout())
+	sub.SetErr(parent.ErrOrStderr())
+}
+
+// RunBound copies the parent's context and output streams onto sub, then runs sub.
+func RunBound(parent, sub *cobra.Command, args []string) error {
+	Bind(parent, sub)
+	if sub.RunE != nil {
+		return sub.RunE(sub, args)
+	}
+	if sub.Run != nil {
+		sub.Run(sub, args)
+	}
+	return nil
+}
+
+// WithoutHelpQuit drops the help and quit rows from an action list.
+func WithoutHelpQuit(opts []string) []string {
+	out := make([]string, 0, len(opts))
+	for _, action := range opts {
+		if action == "help" || action == "quit" {
+			continue
+		}
+		out = append(out, action)
+	}
+	return out
+}
+
 type stdinKeyType struct{}
 
 var stdinKey = stdinKeyType{}

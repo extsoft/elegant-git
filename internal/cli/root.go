@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -42,9 +43,174 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	Version:       version.Version,
-	Run: func(cmd *cobra.Command, _ []string) {
+	RunE:          runRoot,
+}
+
+func runRoot(cmd *cobra.Command, _ []string) error {
+	p := prompt.FromContext(cmd.Context())
+	if prompt.NonInteractive(p) {
 		clicatalog.WriteRootUsage(cmd.OutOrStdout())
-	},
+		return nil
+	}
+	inside, err := inGitRepo()
+	if err != nil {
+		return err
+	}
+	if !inside {
+		clicatalog.WriteRootUsage(cmd.OutOrStdout())
+		return nil
+	}
+	hasCommit, err := headResolves()
+	if err != nil {
+		return err
+	}
+	if !hasCommit {
+		clicatalog.WriteRootUsage(cmd.OutOrStdout())
+		return nil
+	}
+	detected, err := runDetectedWork(cmd)
+	if err != nil || !detected.Ask {
+		return err
+	}
+	choices := rootChoices(detected.Actions)
+	ans, err := cliruntime.PickActionOrHelp(cmd, p, repoPickerLabel(), choices, pickerDefault(choices, detected.Ran))
+	if err != nil {
+		return err
+	}
+	if ans == "" || ans == "quit" {
+		return nil
+	}
+	object, action, _ := strings.Cut(ans, " ")
+	var args []string
+	if object == "work" && action == "accept" {
+		args = detected.Accept
+	}
+	return dispatchRoot(cmd, object, action, args)
+}
+
+func inGitRepo() (bool, error) {
+	out, err := git.OutputC("rev-parse", "--is-inside-work-tree")
+	out = strings.TrimSpace(out)
+	if err == nil {
+		return out == "true", nil
+	}
+	msg := strings.TrimSpace(out + "\n" + err.Error())
+	if strings.Contains(msg, "not a git repository") {
+		return false, nil
+	}
+	out, err = git.Output("rev-parse", "--is-inside-work-tree")
+	out = strings.TrimSpace(out)
+	if err == nil {
+		return out == "true", nil
+	}
+	if out != "" {
+		return false, errors.New(out)
+	}
+	return false, err
+}
+
+func headResolves() (bool, error) {
+	if _, err := git.OutputC("rev-parse", "--verify", "HEAD^{commit}"); err == nil {
+		return true, nil
+	}
+	all, err := git.OutputC("rev-list", "--all", "-1")
+	if err == nil && strings.TrimSpace(all) == "" {
+		return false, nil
+	}
+	out, err := git.Output("rev-list", "-1", "HEAD")
+	if err == nil {
+		return true, nil
+	}
+	out = strings.TrimSpace(out)
+	if out != "" {
+		return false, errors.New(out)
+	}
+	return false, err
+}
+
+func runDetectedWork(cmd *cobra.Command) (workcmd.Detected, error) {
+	work, _, err := cmd.Find([]string{"work"})
+	if err != nil {
+		return workcmd.Detected{}, err
+	}
+	cliruntime.Bind(cmd, work)
+	return workcmd.RunDetected(work)
+}
+
+func repoPickerLabel() string {
+	out, err := git.Output("rev-parse", "--show-toplevel")
+	if err != nil {
+		return "eg"
+	}
+	line := strings.TrimSpace(out)
+	if line == "" || strings.ContainsAny(line, "\r\n") {
+		return "eg"
+	}
+	name := filepath.Base(line)
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		return "eg"
+	}
+	return name
+}
+
+func pickerDefault(choices []prompt.Choice, ran string) string {
+	skip := ""
+	if ran != "" {
+		skip = "work " + ran
+	}
+	for _, c := range choices {
+		if c.Value != skip {
+			return c.Value
+		}
+	}
+	return "quit"
+}
+
+func rootChoices(workActions []string) []prompt.Choice {
+	var choices []prompt.Choice
+	add := func(object string, actions []string) {
+		for _, action := range actions {
+			choices = append(choices, prompt.Choice{
+				Value:       object + " " + action,
+				Description: clicatalog.Purpose(object, action),
+			})
+		}
+	}
+	add("work", workActions)
+	add("repo", repocmd.RelevantActions())
+	add("workspace", workspacecmd.RelevantActions())
+	add("hook", catalogActions("hook"))
+	add("release", catalogActions("release"))
+	choices = append(choices,
+		prompt.Choice{Value: "help", Description: clicatalog.Purpose("eg", "help")},
+		prompt.Choice{Value: "quit", Description: clicatalog.Purpose("eg", "quit")},
+	)
+	return choices
+}
+
+func catalogActions(object string) []string {
+	for _, g := range clicatalog.Groups {
+		if g.Object != object {
+			continue
+		}
+		out := make([]string, len(g.Commands))
+		for i, c := range g.Commands {
+			out[i] = c.Action
+		}
+		return out
+	}
+	return nil
+}
+
+func dispatchRoot(cmd *cobra.Command, object, action string, args []string) error {
+	sub, _, err := cmd.Find([]string{object, action})
+	if err != nil {
+		return cliruntime.NewUsageError(cmd, err)
+	}
+	if sub == cmd || sub.Name() != action {
+		return cliruntime.NewUsageError(cmd, fmt.Errorf("unknown command %q", object+" "+action))
+	}
+	return cliruntime.RunBound(cmd, sub, args)
 }
 
 // Execute runs the eg CLI.

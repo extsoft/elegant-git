@@ -57,8 +57,23 @@ func StreamLines(lineFn func(string), args ...string) error {
 	return current.StreamLines(lineFn, args...)
 }
 
+type localeRunner interface {
+	OutputLocale(locale string, args ...string) (string, error)
+}
+
 // Output runs git quietly and returns combined stdout/stderr.
 func Output(args ...string) (string, error) {
+	return current.Output(args...)
+}
+
+// OutputC runs git with LC_ALL=C on that process only.
+func OutputC(args ...string) (string, error) {
+	if lr, ok := current.(localeRunner); ok {
+		return lr.OutputLocale("C", args...)
+	}
+	if _, ok := current.(RealRunner); ok {
+		return outputWithEnv([]string{"LC_ALL=C"}, args...)
+	}
 	return current.Output(args...)
 }
 

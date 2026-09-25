@@ -81,7 +81,14 @@ func streamGitLines(echo bool, lineFn func(string), args ...string) error {
 }
 
 func (RealRunner) Output(args ...string) (string, error) {
+	return outputWithEnv(nil, args...)
+}
+
+func outputWithEnv(extra []string, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
+	if len(extra) > 0 {
+		cmd.Env = append(os.Environ(), extra...)
+	}
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf

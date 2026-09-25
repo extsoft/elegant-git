@@ -11,21 +11,64 @@ import (
 
 var dispatchAction = dispatch
 
+// Detected is the work detection result for a following picker.
+// Ask is true when the caller should still prompt. Ran is the action already run
+// when detection still asks. Accept is the branch argument for a later work accept,
+// from the same snapshot as Actions.
+type Detected struct {
+	Actions []string
+	Ask     bool
+	Ran     string
+	Accept  []string
+}
+
+// RunDetected runs the action detection chooses for this repository.
+func RunDetected(cmd *cobra.Command) (Detected, error) {
+	snap := inspect()
+	ask, ran, err := dispatchDetected(cmd, detect(snap))
+	if err != nil || !ask {
+		return Detected{Ask: ask, Ran: ran}, err
+	}
+	if ran != "" {
+		snap = inspect()
+	}
+	return Detected{
+		Actions: relevantFrom(snap),
+		Ask:     true,
+		Ran:     ran,
+		Accept:  acceptArgs(snap),
+	}, nil
+}
+
 func runSession(cmd *cobra.Command, inspectFn func() snapshot) error {
 	snap := inspectFn()
 	d := detect(snap)
-	printEval(d.Steps)
-	if d.Action != "" && !d.ThenAsk {
-		return dispatchAction(cmd, d.Action)
+	if d.Action == "" {
+		printEval(d.Steps)
+	}
+	ask, _, err := dispatchDetected(cmd, d)
+	if err != nil || !ask {
+		return err
 	}
 	if d.Action != "" {
-		if err := dispatchAction(cmd, d.Action); err != nil {
-			return err
-		}
-		text.PlainText("selected: ask")
 		snap = inspectFn()
 	}
 	return askOnce(cmd, snap)
+}
+
+func dispatchDetected(cmd *cobra.Command, d outcome) (ask bool, ran string, err error) {
+	if d.Action == "" {
+		return true, "", nil
+	}
+	printEval(d.Steps)
+	if err := dispatchAction(cmd, d.Action); err != nil {
+		return false, d.Action, err
+	}
+	if !d.ThenAsk {
+		return false, d.Action, nil
+	}
+	text.PlainText("selected: ask")
+	return true, d.Action, nil
 }
 
 func askOnce(cmd *cobra.Command, snap snapshot) error {
@@ -38,8 +81,8 @@ func askOnce(cmd *cobra.Command, snap snapshot) error {
 		return nil
 	}
 	var args []string
-	if ans == "accept" && !snap.Protected && !snap.Detached && snap.Branch != "" {
-		args = []string{snap.Branch}
+	if ans == "accept" {
+		args = acceptArgs(snap)
 	}
 	return dispatchAction(cmd, ans, args...)
 }
@@ -62,14 +105,5 @@ func dispatch(cmd *cobra.Command, action string, args ...string) error {
 	if sub == cmd {
 		return cliruntime.NewUsageError(cmd, fmt.Errorf("unknown work action %q", action))
 	}
-	sub.SetContext(cmd.Context())
-	sub.SetOut(cmd.OutOrStdout())
-	sub.SetErr(cmd.ErrOrStderr())
-	if sub.RunE != nil {
-		return sub.RunE(sub, args)
-	}
-	if sub.Run != nil {
-		sub.Run(sub, nil)
-	}
-	return nil
+	return cliruntime.RunBound(cmd, sub, args)
 }

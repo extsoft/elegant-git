@@ -2,6 +2,7 @@ package work
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -180,6 +181,35 @@ func askOptions(s snapshot) []string {
 		opts = append(opts, "push", "track")
 	}
 	return append(opts, "help", "quit")
+}
+
+func relevantFrom(s snapshot) []string {
+	detected := detect(s).Action
+	var out []string
+	if detected != "" {
+		out = append(out, detected)
+	}
+	for _, action := range cliruntime.WithoutHelpQuit(askOptions(s)) {
+		if action == detected {
+			continue
+		}
+		out = append(out, action)
+	}
+	return includeSync(out, s)
+}
+
+func includeSync(actions []string, s snapshot) []string {
+	if s.Detached || s.Rebasing || s.Behind <= 0 || slices.Contains(actions, "sync") {
+		return actions
+	}
+	return append([]string{"sync"}, actions...)
+}
+
+func acceptArgs(s snapshot) []string {
+	if s.Protected || s.Detached || s.Branch == "" {
+		return nil
+	}
+	return []string{s.Branch}
 }
 
 func askChoices(s snapshot) []prompt.Choice {
