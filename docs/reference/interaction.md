@@ -187,7 +187,10 @@ on an external `fzf`.
 
 Typing filters the list, Backspace un-types, Up and Down move, and Enter accepts the current row.
 When a default exists, its row starts out as the current one. Filtering matches a case-insensitive
-subsequence of either the option or its description, so `wsp` finds `workspace`. Esc, Ctrl+C, and
+subsequence of either the option or its description, so `wsp` finds `workspace`. Matched characters
+are shown in bold and underlined. The best matches come first: option matches before description
+matches, then matches at word starts, in consecutive runs, and nearer the beginning; equally good
+matches keep their original order. Esc, Ctrl+C, and
 Ctrl+D cancel the question. Ten rows are shown at a time; the list scrolls around your cursor when
 there are more. Filtering down to zero matches is not an error — keep typing or backspace out of
 it.

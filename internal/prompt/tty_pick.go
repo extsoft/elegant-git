@@ -177,7 +177,7 @@ func buildPickScreen(in pickScreenInput) (lines []string, cursorCol int) {
 		lines = append(lines, "  (no matches)")
 	} else {
 		for i, c := range in.Visible {
-			lines = append(lines, formatPickLine(i == in.Sel, false, c, in.ValueWidth))
+			lines = append(lines, formatPickLine(i == in.Sel, false, c, in.ValueWidth, in.Filter))
 		}
 	}
 	return lines, cursorCol

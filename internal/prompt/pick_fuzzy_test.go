@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 func TestFuzzyMatch(t *testing.T) {
@@ -53,6 +54,142 @@ func TestFilterChoices(t *testing.T) {
 	if len(got) != 1 || got[0].Value != "origin/feature" {
 		t.Fatalf("got %+v", got)
 	}
+}
+
+func TestFilterChoicesRanksByRelevance(t *testing.T) {
+	choices := []Choice{
+		{Value: "refactor-each-art-test"},
+		{Value: "origin/feature"},
+		{Value: "feat"},
+	}
+	got := filterChoices(choices, "feat")
+	var order []string
+	for _, c := range got {
+		order = append(order, c.Value)
+	}
+	if strings.Join(order, ",") != "feat,origin/feature,refactor-each-art-test" {
+		t.Fatalf("order = %v", order)
+	}
+}
+
+func TestFilterChoicesLabelBeatsDescription(t *testing.T) {
+	choices := []Choice{
+		{Value: "alpha", Description: "work"},
+		{Value: "work-log"},
+	}
+	got := filterChoices(choices, "work")
+	if len(got) != 2 || got[0].Value != "work-log" || got[1].Value != "alpha" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestFilterChoicesTiesKeepOrder(t *testing.T) {
+	choices := []Choice{{Value: "b-main"}, {Value: "a-main"}}
+	got := filterChoices(choices, "main")
+	if len(got) != 2 || got[0].Value != "b-main" || got[1].Value != "a-main" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestFormatPickLineHighlightsHits(t *testing.T) {
+	got := filterChoices([]Choice{{Value: "origin/feature", Description: "upstream"}}, "of")
+	line := formatPickLine(true, false, got[0], len("origin/feature"), "of")
+	want := "> " + pickHitOn + "o" + pickHitOff + "rigin/" + pickHitOn + "f" + pickHitOff + "eature  upstream"
+	if line != want {
+		t.Fatalf("got %q want %q", line, want)
+	}
+	got = filterChoices([]Choice{{Value: "alpha", Description: "work log"}}, "work")
+	line = formatPickLine(false, false, got[0], len("alpha"), "work")
+	want = "  alpha  " + pickHitOn + "work" + pickHitOff + " log"
+	if line != want {
+		t.Fatalf("got %q want %q", line, want)
+	}
+}
+
+func TestFilterChoicesSkipsHiddenValue(t *testing.T) {
+	choices := []Choice{
+		{Value: "main", Description: "Publish to this branch."},
+		{Value: "__push_different__", Display: "different", Description: "Publish to a different branch name."},
+		{Value: "__push_skip__", Display: "no", Description: "Do not push."},
+	}
+	if got := filterChoices(choices, "skip"); len(got) != 0 {
+		t.Fatalf("got %+v", got)
+	}
+	got := filterChoices(choices, "push")
+	var order []string
+	for _, c := range got {
+		order = append(order, c.Display+c.Value)
+	}
+	if strings.Join(order, ",") != "main,different__push_different__,no__push_skip__" {
+		t.Fatalf("order = %v", order)
+	}
+}
+
+func TestFilterChoicesWordBoundaryRanksFirst(t *testing.T) {
+	got := filterChoices([]Choice{{Value: "fxt"}, {Value: "feature/test"}}, "ft")
+	if len(got) != 2 || got[0].Value != "feature/test" || got[1].Value != "fxt" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestFormatPickLineHighlightsWordBoundary(t *testing.T) {
+	line := formatPickLine(false, false, Choice{Value: "feature/test"}, len("feature/test"), "ft")
+	want := "  " + pickHitOn + "f" + pickHitOff + "eature/" + pickHitOn + "t" + pickHitOff + "est"
+	if line != want {
+		t.Fatalf("got %q want %q", line, want)
+	}
+}
+
+func TestFuzzyScoreOptimal(t *testing.T) {
+	cases := []struct{ q, target string }{
+		{"ft", "feature/test"},
+		{"ft", "fxt"},
+		{"feat", "refactor-each-art-test"},
+		{"feat", "origin/feature"},
+		{"of", "origin/feature"},
+		{"at", "a-at"},
+		{"push", "Publish to a different branch name."},
+		{"push", "__push_different__"},
+		{"2 h", "[ 2 h ago]  aaa"},
+	}
+	for _, tc := range cases {
+		got, _, ok := fuzzyScore(tc.q, tc.target)
+		want, wantOK := bruteFuzzy(tc.q, tc.target)
+		if ok != wantOK || (ok && got != want) {
+			t.Fatalf("fuzzyScore(%q, %q) = %d, %v; brute = %d, %v", tc.q, tc.target, got, ok, want, wantOK)
+		}
+	}
+}
+
+func bruteFuzzy(query, target string) (int, bool) {
+	q := []rune(strings.ToLower(query))
+	if len(q) == 0 {
+		return 0, true
+	}
+	var runes []rune
+	for _, r := range target {
+		runes = append(runes, r)
+	}
+	best, ok := 0, false
+	var walk func(qi, from int, hits []int)
+	walk = func(qi, from int, hits []int) {
+		if qi == len(q) {
+			s := scoreHits(runes, hits)
+			if !ok || s > best {
+				best, ok = s, true
+			}
+			return
+		}
+		next := append([]int{}, hits...)
+		for ti := from; ti < len(runes); ti++ {
+			if unicode.ToLower(runes[ti]) != q[qi] {
+				continue
+			}
+			walk(qi+1, ti+1, append(next, ti))
+		}
+	}
+	walk(0, 0, nil)
+	return best, ok
 }
 
 func TestFilterChoicesMatchesDisplay(t *testing.T) {
@@ -109,12 +246,12 @@ func TestPickFallbackThreeChoices(t *testing.T) {
 }
 
 func TestFormatPickLineColumns(t *testing.T) {
-	line := formatPickLine(true, false, Choice{Value: "start", Description: "Creates a new branch."}, 5)
+	line := formatPickLine(true, false, Choice{Value: "start", Description: "Creates a new branch."}, 5, "")
 	if line != "> start  Creates a new branch." {
 		t.Fatalf("got %q", line)
 	}
 	long := strings.Repeat("x", 80)
-	line = formatPickLine(false, false, Choice{Value: "a", Description: truncateDesc(long, descMaxLen)}, 1)
+	line = formatPickLine(false, false, Choice{Value: "a", Description: truncateDesc(long, descMaxLen)}, 1, "")
 	if !strings.HasPrefix(line, "  a  ") {
 		t.Fatalf("got %q", line)
 	}
@@ -122,17 +259,17 @@ func TestFormatPickLineColumns(t *testing.T) {
 	if len(desc) != descMaxLen {
 		t.Fatalf("desc len=%d want %d (%q)", len(desc), descMaxLen, desc)
 	}
-	if got := formatPickLine(false, true, Choice{Value: "main"}, 4); got != "* main" {
+	if got := formatPickLine(false, true, Choice{Value: "main"}, 4, ""); got != "* main" {
 		t.Fatalf("selected mark = %q", got)
 	}
-	if got := formatPickLine(true, true, Choice{Value: "main"}, 4); got != ">*main" {
+	if got := formatPickLine(true, true, Choice{Value: "main"}, 4, ""); got != ">*main" {
 		t.Fatalf("both marks = %q", got)
 	}
 }
 
 func TestFormatPickLineUsesDisplay(t *testing.T) {
 	c := Choice{Value: "aaa", Display: "[ 2 h ago]  aaa", Description: "newest subject"}
-	line := formatPickLine(false, false, c, len(c.Display))
+	line := formatPickLine(false, false, c, len(c.Display), "")
 	if line != "  [ 2 h ago]  aaa  newest subject" {
 		t.Fatalf("got %q", line)
 	}
@@ -174,7 +311,7 @@ func TestBuildPickScreenFilterFirst(t *testing.T) {
 	if lines[1] != "1 of 3 ────────────────────" {
 		t.Fatalf("status = %q", lines[1])
 	}
-	want := "> origin/feature  upstream main"
+	want := "> origin/" + pickHitOn + "feat" + pickHitOff + "ure  upstream main"
 	if lines[2] != want {
 		t.Fatalf("option line = %q want %q", lines[2], want)
 	}
