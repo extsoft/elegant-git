@@ -2,10 +2,12 @@ package work
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 )
 
 func TestListRunBranchOnly(t *testing.T) {
@@ -24,8 +26,36 @@ func TestListRunBranchOnly(t *testing.T) {
 	if !strings.Contains(out, "remote: none") {
 		t.Fatalf("got:\n%s", out)
 	}
+	if !strings.Contains(out, "source: main") {
+		t.Fatalf("got:\n%s", out)
+	}
 	if strings.Contains(out, "Further steps:") {
 		t.Fatalf("no extra sections, got:\n%s", out)
+	}
+}
+
+func TestListRunShowsRecordedSource(t *testing.T) {
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(gitDir, "elegant-git", "state.json"))
+	m := git.NewMemoryRunner()
+	m.Repo.CurrentBranch = "feature"
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	m.Outputs["rev-parse --verify --quiet develop"] = "abc"
+	m.Outputs["rev-parse --verify --quiet --abbrev-ref --branches=refs/heads feature"] = "feature"
+	git.Use(m)
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{"feature": "develop"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	if err := listRun(&buf); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "source: develop") {
+		t.Fatalf("got:\n%s", buf.String())
 	}
 }
 

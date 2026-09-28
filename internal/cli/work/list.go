@@ -41,6 +41,7 @@ func listRun(w io.Writer) error {
 	statefmt.PrintFields(w, "", []statefmt.Field{
 		{Key: "local", Value: branch},
 		{Key: "remote", Value: remote},
+		{Key: "source", Value: config.BranchSourceBranch(branch)},
 	})
 
 	var steps []statefmt.Step
