@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/git"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 )
@@ -72,6 +73,22 @@ func setupSyncTest(t *testing.T, currentBranch, recordedSource, prunedRef string
 	runner := &pruneOnFetchRunner{inner: m, prune: prunedRef}
 	git.Use(runner)
 	return m, runner
+}
+
+func TestSyncCommandHelpExplainsSource(t *testing.T) {
+	var buf strings.Builder
+	cliruntime.PrintCommandHelp(&buf, newSyncCommand())
+	out := buf.String()
+	for _, want := range []string{
+		"sync [branch-name]",
+		"freshest source",
+		"pushed upstream",
+		"origin/<source>",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("help missing %q:\n%s", want, out)
+		}
+	}
 }
 
 func TestSyncLogicResolvesSourceAfterFetch(t *testing.T) {

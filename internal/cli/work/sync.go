@@ -26,7 +26,11 @@ func newSyncCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "sync [branch-name]",
 		Short: "Actualizes the branch with upstream commits",
-		Long:  "Rebases the current branch onto upstream or the given branch name.",
+		Long: `Rebases the current branch onto the freshest source, the branch it was created from. That is not this branch's own pushed upstream.
+
+The branch name is optional and is never asked. Without it, fetches when the repository has remotes, then rebases onto that source: the source branch's upstream if one is set, otherwise origin/<source>, otherwise the local source branch. With a name, rebases onto that branch, fetching first when the name is a remote branch.
+
+If a rebase is already in progress, it is continued first. Uncommitted changes are stashed and restored.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, syncID, func() error {
 				return syncRun(cmd, args)
