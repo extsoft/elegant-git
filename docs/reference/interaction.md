@@ -56,13 +56,14 @@ A bare `eg` on a terminal inside a git repository runs the work action that dete
 detection runs an action and then asks, or chooses nothing, `eg` opens one picker of commands that
 fit that repository. The rows are the `work`, `repo`, and `workspace` actions those objects would
 already offer, with the detected `work` action first, then every `hook` and `release` action, then
-`help` and `quit`. When the branch is behind upstream and detection still asks, `work sync` is
-inserted at the front of that list. A protected branch that is ahead as well as behind is the usual
-case; the usual `work` list omits `sync` there. A detached `HEAD` or a rebase in progress does not
-gain `sync`. The first row is selected, unless that row is the action detection just ran; then the
-next row is selected. `quit` runs nothing. `help` prints root help and asks again.
+`help` and `quit`. On a feature branch, `work sync` is always at the front of both the bare `eg`
+and `eg work` pickers. On a protected branch, it is inserted only when the branch is behind its
+own upstream or behind its source branch. A detached `HEAD` or a rebase in progress does not gain
+`sync`. The first row is selected, unless that row is the action detection just ran; then the next
+row is selected. `quit` runs nothing. `help` prints root help and asks again.
 Esc cancels the picker and the command fails, as `eg work` does.
-`work accept` passes the current branch the same way bare `eg work` does.
+`work accept` passes the current branch the same way bare `eg work` does. Choosing `work sync`
+from a picker opens a second picker of branches to rebase onto (after fetch when remotes exist).
 When detection chooses nothing, the picker opens without the detection block. `eg work`
 prints that block in the same situation.
 Outside a repository, inside a bare repository or a `.git` directory, in a repository

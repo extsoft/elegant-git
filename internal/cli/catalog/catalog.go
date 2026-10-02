@@ -58,7 +58,7 @@ var Groups = []Group{
 		{Action: "save", Purpose: "Commits current modifications."},
 		{Action: "list", Purpose: "Prints HEAD state."},
 		{Action: "polish", Purpose: "Rebases HEAD interactively."},
-		{Action: "sync", Purpose: "Actualizes the branch with upstream commits."},
+		{Action: "sync", Purpose: "Rebases onto the source branch, or a named branch."},
 		{Action: "push", Purpose: "Publishes HEAD to a remote repository."},
 		{Action: "track", Purpose: "Checks out a remote-tracking branch."},
 		{Action: "accept", Purpose: "Adds modifications to the default development branch."},

@@ -60,9 +60,20 @@ func BranchNamesUnion(ctx context.Context) ([]argspec.Choice, error) {
 	if err != nil {
 		return nil, err
 	}
+	return mergeBranchChoices(local, remote), nil
+}
+
+// BranchNamesListed returns local and remote-tracking refs without fetching.
+func BranchNamesListed(_ context.Context) ([]argspec.Choice, error) {
+	local := forEachRefChoices("refs/heads", "%(refname:short)\t%(upstream:short)")
+	remote := forEachRefChoices("refs/remotes", "%(refname:short)")
+	return mergeBranchChoices(local, remote), nil
+}
+
+func mergeBranchChoices(local, remote []argspec.Choice) []argspec.Choice {
 	out := append(append([]argspec.Choice{}, local...), remote...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
-	return out, nil
+	return out
 }
 
 func forEachRefChoices(pattern, format string) []argspec.Choice {

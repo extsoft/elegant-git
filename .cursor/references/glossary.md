@@ -113,7 +113,7 @@ Avoid: “memory” alone; “config file” when meaning git config; conflating
 
 Action name shared by two CLI objects with different meaning.
 
-Notes: `repo sync` re-applies linked workspace settings to one or all tracked repositories; `work sync` actualizes the current branch with upstream commits.
+Notes: `repo sync` re-applies linked workspace settings to one or all tracked repositories; `work sync` rebases the current branch onto the branch it was created from, or onto a named branch.
 
 ### Work
 

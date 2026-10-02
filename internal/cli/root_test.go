@@ -14,6 +14,7 @@ import (
 
 	"github.com/extsoft/elegant-git/internal/cli/catalog"
 	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/spf13/cobra"
 )
@@ -100,12 +101,12 @@ func TestBareEgPickerRunsPickedCommand(t *testing.T) {
 	if p.labels[0] != filepath.Base(dir) {
 		t.Fatalf("label %q", p.labels[0])
 	}
-	if p.defs[0] != "work start" {
+	if p.defs[0] != "work sync" {
 		t.Fatalf("default %q", p.defs[0])
 	}
-	start := p.choices[0][0]
-	if start.Value != "work start" || start.Description != catalog.Purpose("work", "start") {
-		t.Fatalf("first choice %+v", start)
+	sync := p.choices[0][0]
+	if sync.Value != "work sync" || sync.Description != catalog.Purpose("work", "sync") {
+		t.Fatalf("first choice %+v", sync)
 	}
 	if !strings.Contains(out, "Branch") {
 		t.Fatalf("work list did not run: %q", out)
@@ -358,10 +359,10 @@ func TestBareEgPickerLabelFallsBack(t *testing.T) {
 
 func TestBareEgListThenPickerSkipsList(t *testing.T) {
 	m, _ := pickerRepo(t)
-	m.Outputs["rev-list main..feat"] = ""
+	m.Outputs["rev-list --left-right --count feat...main"] = "0\t0"
 	p := &rootPrompter{picks: []string{"quit"}}
 	runRootWithPrompter(t, p)
-	if len(p.defs) != 1 || p.defs[0] != "work start" {
+	if len(p.defs) != 1 || p.defs[0] != "work sync" {
 		t.Fatalf("default %v choices %v", p.defs, choiceValues(p.choices[0]))
 	}
 }
@@ -380,15 +381,23 @@ func TestBareEgDirtyFeatureRunsSave(t *testing.T) {
 }
 
 func TestBareEgSyncThenPickerSkipsSync(t *testing.T) {
-	m, _ := pickerRepo(t)
+	m, dir := pickerRepo(t)
+	stubSyncBranchSources(t, m, dir, "feat")
 	m.Outputs["rev-list --left-right --count HEAD...@{upstream}"] = "0\t2"
-	p := &rootPrompter{picks: []string{"quit"}}
+	m.Outputs["rev-parse --abbrev-ref feat@{upstream}"] = "origin/feat"
+	p := &rootPrompter{picks: []string{"origin/main", "quit"}}
 	runRootWithPrompter(t, p)
-	if len(p.choices) != 1 || len(p.choices[0]) == 0 || p.choices[0][0].Value != "work sync" {
-		t.Fatalf("choices %v", p.choices)
+	if len(p.choices) != 2 {
+		t.Fatalf("choices %v", len(p.choices))
 	}
-	if len(p.defs) != 1 || p.defs[0] != "work start" {
-		t.Fatalf("default %v", p.defs)
+	if p.labels[0] != "Branch name" {
+		t.Fatalf("labels %v", p.labels)
+	}
+	if len(p.choices[1]) == 0 || p.choices[1][0].Value != "work sync" {
+		t.Fatalf("action choices %v", choiceValues(p.choices[1]))
+	}
+	if len(p.defs) != 2 || p.defs[1] != "work start" {
+		t.Fatalf("defaults %v", p.defs)
 	}
 }
 
@@ -462,11 +471,29 @@ func pickerRepo(t *testing.T) (*git.MemoryRunner, string) {
 	m.Outputs["rev-parse --git-dir"] = filepath.Join(dir, ".git")
 	m.Outputs["rev-parse --is-inside-work-tree"] = "true"
 	m.Outputs["rev-parse --show-toplevel"] = dir
-	m.Outputs["rev-list main..feat"] = "abc"
+	m.Outputs["rev-list --left-right --count feat...main"] = "1\t0"
 	m.Repo.LocalConfig["elegant-git.repo-id"] = "abc"
 	git.Use(m)
 	t.Cleanup(func() { git.Use(git.RealRunner{}) })
 	return m, dir
+}
+
+func stubSyncBranchSources(t *testing.T, m *git.MemoryRunner, dir, currentBranch string) {
+	t.Helper()
+	gitDir := filepath.Join(dir, ".git")
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(gitDir, "elegant-git", "state.json"))
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	m.Repo.Remotes = []string{"origin"}
+	m.Outputs["rev-parse --verify --quiet main"] = "abc"
+	m.Outputs["rev-parse --verify --quiet origin/main"] = "abc"
+	m.Outputs["rev-parse --verify --quiet --abbrev-ref --branches=refs/heads "+currentBranch] = currentBranch
+	m.Outputs["for-each-ref --format=%(refname:short)\t%(upstream:short) refs/heads"] = currentBranch + "\torigin/feat\nmain\t"
+	m.Outputs["for-each-ref --format=%(refname:short) refs/remotes"] = "origin/feat\norigin/main"
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{currentBranch: "main"},
+	}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func hasGitCall(m *git.MemoryRunner, args ...string) bool {
@@ -480,7 +507,7 @@ func hasGitCall(m *git.MemoryRunner, args ...string) bool {
 
 func pickerChoices() []string {
 	return []string{
-		"work start", "work accept", "work list",
+		"work sync", "work start", "work accept", "work list",
 		"repo list", "repo sync", "repo prune", "repo configure", "repo doctor",
 		"workspace new",
 		"hook list", "hook new", "hook edit",

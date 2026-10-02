@@ -8,6 +8,7 @@ import (
 
 	"github.com/extsoft/elegant-git/internal/cli/catalog"
 	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 )
 
 func TestDetect(t *testing.T) {
@@ -190,13 +191,17 @@ func TestAskOptions(t *testing.T) {
 			if !slices.Equal(got, tc.want) {
 				t.Fatalf("got %v want %v", got, tc.want)
 			}
+			wantChoices := tc.want
+			if !tc.snap.Detached && !tc.snap.Protected && !slices.Contains(tc.want, "sync") {
+				wantChoices = append([]string{"sync"}, tc.want...)
+			}
 			choices := askChoices(tc.snap)
-			if len(choices) != len(tc.want) {
-				t.Fatalf("choices len=%d want %d", len(choices), len(tc.want))
+			if len(choices) != len(wantChoices) {
+				t.Fatalf("choices len=%d want %d", len(choices), len(wantChoices))
 			}
 			for i, c := range choices {
-				if c.Value != tc.want[i] {
-					t.Fatalf("choice[%d]=%q want %q", i, c.Value, tc.want[i])
+				if c.Value != wantChoices[i] {
+					t.Fatalf("choice[%d]=%q want %q", i, c.Value, wantChoices[i])
 				}
 				if catalog.Purpose("work", c.Value) == "" || c.Description != catalog.Purpose("work", c.Value) {
 					t.Fatalf("choice[%d] desc=%q", i, c.Description)
@@ -260,6 +265,53 @@ func TestRelevantActionsSyncWhenBehind(t *testing.T) {
 	got = relevantFrom(inspect())
 	if slices.Contains(got, "sync") {
 		t.Fatalf("detached: %v", got)
+	}
+}
+
+func TestRelevantActionsSyncWhenBehindSource(t *testing.T) {
+	const (
+		currentBranch  = "feat"
+		recordedSource = "origin/main"
+	)
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(gitDir, "elegant-git", "state.json"))
+
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	m.Repo.CurrentBranch = currentBranch
+	m.Repo.Remotes = []string{"origin"}
+	m.Outputs["rev-parse --verify --quiet main"] = "abc"
+	m.Outputs["rev-parse --verify --quiet origin/main"] = "abc"
+	m.Outputs["rev-parse --verify --quiet --abbrev-ref --branches=refs/heads "+currentBranch] = currentBranch
+	m.FailOn["rev-parse --abbrev-ref main@{upstream}"] = fmt.Errorf("no upstream")
+	m.Outputs["rev-list --left-right --count "+currentBranch+"...origin/main"] = "0\t1"
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{currentBranch: recordedSource},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	snap := inspect()
+	got := relevantFrom(snap)
+	if len(got) == 0 || got[0] != "sync" {
+		t.Fatalf("relevantFrom: %v", got)
+	}
+	choices := askChoices(snap)
+	if len(choices) == 0 || choices[0].Value != "sync" {
+		t.Fatalf("askChoices: %+v", choices)
+	}
+
+	m.Outputs["rev-list --left-right --count "+currentBranch+"...origin/main"] = "0\t0"
+	snap = inspect()
+	if snap.BehindSource {
+		t.Fatal("expected even with source")
+	}
+	got = relevantFrom(snap)
+	if len(got) == 0 || got[0] != "sync" {
+		t.Fatalf("feature branch still offers sync: %v", got)
 	}
 }
 

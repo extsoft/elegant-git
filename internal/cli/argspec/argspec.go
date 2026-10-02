@@ -46,6 +46,8 @@ type Input struct {
 	ValidateCLI bool // when false, CLI args skip completion membership (interactive-only)
 	// OmitInteractive skips prompting for an optional input when unset (empty means "all").
 	OmitInteractive bool
+	// PromptOptional asks for this optional positional in interactive mode even when the spec has no required positionals.
+	PromptOptional bool
 }
 
 // Spec is the full argument specification for a command.
@@ -147,7 +149,7 @@ func Resolve(ctx context.Context, p prompt.Prompter, args []string, spec Spec) e
 			if in.Index < len(args) {
 				continue
 			}
-			if allRequiredPositionalsFromCLI(args, spec) {
+			if !in.PromptOptional && allRequiredPositionalsFromCLI(args, spec) {
 				continue
 			}
 		}

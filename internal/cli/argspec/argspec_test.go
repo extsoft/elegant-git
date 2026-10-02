@@ -193,6 +193,48 @@ func TestResolveCompletePickTabbedValue(t *testing.T) {
 	}
 }
 
+func TestResolveOptionalOnlyWithoutPromptOptionalSkips(t *testing.T) {
+	var branch string
+	complete := func(context.Context) ([]Choice, error) {
+		return []Choice{{Value: "main"}}, nil
+	}
+	in := PositionalInputWithComplete("branch-name", 0, false, "Branch name", &branch, nil, complete, false)
+	spec := Spec{Inputs: []Input{in}}
+	p := &recordingPrompter{pickValues: []string{"main"}}
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if branch != "" {
+		t.Fatalf("branch=%q", branch)
+	}
+	if p.pickIdx != 0 {
+		t.Fatalf("pickIdx=%d", p.pickIdx)
+	}
+}
+
+func TestResolveOptionalOnlyPositionalPrompts(t *testing.T) {
+	var branch string
+	complete := func(context.Context) ([]Choice, error) {
+		return []Choice{
+			{Value: "origin/main", Description: "Source branch."},
+			{Value: "main", Description: "Local main."},
+		}, nil
+	}
+	in := PositionalInputWithComplete("branch-name", 0, false, "Branch name", &branch, func() string { return "origin/main" }, complete, false)
+	in.PromptOptional = true
+	spec := Spec{Inputs: []Input{in}}
+	p := &recordingPrompter{pickValues: []string{"main"}}
+	if err := Resolve(context.Background(), p, nil, spec); err != nil {
+		t.Fatal(err)
+	}
+	if branch != "main" {
+		t.Fatalf("branch=%q", branch)
+	}
+	if p.pickIdx != 1 {
+		t.Fatalf("pickIdx=%d", p.pickIdx)
+	}
+}
+
 func TestResolveOmitInteractiveOptional(t *testing.T) {
 	var name string
 	in := PositionalInput("name", 0, false, "Workspace name", &name, nil)

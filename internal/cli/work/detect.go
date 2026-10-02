@@ -26,6 +26,7 @@ type snapshot struct {
 	Ahead          int
 	Behind         int
 	UniqueCommits  bool
+	BehindSource   bool
 	Remotes        bool
 }
 
@@ -57,8 +58,19 @@ func inspect() snapshot {
 		s.Ahead, s.Behind = aheadBehind()
 	}
 	latest := config.FreshestBranchSourceBranch(branch)
-	s.UniqueCommits = strings.TrimSpace(git.OutputOK("rev-list", latest+".."+branch)) != ""
+	s.UniqueCommits, s.BehindSource = sourceRange(branch, latest)
 	return s
+}
+
+func sourceRange(branch, latest string) (unique, behind bool) {
+	out := strings.TrimSpace(git.OutputOK("rev-list", "--left-right", "--count", branch+"..."+latest))
+	fields := strings.Fields(out)
+	if len(fields) < 2 {
+		return false, false
+	}
+	left, _ := strconv.Atoi(fields[0])
+	right, _ := strconv.Atoi(fields[1])
+	return left > 0, right > 0
 }
 
 func aheadBehind() (int, int) {
@@ -199,10 +211,16 @@ func relevantFrom(s snapshot) []string {
 }
 
 func includeSync(actions []string, s snapshot) []string {
-	if s.Detached || s.Rebasing || s.Behind <= 0 || slices.Contains(actions, "sync") {
+	if s.Detached || s.Rebasing || slices.Contains(actions, "sync") {
 		return actions
 	}
-	return append([]string{"sync"}, actions...)
+	if s.Dirty && !s.Protected && s.Behind <= 0 && !s.BehindSource {
+		return actions
+	}
+	if !s.Protected || s.Behind > 0 || s.BehindSource {
+		return append([]string{"sync"}, actions...)
+	}
+	return actions
 }
 
 func acceptArgs(s snapshot) []string {
@@ -213,7 +231,7 @@ func acceptArgs(s snapshot) []string {
 }
 
 func askChoices(s snapshot) []prompt.Choice {
-	opts := askOptions(s)
+	opts := includeSync(askOptions(s), s)
 	out := make([]prompt.Choice, len(opts))
 	for i, action := range opts {
 		c := prompt.Choice{Value: action, Description: catalog.Purpose("work", action)}
