@@ -99,6 +99,16 @@ func TestStashPipeSkipsPopWhenSourceBranchGone(t *testing.T) {
 	}
 }
 
+func TestHasChangesRefreshesIndexFirst(t *testing.T) {
+	m := setupBranchPipeTest(t, "main")
+
+	HasChanges()
+
+	if len(m.Calls) == 0 || len(m.Calls[0].Args) < 1 || m.Calls[0].Args[0] != "update-index" {
+		t.Fatalf("expected index refresh before diff-index, calls=%v", m.Calls)
+	}
+}
+
 func setupBranchPipeTest(t *testing.T, current string) *git.MemoryRunner {
 	t.Helper()
 	dir := t.TempDir()

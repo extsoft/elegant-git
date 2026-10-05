@@ -15,6 +15,7 @@ import (
 
 // HasChanges reports whether HEAD has staged or unstaged changes.
 func HasChanges() bool {
+	_ = gitQuiet("update-index", "-q", "--refresh")
 	if err := gitQuiet("diff-index", "--quiet", "HEAD"); err == nil {
 		if err := gitQuiet("diff-index", "--cached", "--quiet", "HEAD"); err == nil {
 			return false
