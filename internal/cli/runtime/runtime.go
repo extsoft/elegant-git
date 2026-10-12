@@ -21,6 +21,15 @@ import (
 
 const SiteURL = "https://elegant-git.extsoft.pro"
 
+// ExitStatus requests a specific process exit code without an error message.
+type ExitStatus struct {
+	Code int
+}
+
+func (e ExitStatus) Error() string {
+	return ""
+}
+
 // Bind copies the parent's context and output streams onto sub.
 func Bind(parent, sub *cobra.Command) {
 	sub.SetContext(parent.Context())

@@ -84,9 +84,9 @@ func askOptions(s snapshot) []string {
 		}
 		return append(opts, "help", "quit")
 	}
-	opts := []string{"new", "list", "fetch"}
+	opts := []string{"new", "list", "fetch", "exec"}
 	if hasWS {
-		opts = []string{"list", "new", "link", "edit", "delete", "fetch", "doctor"}
+		opts = []string{"list", "new", "link", "edit", "delete", "fetch", "exec", "doctor"}
 	}
 	return append(opts, "help", "quit")
 }

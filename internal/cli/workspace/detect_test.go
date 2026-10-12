@@ -42,13 +42,13 @@ func TestDetectAlwaysAsks(t *testing.T) {
 			name:  "linked",
 			snap:  snapshot{InGit: true, Linked: true, WorkspaceName: "github", WorkspaceCount: 1},
 			steps: []string{"in a git repository? yes", "workspace linked? yes (github)", "selected: ask"},
-			opts:  []string{"list", "new", "link", "edit", "delete", "fetch", "doctor", "help", "quit"},
+			opts:  []string{"list", "new", "link", "edit", "delete", "fetch", "exec", "doctor", "help", "quit"},
 		},
 		{
 			name:  "linked no other workspaces count edge",
 			snap:  snapshot{InGit: true, Linked: true, WorkspaceName: "solo", WorkspaceCount: 0},
 			steps: []string{"in a git repository? yes", "workspace linked? yes (solo)", "selected: ask"},
-			opts:  []string{"new", "list", "fetch", "help", "quit"},
+			opts:  []string{"new", "list", "fetch", "exec", "help", "quit"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

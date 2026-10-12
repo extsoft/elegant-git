@@ -22,6 +22,7 @@ description.
 - [`edit`](06-04-workspace-edit.md) — Edits a workspace and optionally applies it to linked repos.
 - [`delete`](06-05-workspace-delete.md) — Deletes a workspace and unlinks its repositories.
 - [`fetch`](06-06-workspace-fetch.md) — Fetches remotes for repositories linked to a workspace.
+- [`exec`](06-08-workspace-exec.md) — Runs a command in every repository linked to a workspace.
 - [`doctor`](06-07-workspace-doctor.md) — Diagnoses and repairs a workspace.
 
 ## The shared identity
@@ -74,12 +75,12 @@ flowchart TD
   inGit -->|no| outside["ask: list, new, edit, delete, doctor, help, quit"]
   inGit -->|yes| linked{workspace linked?}
   linked -->|no| unlinked["ask: new, link, doctor, help, quit"]
-  linked -->|yes| linkedAsk["ask: list, new, link, edit, delete, fetch, doctor, help, quit"]
+  linked -->|yes| linkedAsk["ask: list, new, link, edit, delete, fetch, exec, doctor, help, quit"]
 ```
 
 If you have no workspaces yet, the options that need one drop out. Outside a repository you are
 offered only `new`, `help`, and `quit`; an unlinked repository offers `new`, `help`, and `quit`
 as well, without `link` or `doctor`. A linked repository whose registry reports zero workspaces
-still offers `new`, `list`, `fetch`, `help`, and `quit`.
+still offers `new`, `list`, `fetch`, `exec`, `help`, and `quit`.
 
 `help` prints the action list and asks again.

@@ -94,6 +94,28 @@ func TestRunSessionHelpThenQuit(t *testing.T) {
 	}
 }
 
+func TestRunSessionDispatchExec(t *testing.T) {
+	var ran bool
+	orig := runExecInteractiveFn
+	runExecInteractiveFn = func(*cobra.Command) error {
+		ran = true
+		return nil
+	}
+	defer func() { runExecInteractiveFn = orig }()
+
+	p := &sessionPrompter{picks: []string{"exec"}}
+	c := NewCommand()
+	c.SetContext(prompt.WithPrompter(context.Background(), p))
+	if err := runSession(c, func() snapshot {
+		return snapshot{InGit: true, Linked: true, WorkspaceName: "github", WorkspaceCount: 1}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !ran {
+		t.Fatal("expected exec interactive handler")
+	}
+}
+
 func TestRunSessionDispatchList(t *testing.T) {
 	var ran []string
 	orig := dispatchAction

@@ -37,6 +37,7 @@ var Groups = []Group{
 		{Action: "edit", Purpose: "Edits a workspace and optionally applies it to linked repos."},
 		{Action: "delete", Purpose: "Deletes a workspace and unlinks its repositories."},
 		{Action: "fetch", Purpose: "Fetches remotes for repositories linked to a workspace."},
+		{Action: "exec", Purpose: "Runs a command in every repository linked to a workspace."},
 		{Action: "doctor", Purpose: "Diagnoses and repairs a workspace."},
 	}},
 	{Object: "repo", Title: "manage repositories", Commands: []Command{

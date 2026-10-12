@@ -229,6 +229,10 @@ func Execute() {
 			cliruntime.EmitCommandHelp(os.Stderr, ue.Cmd)
 			os.Exit(exitcode.Usage)
 		}
+		var es cliruntime.ExitStatus
+		if errors.As(err, &es) {
+			os.Exit(es.Code)
+		}
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
