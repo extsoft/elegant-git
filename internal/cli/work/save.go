@@ -11,6 +11,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/cli/argspec"
 	"github.com/extsoft/elegant-git/internal/cli/completion"
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/cli/statefmt"
 	"github.com/extsoft/elegant-git/internal/cmdid"
 	"github.com/extsoft/elegant-git/internal/config"
 	"github.com/extsoft/elegant-git/internal/git"
@@ -249,7 +250,7 @@ func parseSaveCommitLogLine(line string) (hash, rel, subject string) {
 	if err != nil {
 		return hash, "", subject
 	}
-	return hash, formatSaveRelTime(unix, saveNowUnix()), subject
+	return hash, statefmt.RelTime(unix, saveNowUnix()), subject
 }
 
 func saveChoiceValue(rel, hash string) string {
@@ -268,33 +269,6 @@ func saveRefFromChoice(target string) string {
 		return hash
 	}
 	return target
-}
-
-func formatSaveRelTime(unix, now int64) string {
-	sec := now - unix
-	if sec < 0 {
-		sec = 0
-	}
-	var n int64
-	var unit byte
-	switch {
-	case sec < 60:
-		n, unit = sec, 's'
-	case sec < 60*60:
-		n, unit = sec/60, 'm'
-	case sec < 24*60*60:
-		n, unit = sec/3600, 'h'
-	case sec < 100*24*60*60:
-		n, unit = sec/(24*60*60), 'd'
-	case sec < 100*7*24*60*60:
-		n, unit = sec/(7*24*60*60), 'w'
-	default:
-		n, unit = sec/(365*24*60*60), 'y'
-	}
-	if n > 99 {
-		n = 99
-	}
-	return fmt.Sprintf("[%2d %c ago]", n, unit)
 }
 
 func resolveSaveTarget(branch, target string) (string, error) {

@@ -24,6 +24,21 @@ const (
 // ErrUserCancelled is returned when the user aborts a picker (e.g. Esc).
 var ErrUserCancelled = errors.New("input cancelled")
 
+// MultiPicker selects any number of choices. selected values start selected.
+type MultiPicker interface {
+	PickMany(label string, choices []Choice, selected []string) ([]string, error)
+}
+
+// PickMany asks p to select any number of choices.
+// It returns ErrNonInteractive when p cannot ask.
+func PickMany(p Prompter, label string, choices []Choice, selected []string) ([]string, error) {
+	mp, ok := p.(MultiPicker)
+	if !ok {
+		return nil, ErrNonInteractive
+	}
+	return mp.PickMany(label, choices, selected)
+}
+
 // Prompter abstracts interactive CLI input.
 type Prompter interface {
 	String(question, defaultVal string) (string, error)

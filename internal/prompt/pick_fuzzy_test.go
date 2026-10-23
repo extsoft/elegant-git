@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -93,13 +94,13 @@ func TestFilterChoicesTiesKeepOrder(t *testing.T) {
 
 func TestFormatPickLineHighlightsHits(t *testing.T) {
 	got := filterChoices([]Choice{{Value: "origin/feature", Description: "upstream"}}, "of")
-	line := formatPickLine(true, false, got[0], len("origin/feature"), "of")
+	line := formatPickLine(true, false, false, got[0], len("origin/feature"), "of")
 	want := "> " + pickHitOn + "o" + pickHitOff + "rigin/" + pickHitOn + "f" + pickHitOff + "eature  upstream"
 	if line != want {
 		t.Fatalf("got %q want %q", line, want)
 	}
 	got = filterChoices([]Choice{{Value: "alpha", Description: "work log"}}, "work")
-	line = formatPickLine(false, false, got[0], len("alpha"), "work")
+	line = formatPickLine(false, false, false, got[0], len("alpha"), "work")
 	want = "  alpha  " + pickHitOn + "work" + pickHitOff + " log"
 	if line != want {
 		t.Fatalf("got %q want %q", line, want)
@@ -133,7 +134,7 @@ func TestFilterChoicesWordBoundaryRanksFirst(t *testing.T) {
 }
 
 func TestFormatPickLineHighlightsWordBoundary(t *testing.T) {
-	line := formatPickLine(false, false, Choice{Value: "feature/test"}, len("feature/test"), "ft")
+	line := formatPickLine(false, false, false, Choice{Value: "feature/test"}, len("feature/test"), "ft")
 	want := "  " + pickHitOn + "f" + pickHitOff + "eature/" + pickHitOn + "t" + pickHitOff + "est"
 	if line != want {
 		t.Fatalf("got %q want %q", line, want)
@@ -246,12 +247,12 @@ func TestPickFallbackThreeChoices(t *testing.T) {
 }
 
 func TestFormatPickLineColumns(t *testing.T) {
-	line := formatPickLine(true, false, Choice{Value: "start", Description: "Creates a new branch."}, 5, "")
+	line := formatPickLine(true, false, false, Choice{Value: "start", Description: "Creates a new branch."}, 5, "")
 	if line != "> start  Creates a new branch." {
 		t.Fatalf("got %q", line)
 	}
 	long := strings.Repeat("x", 80)
-	line = formatPickLine(false, false, Choice{Value: "a", Description: truncateDesc(long, descMaxLen)}, 1, "")
+	line = formatPickLine(false, false, false, Choice{Value: "a", Description: truncateDesc(long, descMaxLen)}, 1, "")
 	if !strings.HasPrefix(line, "  a  ") {
 		t.Fatalf("got %q", line)
 	}
@@ -259,17 +260,23 @@ func TestFormatPickLineColumns(t *testing.T) {
 	if len(desc) != descMaxLen {
 		t.Fatalf("desc len=%d want %d (%q)", len(desc), descMaxLen, desc)
 	}
-	if got := formatPickLine(false, true, Choice{Value: "main"}, 4, ""); got != "* main" {
+	if got := formatPickLine(false, true, true, Choice{Value: "main"}, 4, ""); got != " * main" {
 		t.Fatalf("selected mark = %q", got)
 	}
-	if got := formatPickLine(true, true, Choice{Value: "main"}, 4, ""); got != ">*main" {
+	if got := formatPickLine(true, true, true, Choice{Value: "main"}, 4, ""); got != ">* main" {
 		t.Fatalf("both marks = %q", got)
+	}
+	if got := formatPickLine(true, false, true, Choice{Value: "main"}, 4, ""); got != ">  main" {
+		t.Fatalf("cursor only = %q", got)
+	}
+	if got := formatPickLine(false, false, true, Choice{Value: "main"}, 4, ""); got != "   main" {
+		t.Fatalf("neither = %q", got)
 	}
 }
 
 func TestFormatPickLineUsesDisplay(t *testing.T) {
 	c := Choice{Value: "aaa", Display: "[ 2 h ago]  aaa", Description: "newest subject"}
-	line := formatPickLine(false, false, c, len(c.Display), "")
+	line := formatPickLine(false, false, false, c, len(c.Display), "")
 	if line != "  [ 2 h ago]  aaa  newest subject" {
 		t.Fatalf("got %q", line)
 	}
@@ -278,6 +285,42 @@ func TestFormatPickLineUsesDisplay(t *testing.T) {
 func TestPickStatusLineMulti(t *testing.T) {
 	got := pickStatusLine(pickScreenInput{Filtered: 2, Total: 5, Multi: true, Selected: 1})
 	if got != "2 of 5 (1 selected) ────────────────────" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestBuildPickScreenMultiMarks(t *testing.T) {
+	lines, _ := buildPickScreen(pickScreenInput{
+		Label: "Local branches",
+		Visible: []Choice{
+			{Value: "old", Description: "2020-01-01 (6 years ago)"},
+			{Value: "new", Description: "2026-01-01 (9 months ago)"},
+		},
+		Sel:         0,
+		ValueWidth:  3,
+		Filtered:    2,
+		Total:       2,
+		Multi:       true,
+		Selected:    1,
+		SelectedSet: map[string]bool{"old": true},
+	})
+	if lines[1] != "2 of 2 (1 selected) ────────────────────" {
+		t.Fatalf("status = %q", lines[1])
+	}
+	if lines[2] != ">* old  2020-01-01 (6 years ago)" {
+		t.Fatalf("selected = %q", lines[2])
+	}
+	if lines[3] != "   new  2026-01-01 (9 months ago)" {
+		t.Fatalf("plain = %q", lines[3])
+	}
+}
+
+func TestSelectedSummary(t *testing.T) {
+	choices := []Choice{{Value: "a", Display: "A"}, {Value: "b"}, {Value: "c"}}
+	if got := selectedSummary(choices, map[string]bool{"c": true, "a": true}); got != "a, c" {
+		t.Fatalf("got %q", got)
+	}
+	if got := selectedSummary(choices, nil); got != "(none)" {
 		t.Fatalf("got %q", got)
 	}
 }
@@ -338,20 +381,27 @@ func TestBuildPickScreenPlaceholder(t *testing.T) {
 }
 
 func TestPaintPickPromptPlaceholder(t *testing.T) {
-	got := paintPickPrompt("What now: ", "What now", "")
+	got := paintPickPrompt("What now: ", "What now", "", pickPlaceholderSingle)
 	if !strings.Contains(got, "\033[3m"+pickPlaceholderSingle+"\033[m") {
 		t.Fatalf("expected italic placeholder: %q", got)
 	}
-	got = paintPickPrompt("What now: list", "What now", "list")
+	got = paintPickPrompt("What now: list", "What now", "list", pickPlaceholderSingle)
 	if strings.Contains(got, pickPlaceholderSingle) {
 		t.Fatalf("placeholder should hide when typing: %q", got)
+	}
+}
+
+func TestPaintPickPromptMultiPlaceholder(t *testing.T) {
+	got := paintPickPrompt("Clean: ", "Clean", "", pickPlaceholderMulti)
+	if !strings.Contains(got, "\033[3m"+pickPlaceholderMulti+"\033[m") {
+		t.Fatalf("expected multi placeholder: %q", got)
 	}
 }
 
 func TestWritePickScreenRedrawsInPlace(t *testing.T) {
 	out := &bytes.Buffer{}
 	first := []string{"What now: ", "4 of 4 ────────────────────", "  main  default", "  feat  origin/feat"}
-	writePickScreen(out, first, 0, "What now", "", len("What now: ")+1)
+	writePickScreen(out, first, 0, "What now", "", pickPlaceholderSingle, len("What now: ")+1)
 	got := out.String()
 	if strings.Count(got, "\n") != 4 {
 		t.Fatalf("first draw newlines=%d want 4 (%q)", strings.Count(got, "\n"), got)
@@ -375,7 +425,7 @@ func TestWritePickScreenRedrawsInPlace(t *testing.T) {
 		t.Fatalf("expected cursor at end of prompt: %q", got)
 	}
 	second := []string{"What now: f", "1 of 4 ────────────────────", "> feat  origin/feat"}
-	writePickScreen(out, second, 4, "What now", "f", len("What now: f")+1)
+	writePickScreen(out, second, 4, "What now", "f", pickPlaceholderSingle, len("What now: f")+1)
 	got = out.String()
 	if strings.Count(got, "What now:") != 2 {
 		t.Fatalf("expected prompt rewritten once, got %q", got)
@@ -415,5 +465,79 @@ func TestIndexOfChoice(t *testing.T) {
 	}
 	if got := indexOfChoice(choices, ""); got != 0 {
 		t.Fatalf("got %d", got)
+	}
+}
+
+func TestPickManyFallbackAcceptsInitialOrder(t *testing.T) {
+	out := &bytes.Buffer{}
+	p := NewTTY(strings.NewReader("\n"), out)
+	got, err := p.PickMany("Clean", []Choice{
+		{Value: "old"},
+		{Value: "mid"},
+		{Value: "new"},
+	}, []string{"new", "missing", "old"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != "old,new" {
+		t.Fatalf("got %v", got)
+	}
+	text := out.String()
+	if !strings.Contains(text, "* old") || !strings.Contains(text, "  mid") || !strings.Contains(text, "* new") {
+		t.Fatalf("marks = %q", text)
+	}
+}
+
+func TestPickManyFallbackTogglesSeveral(t *testing.T) {
+	p := NewTTY(strings.NewReader("new old\n"), &bytes.Buffer{})
+	got, err := p.PickMany("Clean", []Choice{
+		{Value: "old"},
+		{Value: "mid"},
+		{Value: "new"},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != "old,new" {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestPickManyFallbackUnknownReasks(t *testing.T) {
+	q := captureQuestions(t)
+	p := NewTTY(strings.NewReader("nope\nold\n"), &bytes.Buffer{})
+	got, err := p.PickMany("Clean", []Choice{
+		{Value: "old"},
+		{Value: "new"},
+	}, []string{"old", "new"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != "new" {
+		t.Fatalf("got %v", got)
+	}
+	if !strings.Contains(q.String(), `"nope" is not a choice`) {
+		t.Fatalf("questions = %q", q.String())
+	}
+}
+
+func TestPickManyFallbackValueWithSpaces(t *testing.T) {
+	p := NewTTY(strings.NewReader("/gone/my worktree\n"), &bytes.Buffer{})
+	got, err := p.PickMany("Stale worktrees", []Choice{
+		{Value: "/gone/my worktree"},
+		{Value: "/gone/other"},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got, ",") != "/gone/my worktree" {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestPickManyRequiresMultiPicker(t *testing.T) {
+	_, err := PickMany(NewNonInteractive(), "Clean", []Choice{{Value: "a"}}, nil)
+	if !errors.Is(err, ErrNonInteractive) {
+		t.Fatalf("got %v", err)
 	}
 }

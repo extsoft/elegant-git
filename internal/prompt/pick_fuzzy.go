@@ -232,18 +232,19 @@ func padRight(s string, width int) string {
 	return s + strings.Repeat(" ", width-len(s))
 }
 
-func formatPickLine(current, selected bool, c Choice, valueWidth int, query string) string {
-	var prefix string
-	switch {
-	case current && selected:
-		prefix = ">*"
-	case current:
-		prefix = "> "
-	case selected:
-		prefix = "* "
-	default:
-		prefix = "  "
+func formatPickLine(current, selected, multi bool, c Choice, valueWidth int, query string) string {
+	prefix := " "
+	if current {
+		prefix = ">"
 	}
+	if multi {
+		if selected {
+			prefix += "*"
+		} else {
+			prefix += " "
+		}
+	}
+	prefix += " "
 	var labelHits, descHits []int
 	if query = strings.TrimSpace(query); query != "" {
 		if _, hits, ok := fuzzyScore(query, choiceLabel(c)); ok {

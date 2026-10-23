@@ -55,29 +55,6 @@ func TestSaveTargetChoicesUsesSourceBranch(t *testing.T) {
 	}
 }
 
-func TestFormatSaveRelTimePadsNumber(t *testing.T) {
-	now := int64(1_700_000_000)
-	tests := []struct {
-		delta int64
-		want  string
-	}{
-		{5, "[ 5 s ago]"},
-		{12, "[12 s ago]"},
-		{2 * 60, "[ 2 m ago]"},
-		{45 * 60, "[45 m ago]"},
-		{2 * 3600, "[ 2 h ago]"},
-		{12 * 3600, "[12 h ago]"},
-		{3 * 86400, "[ 3 d ago]"},
-		{12 * 86400, "[12 d ago]"},
-	}
-	for _, tc := range tests {
-		got := formatSaveRelTime(now-tc.delta, now)
-		if got != tc.want {
-			t.Errorf("delta %d: got %q want %q", tc.delta, got, tc.want)
-		}
-	}
-}
-
 func TestPushAfterSaveChoicesDisplaySentinels(t *testing.T) {
 	choices := pushAfterSaveChoices("feature")
 	for _, c := range choices {

@@ -128,6 +128,34 @@ func ReposWithWorkspace(s *shared.State) int {
 	return n
 }
 
+// RelTime returns how long before now unix is, as a fixed-width "[NN u ago]".
+func RelTime(unix, now int64) string {
+	sec := now - unix
+	if sec < 0 {
+		sec = 0
+	}
+	var n int64
+	var unit byte
+	switch {
+	case sec < 60:
+		n, unit = sec, 's'
+	case sec < 60*60:
+		n, unit = sec/60, 'm'
+	case sec < 24*60*60:
+		n, unit = sec/3600, 'h'
+	case sec < 100*24*60*60:
+		n, unit = sec/(24*60*60), 'd'
+	case sec < 100*7*24*60*60:
+		n, unit = sec/(7*24*60*60), 'w'
+	default:
+		n, unit = sec/(365*24*60*60), 'y'
+	}
+	if n > 99 {
+		n = 99
+	}
+	return fmt.Sprintf("[%2d %c ago]", n, unit)
+}
+
 // WorkspaceName returns the display name for workspaceID, or "(none)" / "".
 func WorkspaceName(s *shared.State, workspaceID string) string {
 	if workspaceID == "" {

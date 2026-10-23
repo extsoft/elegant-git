@@ -107,7 +107,7 @@ func (t *TTY) pickInline(in *os.File, label string, choices []Choice, defaultWor
 			Filtered:   len(matches),
 			Total:      len(choices),
 		})
-		writePickScreen(t.out, lines, prevLines, label, filter, cursorCol)
+		writePickScreen(t.out, lines, prevLines, label, filter, pickPlaceholderSingle, cursorCol)
 		prevLines = len(lines)
 
 		key, err := readPickKey(in)
@@ -158,15 +158,16 @@ func indexOfChoice(choices []Choice, value string) int {
 }
 
 type pickScreenInput struct {
-	Label      string
-	Filter     string
-	Visible    []Choice
-	Sel        int
-	ValueWidth int
-	Filtered   int
-	Total      int
-	Multi      bool
-	Selected   int // multi-select count; omitted from status when Multi is false
+	Label       string
+	Filter      string
+	Visible     []Choice
+	Sel         int
+	ValueWidth  int
+	Filtered    int
+	Total       int
+	Multi       bool
+	Selected    int // multi-select count; omitted from status when Multi is false
+	SelectedSet map[string]bool
 }
 
 func buildPickScreen(in pickScreenInput) (lines []string, cursorCol int) {
@@ -174,10 +175,15 @@ func buildPickScreen(in pickScreenInput) (lines []string, cursorCol int) {
 	cursorCol = len(prompt) + 1
 	lines = []string{prompt, pickStatusLine(in)}
 	if len(in.Visible) == 0 {
-		lines = append(lines, "  (no matches)")
+		blank := "  "
+		if in.Multi {
+			blank = "   "
+		}
+		lines = append(lines, blank+"(no matches)")
 	} else {
 		for i, c := range in.Visible {
-			lines = append(lines, formatPickLine(i == in.Sel, false, c, in.ValueWidth, in.Filter))
+			selected := in.Multi && in.SelectedSet[c.Value]
+			lines = append(lines, formatPickLine(i == in.Sel, selected, in.Multi, c, in.ValueWidth, in.Filter))
 		}
 	}
 	return lines, cursorCol
@@ -191,7 +197,7 @@ func pickStatusLine(in pickScreenInput) string {
 	return status + " " + strings.Repeat("─", pickRuleWidth)
 }
 
-func paintPickPrompt(line, label, filter string) string {
+func paintPickPrompt(line, label, filter, placeholder string) string {
 	prefix := label + ": "
 	if !strings.HasPrefix(line, prefix) {
 		return line
@@ -200,17 +206,20 @@ func paintPickPrompt(line, label, filter string) string {
 	if filter != "" {
 		return out + line[len(prefix):]
 	}
-	return out + "\033[3m" + pickPlaceholderSingle + "\033[m"
+	if placeholder == "" {
+		placeholder = pickPlaceholderSingle
+	}
+	return out + "\033[3m" + placeholder + "\033[m"
 }
 
-func writePickScreen(out io.Writer, lines []string, prevLines int, label, filter string, cursorCol int) {
+func writePickScreen(out io.Writer, lines []string, prevLines int, label, filter, placeholder string, cursorCol int) {
 	// Cursor is on the prompt row. Erase from here down so wrapped leftovers
 	// from a previous frame cannot stack. Wrap is off during pickInline.
 	fmt.Fprint(out, "\r\033[J")
 	for i, line := range lines {
 		painted := line
 		if i == 0 {
-			painted = paintPickPrompt(line, label, filter)
+			painted = paintPickPrompt(line, label, filter, placeholder)
 		}
 		fmt.Fprint(out, painted, "\r\n")
 	}
@@ -319,4 +328,194 @@ func readPickKey(in *os.File) (pickKey, error) {
 		}
 		return pickKey{kind: pickKeyNone}, nil
 	}
+}
+
+func (t *TTY) PickMany(label string, choices []Choice, selected []string) ([]string, error) {
+	if len(choices) == 0 {
+		return nil, fmt.Errorf("no choices for %s", label)
+	}
+	choices = normalizeChoices(choices)
+	in, ok := t.in.(*os.File)
+	if !ok || !term.IsTerminal(int(in.Fd())) {
+		return t.pickManyFallback(label, choices, selected)
+	}
+	return t.pickManyInline(in, label, choices, selected)
+}
+
+func (t *TTY) pickManyFallback(_ string, choices []Choice, selected []string) ([]string, error) {
+	sel := selectionSet(choices, selected)
+	width := valueColumnWidth(choices)
+	for _, c := range choices {
+		fmt.Fprintln(t.out, formatPickLine(false, sel[c.Value], true, c, width, ""))
+	}
+	for {
+		line, err := t.Optional("Toggle", "")
+		if err != nil {
+			return nil, err
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			return selectedValues(choices, sel), nil
+		}
+		toggles, ok := toggleTokens(choices, line)
+		if !ok {
+			text.ErrorText(fmt.Sprintf("%q is not a choice", line))
+			continue
+		}
+		for _, v := range toggles {
+			sel[v] = !sel[v]
+		}
+		return selectedValues(choices, sel), nil
+	}
+}
+
+func (t *TTY) pickManyInline(in *os.File, label string, choices []Choice, selected []string) ([]string, error) {
+	oldState, err := term.MakeRaw(int(in.Fd()))
+	if err != nil {
+		return t.pickManyFallback(label, choices, selected)
+	}
+	defer func() { _ = term.Restore(int(in.Fd()), oldState) }()
+	fmt.Fprint(t.out, "\033[?7l")
+	defer fmt.Fprint(t.out, "\033[?7h")
+	flushWriter(t.out)
+
+	sel := selectionSet(choices, selected)
+	filter := ""
+	cursor := 0
+	prevLines := 0
+
+	for {
+		matches := filterChoices(choices, filter)
+		if len(matches) == 0 {
+			cursor = 0
+		} else if cursor >= len(matches) {
+			cursor = len(matches) - 1
+		}
+
+		visible, visSel := visibleChoices(matches, cursor)
+		lines, cursorCol := buildPickScreen(pickScreenInput{
+			Label:       label,
+			Filter:      filter,
+			Visible:     visible,
+			Sel:         visSel,
+			ValueWidth:  valueColumnWidth(matches),
+			Filtered:    len(matches),
+			Total:       len(choices),
+			Multi:       true,
+			Selected:    countSelected(sel),
+			SelectedSet: sel,
+		})
+		writePickScreen(t.out, lines, prevLines, label, filter, pickPlaceholderMulti, cursorCol)
+		prevLines = len(lines)
+
+		key, err := readPickKey(in)
+		if err != nil {
+			return nil, err
+		}
+		switch key.kind {
+		case pickKeyCancel:
+			clearPickScreen(t.out, prevLines)
+			return nil, ErrUserCancelled
+		case pickKeyEnter:
+			finalizePickScreen(t.out, label, selectedSummary(choices, sel), prevLines)
+			return selectedValues(choices, sel), nil
+		case pickKeyUp:
+			if cursor > 0 {
+				cursor--
+			}
+		case pickKeyDown:
+			if cursor < len(matches)-1 {
+				cursor++
+			}
+		case pickKeyBackspace:
+			if filter != "" {
+				filter = filter[:len(filter)-1]
+				cursor = 0
+			}
+		case pickKeyRune:
+			if key.rune == ' ' {
+				if len(matches) > 0 {
+					v := matches[cursor].Value
+					sel[v] = !sel[v]
+				}
+				continue
+			}
+			filter += string(key.rune)
+			cursor = 0
+		}
+	}
+}
+
+func selectionSet(choices []Choice, selected []string) map[string]bool {
+	allowed := make(map[string]bool, len(choices))
+	for _, c := range choices {
+		allowed[c.Value] = true
+	}
+	sel := map[string]bool{}
+	for _, v := range selected {
+		if allowed[v] {
+			sel[v] = true
+		}
+	}
+	return sel
+}
+
+func selectedValues(choices []Choice, sel map[string]bool) []string {
+	out := make([]string, 0, len(choices))
+	for _, c := range choices {
+		if sel[c.Value] {
+			out = append(out, c.Value)
+		}
+	}
+	return out
+}
+
+func selectedSummary(choices []Choice, sel map[string]bool) string {
+	var labels []string
+	for _, c := range choices {
+		if sel[c.Value] {
+			labels = append(labels, c.Value)
+		}
+	}
+	if len(labels) == 0 {
+		return "(none)"
+	}
+	return strings.Join(labels, ", ")
+}
+
+func countSelected(sel map[string]bool) int {
+	n := 0
+	for _, on := range sel {
+		if on {
+			n++
+		}
+	}
+	return n
+}
+
+func toggleTokens(choices []Choice, line string) ([]string, bool) {
+	if _, ok := choiceByValue(choices, line); ok {
+		return []string{line}, true
+	}
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return nil, true
+	}
+	out := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if _, ok := choiceByValue(choices, field); !ok {
+			return nil, false
+		}
+		out = append(out, field)
+	}
+	return out, true
+}
+
+func choiceByValue(choices []Choice, value string) (string, bool) {
+	for _, c := range choices {
+		if c.Value == value {
+			return c.Value, true
+		}
+	}
+	return "", false
 }

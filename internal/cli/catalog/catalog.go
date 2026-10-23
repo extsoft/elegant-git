@@ -46,7 +46,7 @@ var Groups = []Group{
 		{Action: "clone", Purpose: "Clones a remote repository and configures it."},
 		{Action: "configure", Purpose: "Configures the current local Git repository."},
 		{Action: "sync", Purpose: "Re-applies workspace settings to repositories."},
-		{Action: "prune", Purpose: "Removes useless local branches."},
+		{Action: "prune", Purpose: "Cleans up branches, stashes, and worktrees."},
 		{Action: "doctor", Purpose: "Diagnoses and repairs the current repository."},
 	}},
 	{Object: "hook", Title: "manage command hooks", Commands: []Command{

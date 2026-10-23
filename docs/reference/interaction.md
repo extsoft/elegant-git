@@ -199,6 +199,30 @@ it.
 With fewer than two options you never see the picker; the question is asked as a [line](#line)
 instead.
 
+A multi-select picker is the same list when you may accept several rows. One row is still a
+picker, so you can leave it unselected. The placeholder reads
+`select one or more; space to select, enter to confirm`. The status line adds `(N selected)`.
+The first column is `>` on the current row, and the second column is `*` when that row is
+selected, so the names stay in one column:
+
+```text
+>* old-feature  merged into main
+ * newer
+>  kept
+   other
+```
+
+Space toggles the current row.
+Enter accepts every selected row, in the list's original order, including an empty selection.
+The accepted values are shown back, or `(none)`. Esc, Ctrl+C, and Ctrl+D cancel. `repo prune`
+uses this picker for the phases and for each phase's candidates. Cancelling a phase's candidates
+skips that phase.
+Cancelling the phase list fails the command.
+
+When the terminal cannot run the picker, the rows are printed with `*` on the selected ones and
+you get an optional line, `Toggle (press enter to skip):`. Type one or more values to flip them.
+A value that contains spaces is the whole line. Press Enter to keep the selection as it is.
+
 ```text
 What now:
 > work start    Creates a new branch.
@@ -219,3 +243,8 @@ Descriptions are not free text — each list has its own convention:
 | Workspaces | The identity, as `Name <email>`, truncated to 70 characters |
 | Hook paths, command ids, completion shells | None |
 | Uncommitted changes during `work start` | A short purpose for `add`, `reset`, and `cancel` |
+| `repo prune` phases | What that phase removes. Every phase starts selected |
+| `repo prune` local branches | Option is `[NN u ago]  YYYY-MM-DD  name`, name trimmed to 40; description is `merged into <branch>` or `upstream <ref> is gone`. Oldest first, selected |
+| `repo prune` remote branches | Option is `[NN u ago]  YYYY-MM-DD  origin/name`, name trimmed to 40; description is `merged into <branch>`. Oldest first, selected |
+| `repo prune` stashes | Option is `[NN u ago]  YYYY-MM-DD  stash@{n}`; description is the subject. Oldest first, unselected |
+| `repo prune` stale worktrees | None |
