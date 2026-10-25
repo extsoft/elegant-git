@@ -123,14 +123,14 @@ func detect(s snapshot) outcome {
 	if s.Dirty {
 		steps = append(steps, "uncommitted changes? yes")
 		if !s.Detached {
-			if s.Protected {
-				return decide("start", false)
-			}
-			return decide("save", false)
+			return decide("list", true)
 		}
 		return decide("", true)
 	}
 	steps = append(steps, "uncommitted changes? no")
+	if s.Detached {
+		return decide("", true)
+	}
 
 	if s.HasUpstream && s.Ahead == 0 && s.Behind > 0 {
 		steps = append(steps, behindLine(s, true))
@@ -183,10 +183,10 @@ func askOptions(s snapshot) []string {
 		return []string{"start", "track", "accept", "list", "help", "quit"}
 	}
 	if s.HasUpstream && s.Ahead > 0 && s.Behind > 0 {
-		return []string{"sync", "push", "accept", "list", "help", "quit"}
+		return []string{"sync", "push", "start", "accept", "list", "help", "quit"}
 	}
 	if s.UniqueCommits && (!s.HasUpstream || s.Ahead > 0) {
-		return []string{"polish", "push", "accept", "list", "help", "quit"}
+		return []string{"polish", "push", "start", "accept", "list", "help", "quit"}
 	}
 	opts := []string{"start", "accept", "list"}
 	if s.Remotes {
@@ -207,7 +207,7 @@ func relevantFrom(s snapshot) []string {
 		}
 		out = append(out, action)
 	}
-	return includeSync(out, s)
+	return suggestFirst(includeSync(out, s), s)
 }
 
 func includeSync(actions []string, s snapshot) []string {
@@ -230,8 +230,34 @@ func acceptArgs(s snapshot) []string {
 	return []string{s.Branch}
 }
 
+func suggested(s snapshot) string {
+	if !s.Dirty || s.Detached {
+		return ""
+	}
+	if s.Protected {
+		return "start"
+	}
+	return "save"
+}
+
+func suggestFirst(actions []string, s snapshot) []string {
+	action := suggested(s)
+	if action == "" {
+		return actions
+	}
+	out := make([]string, 0, len(actions)+1)
+	out = append(out, action)
+	for _, a := range actions {
+		if a == action {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
 func askChoices(s snapshot) []prompt.Choice {
-	opts := includeSync(askOptions(s), s)
+	opts := suggestFirst(includeSync(askOptions(s), s), s)
 	out := make([]prompt.Choice, len(opts))
 	for i, action := range opts {
 		c := prompt.Choice{Value: action, Description: catalog.Purpose("work", action)}

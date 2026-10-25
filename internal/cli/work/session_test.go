@@ -40,19 +40,57 @@ func TestRunSessionDirtyProtectedStart(t *testing.T) {
 	text.SetOutput(&buf)
 	defer text.SetOutput(os.Stdout)
 
+	p := &sessionPrompter{}
 	c := NewCommand()
-	c.SetContext(prompt.WithPrompter(context.Background(), &sessionPrompter{}))
+	c.SetContext(prompt.WithPrompter(context.Background(), p))
 	err := runSession(c, func() snapshot {
 		return snapshot{Branch: "main", Protected: true, Dirty: true}
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(ran, []string{"start"}) {
+	if !slices.Equal(ran, []string{"list", "start"}) {
 		t.Fatalf("ran %v", ran)
 	}
+	if len(p.pickChoices) != 1 || p.pickChoices[0][0].Value != "start" {
+		t.Fatalf("choices=%+v", p.pickChoices)
+	}
 	out := buf.String()
-	if !strings.Contains(out, "==>> Detection action...") || !strings.Contains(out, "selected: eg work start") {
+	if !strings.Contains(out, "==>> Detection action...") || !strings.Contains(out, "selected: eg work list") || !strings.Contains(out, "selected: ask") {
+		t.Fatalf("eval=%q", out)
+	}
+}
+
+func TestRunSessionDirtyFeatureListThenSave(t *testing.T) {
+	var ran []string
+	orig := dispatchAction
+	dispatchAction = func(_ *cobra.Command, action string, _ ...string) error {
+		ran = append(ran, action)
+		return nil
+	}
+	defer func() { dispatchAction = orig }()
+
+	var buf bytes.Buffer
+	text.SetOutput(&buf)
+	defer text.SetOutput(os.Stdout)
+
+	p := &sessionPrompter{}
+	c := NewCommand()
+	c.SetContext(prompt.WithPrompter(context.Background(), p))
+	err := runSession(c, func() snapshot {
+		return snapshot{Branch: "feat", Dirty: true}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(ran, []string{"list", "save"}) {
+		t.Fatalf("ran %v", ran)
+	}
+	if len(p.pickChoices) != 1 || p.pickChoices[0][0].Value != "save" {
+		t.Fatalf("choices=%+v", p.pickChoices)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "selected: eg work list") || !strings.Contains(out, "selected: ask") {
 		t.Fatalf("eval=%q", out)
 	}
 }

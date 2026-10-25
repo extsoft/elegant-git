@@ -50,7 +50,11 @@ func listRun(w io.Writer) error {
 		fmt.Fprintln(w)
 		text.Finfo(w, "Modifications")
 		statefmt.PrintLines(w, status)
-		steps = append(steps, statefmt.Step{Command: "eg work save", Comment: "commit the uncommitted modifications"})
+		step := statefmt.Step{Command: "eg work save", Comment: "commit the uncommitted modifications"}
+		if config.IsBranchProtected(branch) {
+			step = statefmt.Step{Command: "eg work start", Comment: "create a branch for the uncommitted modifications"}
+		}
+		steps = append(steps, step)
 	}
 	latest := config.FreshestBranchSourceBranch(branch)
 	if git.OutputOK("rev-list", latest+".."+branch) != "" {

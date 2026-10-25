@@ -73,7 +73,11 @@ func dispatchDetected(cmd *cobra.Command, d outcome) (ask bool, ran string, err 
 
 func askOnce(cmd *cobra.Command, snap snapshot) error {
 	p := prompt.FromContext(cmd.Context())
-	ans, err := cliruntime.PickActionOrHelp(cmd, p, "What now", askChoices(snap), "quit")
+	def := "quit"
+	if action := suggested(snap); action != "" {
+		def = action
+	}
+	ans, err := cliruntime.PickActionOrHelp(cmd, p, "What now", askChoices(snap), def)
 	if err != nil {
 		return err
 	}

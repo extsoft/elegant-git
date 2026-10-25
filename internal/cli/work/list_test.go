@@ -81,6 +81,25 @@ func TestListRunModificationsFurtherSteps(t *testing.T) {
 	}
 }
 
+func TestListRunProtectedModificationsSuggestStart(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Repo.CurrentBranch = "main"
+	m.Outputs["status --short"] = " M file.go"
+	git.Use(m)
+
+	var buf bytes.Buffer
+	if err := listRun(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "eg work start") {
+		t.Fatalf("got:\n%s", out)
+	}
+	if strings.Contains(out, "eg work save") {
+		t.Fatalf("protected branch suggested save, got:\n%s", out)
+	}
+}
+
 func TestGitColorArgs(t *testing.T) {
 	got := gitColorArgs(false, "status", "--short")
 	if strings.Join(got, " ") != "status --short" {

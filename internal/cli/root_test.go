@@ -367,13 +367,16 @@ func TestBareEgListThenPickerSkipsList(t *testing.T) {
 	}
 }
 
-func TestBareEgDirtyFeatureRunsSave(t *testing.T) {
+func TestBareEgDirtyFeatureListsThenSave(t *testing.T) {
 	m, _ := pickerRepo(t)
 	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
 	p := &rootPrompter{}
 	runRootWithPrompter(t, p)
-	if len(p.labels) != 0 {
-		t.Fatalf("prompted %v", p.labels)
+	if len(p.choices) != 1 || len(p.choices[0]) == 0 || p.choices[0][0].Value != "work save" {
+		t.Fatalf("choices %v", p.choices)
+	}
+	if len(p.defs) != 1 || p.defs[0] != "work save" {
+		t.Fatalf("default %v", p.defs)
 	}
 	if !hasGitCall(m, "add", "--interactive") || !hasGitCall(m, "commit") {
 		t.Fatalf("calls %+v", m.Calls)

@@ -52,13 +52,15 @@ fits. In non-interactive mode there is nothing to detect against, so an action i
 command fails without one.
 
 A bare `eg` on a terminal inside a git repository runs the work action that detection would run for
-`eg work`. A final action, such as `save` on a dirty feature branch, ends the command. When
+`eg work`. A final action, such as `accept` during an accept rebase, ends the command. When
 detection runs an action and then asks, or chooses nothing, `eg` opens one picker of commands that
 fit that repository. The rows are the `work`, `repo`, and `workspace` actions those objects would
 already offer, with the detected `work` action first, then every `hook` and `release` action, then
-`help` and `quit`. On a feature branch, `work sync` is always at the front of both the bare `eg`
-and `eg work` pickers. On a protected branch, it is inserted only when the branch is behind its
-own upstream or behind its source branch. A detached `HEAD` or a rebase in progress does not gain
+`help` and `quit`. On a feature branch, `work sync` is at the front of both the bare `eg`
+and `eg work` pickers, unless the branch is dirty. A dirty feature branch puts `work save` first,
+and a dirty protected branch puts `work start` first; that row is the default. On a protected
+branch, `work sync` is inserted only when the branch is behind its own upstream or behind its
+source branch. A detached `HEAD` or a rebase in progress does not gain
 `sync`. The first row is selected, unless that row is the action detection just ran; then the next
 row is selected. `quit` runs nothing. `help` prints root help and asks again.
 Esc cancels the picker and the command fails, as `eg work` does.
@@ -97,7 +99,8 @@ once on its own; the checks are not printed again.
 
 ### The ask list
 
-The list holds the actions that still make sense, plus `quit`, and `quit` is the default. With two
+The list holds the actions that still make sense, plus `quit`, and `quit` is the default. When the
+branch is dirty, `save` (feature) or `start` (protected) is the default instead. With two
 or more options you get [the picker](#picker), showing each action and its purpose:
 
 ```text
@@ -225,10 +228,9 @@ A value that contains spaces is the whole line. Press Enter to keep the selectio
 
 ```text
 What now:
-> work start    Creates a new branch.
-  work save     Commits current modifications.
+> work save     Commits current modifications.
+  work start    Creates a new branch.
   work list     Prints HEAD state.
-  work help     Shows available actions.
   quit          Leave without another action.
 ```
 

@@ -38,25 +38,27 @@ func TestDetect(t *testing.T) {
 			},
 		},
 		{
-			name:   "dirty protected",
-			snap:   snapshot{Branch: "main", Protected: true, Dirty: true},
-			action: "start",
+			name:    "dirty protected",
+			snap:    snapshot{Branch: "main", Protected: true, Dirty: true},
+			action:  "list",
+			thenAsk: true,
 			steps: []string{
 				"rebase in progress? no",
 				"on protected branch 'main'? yes",
 				"uncommitted changes? yes",
-				"selected: eg work start",
+				"selected: eg work list",
 			},
 		},
 		{
-			name:   "dirty feature",
-			snap:   snapshot{Branch: "feat", Dirty: true},
-			action: "save",
+			name:    "dirty feature",
+			snap:    snapshot{Branch: "feat", Dirty: true},
+			action:  "list",
+			thenAsk: true,
 			steps: []string{
 				"rebase in progress? no",
 				"on protected branch 'feat'? no",
 				"uncommitted changes? yes",
-				"selected: eg work save",
+				"selected: eg work list",
 			},
 		},
 		{
@@ -111,6 +113,17 @@ func TestDetect(t *testing.T) {
 			},
 		},
 		{
+			name:    "detached clean ask",
+			snap:    snapshot{Branch: "HEAD", Detached: true},
+			thenAsk: true,
+			steps: []string{
+				"rebase in progress? no",
+				"on protected branch 'HEAD'? no",
+				"uncommitted changes? no",
+				"selected: ask",
+			},
+		},
+		{
 			name:    "no upstream idle list",
 			snap:    snapshot{Branch: "feat"},
 			action:  "list",
@@ -152,17 +165,17 @@ func TestAskOptions(t *testing.T) {
 		{
 			name: "unique ahead",
 			snap: snapshot{UniqueCommits: true, HasUpstream: true, Ahead: 2},
-			want: []string{"polish", "push", "accept", "list", "help", "quit"},
+			want: []string{"polish", "push", "start", "accept", "list", "help", "quit"},
 		},
 		{
 			name: "unique no upstream",
 			snap: snapshot{UniqueCommits: true},
-			want: []string{"polish", "push", "accept", "list", "help", "quit"},
+			want: []string{"polish", "push", "start", "accept", "list", "help", "quit"},
 		},
 		{
 			name: "diverged",
 			snap: snapshot{HasUpstream: true, Ahead: 1, Behind: 2, UniqueCommits: true},
-			want: []string{"sync", "push", "accept", "list", "help", "quit"},
+			want: []string{"sync", "push", "start", "accept", "list", "help", "quit"},
 		},
 		{
 			name: "detached remotes",
@@ -249,7 +262,7 @@ func TestRelevantActionsSyncWhenBehind(t *testing.T) {
 	t.Cleanup(func() { git.Use(git.RealRunner{}) })
 
 	got := relevantFrom(inspect())
-	if len(got) < 2 || got[0] != "sync" || got[1] != "save" {
+	if len(got) < 2 || got[0] != "save" || got[1] != "sync" {
 		t.Fatalf("dirty behind: %v", got)
 	}
 
