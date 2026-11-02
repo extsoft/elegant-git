@@ -349,3 +349,30 @@ func TestSyncLogicResolvesSourceAfterFetch(t *testing.T) {
 		t.Fatalf("expected fetch before rebase onto origin/main, calls: %+v", m.Calls)
 	}
 }
+
+func TestSyncLogicRebaseOntoSkipsAppliedPrefix(t *testing.T) {
+	m := git.NewMemoryRunner()
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	stubAppliedPrefix(m, "origin/main", "a2", []string{"a1", "a2", "b1"})
+
+	if err := syncLogic("origin/main", true); err != nil {
+		t.Fatal(err)
+	}
+	if !hasGitCall(m, "rebase", "--onto", "origin/main", "a2") {
+		t.Fatalf("calls=%+v", m.Calls)
+	}
+}
+
+func TestSyncLogicPlainRebaseWhenNamed(t *testing.T) {
+	m := git.NewMemoryRunner()
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	if err := syncLogic("main", true); err != nil {
+		t.Fatal(err)
+	}
+	if !hasGitCall(m, "rebase", "main") || hasGitCall(m, "rebase", "--onto") {
+		t.Fatalf("calls=%+v", m.Calls)
+	}
+}

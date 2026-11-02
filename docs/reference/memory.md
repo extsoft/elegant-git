@@ -57,6 +57,8 @@ branch and the protected branches, and to `origin` for the remote.
 Next to it sits `<repo>/.git/elegant-git/commands.json`, the per-repo command memory. That is where
 the [pipes](pipes.md) park the stash message and the branch name they have to
 restore, which is why an interrupted command can be rerun without losing your work.
+`<repo>/.git/elegant-git/aside/` holds untracked files a rebase would otherwise refuse to
+overwrite, until that command finishes rebasing and checking out.
 
 ## Schema
 

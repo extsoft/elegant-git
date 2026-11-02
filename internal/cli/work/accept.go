@@ -52,72 +52,87 @@ func acceptSpec(branch *string) argspec.Spec {
 
 func acceptRun(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 	return pipe.StashPipe(acceptID, func() error {
-		return pipe.BranchPipe(acceptID, func() error {
-			return acceptLogic(cmd, args, spec)
+		var done bool
+		err := pipe.BranchPipe(acceptID, func() error {
+			var err error
+			done, err = acceptWork(cmd, args, spec)
+			return err
 		})
+		if err != nil {
+			return err
+		}
+		if !done {
+			return nil
+		}
+		return restoreAside()
 	})
 }
 
 func acceptLogic(cmd *cobra.Command, args []string, spec argspec.Spec) error {
+	_, err := acceptWork(cmd, args, spec)
+	return err
+}
+
+func acceptWork(cmd *cobra.Command, args []string, spec argspec.Spec) (bool, error) {
 	if isAcceptHelperRebase() {
-		return git.Verbose("rebase", "--continue")
+		return false, continueRebase()
 	}
 	if state.IsThereActiveRebase() {
 		rb := state.RebasingBranch()
 		cliruntime.ExitWorkflowError(fmt.Sprintf("First, please complete current rebase which updates '%s' branch.", rb))
 	}
 	if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
-		return err
+		return false, err
 	}
 	branch := spec.Inputs[0].Get()
 	wasLocal := cliruntime.LocalBranchExists(branch)
 	if wasLocal {
 		if err := git.Verbose("fetch", "--all"); err != nil {
-			return err
+			return false, err
 		}
 		if err := git.Verbose("checkout", "-B", acceptWorkBranch, branch); err != nil {
-			return err
+			return false, err
 		}
 	} else {
 		ctx := cmd.Context()
 		workflows.RunAheadCompat(ctx, trackIDAccept, "obtain-work")
 		defer workflows.RunAfterCompat(ctx, trackIDAccept, "obtain-work")
 		if err := trackExactRemote(branch, acceptWorkBranch); err != nil {
-			return err
+			return false, err
 		}
 	}
-	if err := git.Verbose("rebase", config.FreshestBranchSourceBranch(branch)); err != nil {
-		return err
+	if err := rebaseHoldingAside(config.FreshestBranchSourceBranch(branch)); err != nil {
+		return false, err
 	}
 	actualRemote := git.OutputOK("for-each-ref", "--format=%(upstream:short)", "refs/heads/"+acceptWorkBranch)
 	defaultBranch := config.DefaultBranch()
 	if err := git.Verbose("checkout", defaultBranch); err != nil {
-		return err
+		return false, err
 	}
 	if err := git.Verbose("merge", "--ff-only", acceptWorkBranch); err != nil {
-		return err
+		return false, err
 	}
 	if err := git.Verbose("branch", "--delete", "--force", acceptWorkBranch); err != nil {
-		return err
+		return false, err
 	}
 	if state.AreThereRemotes() {
 		if err := git.Verbose("push", config.DefaultUpstreamRemote, defaultBranch+":"+defaultBranch); err != nil {
-			return err
+			return false, err
 		}
 		if strings.HasPrefix(actualRemote, config.DefaultUpstreamRemote+"/") {
 			remoteBranch := cliruntime.BranchFromRemoteBranch(actualRemote)
 			if err := git.Verbose("push", config.DefaultUpstreamRemote, "--delete", remoteBranch); err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
 	if err := config.ClearBranchSourceBranch(branch); err != nil {
-		return err
+		return false, err
 	}
 	if wasLocal && branch != defaultBranch && branch != acceptWorkBranch && !config.IsBranchProtected(branch) {
 		if err := git.Verbose("branch", "--delete", "--force", branch); err != nil {
 			text.InfoText(fmt.Sprintf("The '%s' branch could not be deleted; it is still present.", branch))
 		}
 	}
-	return nil
+	return true, nil
 }

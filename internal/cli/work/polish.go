@@ -34,16 +34,25 @@ func polishRun() error {
 		cliruntime.ExitProtectedNoRewrite(branch)
 	}
 	if state.IsThereActiveRebase() {
-		return git.Verbose("rebase", "--continue")
+		if err := continueRebase(); err != nil {
+			return err
+		}
+		if state.IsThereActiveRebase() {
+			return nil
+		}
+		return restoreAside()
 	}
 	latest := config.FreshestBranchSourceBranch(branch)
 	commits := strings.Fields(git.OutputOK("rev-list", latest+"..@"))
 	if len(commits) == 0 {
 		text.InfoText(fmt.Sprintf("There are no new commits comparing to '%s' branch.", latest))
-		return nil
+		return restoreAside()
 	}
 	n := len(commits)
 	return pipe.StashPipe(polishID, func() error {
-		return git.Verbose("rebase", "--interactive", fmt.Sprintf("@~%d", n))
+		base := fmt.Sprintf("@~%d", n)
+		return asideAround(base, base, true, func() error {
+			return git.Verbose("rebase", "--interactive", base)
+		})
 	})
 }

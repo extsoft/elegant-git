@@ -29,8 +29,11 @@ If a rebase is already in progress on the helper branch `__eg`, the command cont
 Any other active rebase is an error; finish it first.
 
 Otherwise it fetches, checks the accepted branch out as `__eg` (tracking a remote of that name
-when there is no local branch), rebases `__eg` onto the freshest source, checks out the default
-development branch, fast-forward merges `__eg`, and deletes the helper. If there are remotes it
+when there is no local branch), rebases `__eg` onto the freshest source, and leaves out commits
+whose changes are already there. Untracked files that replay would overwrite are moved aside until
+accept finishes checking out; see [eg work sync](08-06-work-sync.md). A delivered source, including one
+whose upstream is gone, is treated as the default development branch. It then checks out the
+default development branch, fast-forward merges `__eg`, and deletes the helper. If there are remotes it
 pushes the default branch to `origin`, and if the accepted branch's upstream was on `origin` it
 deletes that remote branch. The recorded source for the accepted branch is cleared. When the
 accepted name was a local branch that is not protected, that local branch is deleted last, so a

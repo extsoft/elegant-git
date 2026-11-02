@@ -54,14 +54,19 @@ func pushRun(cmd *cobra.Command, args []string) error {
 
 func pushLogic(localBranch, remoteBranchArg string) error {
 	if state.IsThereActiveRebase() {
-		if err := git.Verbose("rebase", "--continue"); err != nil {
+		if err := continueRebase(); err != nil {
 			return err
+		}
+		if !state.IsThereActiveRebase() {
+			if err := restoreAside(); err != nil {
+				return err
+			}
 		}
 	} else {
 		if err := git.Verbose("fetch"); err != nil {
 			return err
 		}
-		if err := git.Verbose("rebase", config.FreshestBranchSourceBranch(localBranch)); err != nil {
+		if err := rebaseOnto(config.FreshestBranchSourceBranch(localBranch)); err != nil {
 			return err
 		}
 	}

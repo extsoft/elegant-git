@@ -27,8 +27,13 @@ func TestAcceptLogicContinuesHelperRebaseWithoutBranch(t *testing.T) {
 	if err := acceptLogic(cmd, nil, spec); err != nil {
 		t.Fatal(err)
 	}
-	if len(m.Calls) != 1 || m.Calls[0].Args[0] != "rebase" || m.Calls[0].Args[1] != "--continue" {
+	if !hasGitCall(m, "rebase", "--continue") {
 		t.Fatalf("calls=%v", m.Calls)
+	}
+	for _, c := range m.Calls {
+		if len(c.Args) > 0 && c.Args[0] == "rebase" && (len(c.Args) < 2 || c.Args[1] != "--continue") {
+			t.Fatalf("calls=%v", m.Calls)
+		}
 	}
 	if branch != "" {
 		t.Fatalf("branch=%q", branch)
@@ -158,6 +163,20 @@ func TestAcceptLogicDoesNotDeleteProtectedNonDefault(t *testing.T) {
 	got := forceDeletedBranches(m)
 	if slices.Contains(got, "release") {
 		t.Fatalf("deleted protected branch, got %v", got)
+	}
+}
+
+func TestAcceptLogicRebaseOntoSkipsAppliedPrefix(t *testing.T) {
+	m := setupAcceptTest(t)
+	stubLocalBranch(m, "feat")
+	m.Outputs["for-each-ref --format=%(refname:short)\t%(upstream:short) refs/heads"] = "feat\nmain"
+	stubAppliedPrefix(m, "main", "a2", []string{"a1", "a2", "b1"})
+
+	if err := runAcceptLogic(t, "feat"); err != nil {
+		t.Fatal(err)
+	}
+	if !hasGitCall(m, "rebase", "--onto", "main", "a2") {
+		t.Fatalf("calls=%+v", m.Calls)
 	}
 }
 

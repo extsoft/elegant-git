@@ -206,3 +206,148 @@ func TestSetBranchSourceBranch(t *testing.T) {
 		t.Fatalf("BranchSource = %q, want origin/main", got)
 	}
 }
+
+func TestFreshestBranchSourceBranchGoneUpstreamUsesDefault(t *testing.T) {
+	m, gitDir := setupBranchSourceTest(t)
+	stubRefExists(m, "main", "origin/main", "A")
+	stubLocalBranchExists(m, "B", "A")
+	m.Repo.Remotes = []string{"origin"}
+	m.Repo.LocalConfig["branch.A.merge"] = "refs/heads/A"
+	m.FailOn["rev-parse --abbrev-ref A@{upstream}"] = fmt.Errorf("gone")
+	m.FailOn["rev-parse --verify --quiet origin/A"] = fmt.Errorf("unknown")
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{"B": "A"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := FreshestBranchSourceBranch("B"); got != "origin/main" {
+		t.Fatalf("got %q, want origin/main", got)
+	}
+}
+
+func TestFreshestBranchSourceBranchContainedUsesDefault(t *testing.T) {
+	m, gitDir := setupBranchSourceTest(t)
+	stubRefExists(m, "main", "origin/main", "A", "origin/A")
+	stubLocalBranchExists(m, "B", "A")
+	m.Repo.Remotes = []string{"origin"}
+	m.Outputs["rev-parse --abbrev-ref A@{upstream}"] = "origin/A"
+	m.Outputs["rev-parse A"] = "aaa"
+	m.Outputs["rev-parse origin/A"] = "aaa"
+	m.Outputs["merge-base origin/main origin/A"] = "o"
+	m.Outputs["rev-parse origin/main^{tree}"] = "S"
+	m.Outputs["merge-tree --write-tree --merge-base=o origin/main origin/A"] = "S"
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{"B": "A"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := FreshestBranchSourceBranch("B"); got != "origin/main" {
+		t.Fatalf("got %q, want origin/main", got)
+	}
+}
+
+func TestFreshestBranchSourceBranchPrefersLocalAheadOfRemote(t *testing.T) {
+	m, gitDir := setupBranchSourceTest(t)
+	stubRefExists(m, "main", "origin/main", "A", "origin/A")
+	stubLocalBranchExists(m, "B", "A")
+	m.Repo.Remotes = []string{"origin"}
+	m.Outputs["rev-parse --abbrev-ref A@{upstream}"] = "origin/A"
+	m.Outputs["rev-parse A"] = "localsha"
+	m.Outputs["rev-parse origin/A"] = "remotesha"
+	m.Outputs["merge-base A origin/A"] = "o"
+	m.Outputs["rev-parse A^{tree}"] = "localtree"
+	m.Outputs["merge-tree --write-tree --merge-base=o A origin/A"] = "localtree"
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{"B": "A"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := FreshestBranchSourceBranch("B"); got != "A" {
+		t.Fatalf("got %q, want A", got)
+	}
+}
+
+func TestFreshestBranchSourceBranchKeepsSlashedLocalName(t *testing.T) {
+	m, gitDir := setupBranchSourceTest(t)
+	stubRefExists(m, "main", "origin/main", "feature/login", "origin/login", "login")
+	stubLocalBranchExists(m, "B", "feature/login", "login")
+	m.Repo.Remotes = []string{"origin"}
+	m.FailOn["rev-parse --verify --quiet origin/feature/login"] = fmt.Errorf("unknown")
+	m.FailOn["rev-parse --abbrev-ref feature/login@{upstream}"] = fmt.Errorf("no upstream")
+	m.FailOn["rev-parse --abbrev-ref login@{upstream}"] = fmt.Errorf("no upstream")
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{"B": "feature/login"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := FreshestBranchSourceBranch("B"); got != "feature/login" {
+		t.Fatalf("got %q, want feature/login", got)
+	}
+}
+
+func TestFreshestBranchSourceBranchDoesNotPreferWrongSlashSegment(t *testing.T) {
+	m, gitDir := setupBranchSourceTest(t)
+	stubRefExists(m, "main", "origin/main", "feature/login", "login")
+	stubLocalBranchExists(m, "B", "feature/login", "login")
+	m.Repo.Remotes = []string{"origin"}
+	m.FailOn["rev-parse --verify --quiet origin/feature/login"] = fmt.Errorf("unknown")
+	m.FailOn["rev-parse --verify --quiet origin/login"] = fmt.Errorf("unknown")
+	m.FailOn["rev-parse --abbrev-ref feature/login@{upstream}"] = fmt.Errorf("no upstream")
+	m.FailOn["rev-parse --abbrev-ref login@{upstream}"] = fmt.Errorf("no upstream")
+	m.Outputs["rev-parse login"] = "loginsha"
+	m.Outputs["rev-parse feature/login"] = "featuresha"
+	m.Outputs["merge-base login feature/login"] = "o"
+	m.Outputs["rev-parse login^{tree}"] = "ltree"
+	m.Outputs["merge-tree --write-tree --merge-base=o login feature/login"] = "ltree"
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{"B": "feature/login"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := FreshestBranchSourceBranch("B"); got != "feature/login" {
+		t.Fatalf("got %q, want feature/login", got)
+	}
+}
+
+func TestFreshestBranchSourceBranchGoneUpstreamUsesSlashedName(t *testing.T) {
+	m, gitDir := setupBranchSourceTest(t)
+	stubRefExists(m, "main", "origin/main", "feature/login", "origin/login", "login")
+	stubLocalBranchExists(m, "B", "feature/login", "login")
+	m.Repo.Remotes = []string{"origin"}
+	m.Repo.LocalConfig["branch.feature/login.merge"] = "refs/heads/feature/login"
+	m.FailOn["rev-parse --abbrev-ref feature/login@{upstream}"] = fmt.Errorf("gone")
+	m.FailOn["rev-parse --verify --quiet origin/feature/login"] = fmt.Errorf("unknown")
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{"B": "feature/login"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := FreshestBranchSourceBranch("B"); got != "origin/main" {
+		t.Fatalf("got %q, want origin/main", got)
+	}
+}
+
+func TestFreshestBranchSourceBranchKeepsRemoteWhenLocalMatches(t *testing.T) {
+	m, gitDir := setupBranchSourceTest(t)
+	stubRefExists(m, "main", "origin/main", "A", "origin/A")
+	stubLocalBranchExists(m, "B", "A")
+	m.Repo.Remotes = []string{"origin"}
+	m.Outputs["rev-parse --abbrev-ref A@{upstream}"] = "origin/A"
+	m.Outputs["rev-parse A"] = "aaa"
+	m.Outputs["rev-parse origin/A"] = "aaa"
+	if err := memrepo.Save(gitDir, &memrepo.State{
+		BranchSources: map[string]string{"B": "A"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := FreshestBranchSourceBranch("B"); got != "origin/A" {
+		t.Fatalf("got %q, want origin/A", got)
+	}
+}
