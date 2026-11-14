@@ -472,13 +472,8 @@ func TestTrackRealRepo(t *testing.T) {
 	root := t.TempDir()
 	bare := filepath.Join(root, "bare.git")
 	clone := filepath.Join(root, "clone")
-	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(root, "gitconfig"))
-	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("GIT_EDITOR", "true")
 	t.Setenv("GIT_TERMINAL_PROMPT", "0")
-	if err := os.WriteFile(filepath.Join(root, "gitconfig"), nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
 	gitAt := func(dir string, args ...string) string {
 		t.Helper()
 		cmd := exec.Command(git.Executable(), args...)
@@ -502,9 +497,6 @@ func TestTrackRealRepo(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(clone, "f"), []byte("base\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	gitAt(clone, "config", "user.email", "test@example.com")
-	gitAt(clone, "config", "user.name", "Test")
-	gitAt(clone, "config", "commit.gpgsign", "false")
 	gitAt(clone, "add", "f")
 	gitAt(clone, "commit", "-q", "-m", "base")
 	gitAt(clone, "remote", "add", "origin", bare)

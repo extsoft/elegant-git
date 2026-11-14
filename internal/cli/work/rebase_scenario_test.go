@@ -34,9 +34,6 @@ func newGitRepo(t *testing.T) *gitRepo {
 	dir := t.TempDir()
 	r := &gitRepo{t: t, dir: dir}
 	r.git("init", "-b", "main")
-	r.git("config", "user.email", "test@example.com")
-	r.git("config", "user.name", "Test")
-	r.git("config", "commit.gpgsign", "false")
 	r.git("config", "cherry-pick.ff", "false")
 	r.commit("o", "f", "o\n")
 	return r

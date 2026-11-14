@@ -64,9 +64,6 @@ func TestLocalBranchNamesRealRepo(t *testing.T) {
 		}
 	}
 	run("init", "-b", "main")
-	run("config", "user.email", "test@example.com")
-	run("config", "user.name", "Test")
-	run("config", "commit.gpgsign", "false")
 	if err := os.WriteFile(filepath.Join(dir, "f"), []byte("o\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

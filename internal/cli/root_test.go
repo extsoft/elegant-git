@@ -793,17 +793,40 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	egTestBinary = bin
+	cfg := filepath.Join(dir, "gitconfig")
+	if err := os.WriteFile(cfg, []byte(hermeticGitConfig), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "git config: %v\n", err)
+		os.RemoveAll(dir)
+		os.Exit(1)
+	}
+	os.Setenv("GIT_CONFIG_GLOBAL", cfg)
+	os.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
 }
+
+const hermeticGitConfig = `[user]
+	name = Test
+	email = test@example.com
+[commit]
+	gpgsign = false
+[maintenance]
+	auto = false
+[gc]
+	auto = 0
+`
 
 func buildTestBinary(t *testing.T) string {
 	t.Helper()
 	stateDir := t.TempDir()
 	t.Setenv("ELEGANT_GIT_STATE_FILE", filepath.Join(stateDir, "state.json"))
 	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(stateDir, "repo-state.json"))
-	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(stateDir, "gitconfig"))
+	cfg := filepath.Join(stateDir, "gitconfig")
+	if err := os.WriteFile(cfg, []byte(hermeticGitConfig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", cfg)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("ELEGANT_GIT_DEPTH", "")
 	return egTestBinary

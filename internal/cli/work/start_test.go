@@ -422,12 +422,7 @@ func TestStartLooseCaseOnlyRealRepo(t *testing.T) {
 		t.Skip("git is unavailable")
 	}
 	dir := t.TempDir()
-	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(dir, "none"))
-	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(dir, "state.json"))
-	if err := os.WriteFile(filepath.Join(dir, "none"), nil, 0o644); err != nil {
-		t.Fatal(err)
-	}
 	gitCmd := func(args ...string) {
 		t.Helper()
 		cmd := exec.Command(git.Executable(), args...)
@@ -438,9 +433,6 @@ func TestStartLooseCaseOnlyRealRepo(t *testing.T) {
 		}
 	}
 	gitCmd("init", "-b", "main")
-	gitCmd("config", "user.email", "test@example.com")
-	gitCmd("config", "user.name", "Test")
-	gitCmd("config", "commit.gpgsign", "false")
 	if err := os.WriteFile(filepath.Join(dir, "f"), []byte("o\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
