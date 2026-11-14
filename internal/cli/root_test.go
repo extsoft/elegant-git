@@ -769,6 +769,35 @@ func TestLegacyShimStartWork(t *testing.T) {
 	}
 }
 
+var egTestBinary string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "eg-cli-test-")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "test binary dir: %v\n", err)
+		os.Exit(1)
+	}
+	bin := filepath.Join(dir, "eg")
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "module root: %v\n", err)
+		os.RemoveAll(dir)
+		os.Exit(1)
+	}
+	cmd := exec.Command("go", "build", "-o", bin, "./cmd/eg")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "go build: %v\n%s", err, out)
+		os.RemoveAll(dir)
+		os.Exit(1)
+	}
+	egTestBinary = bin
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
+}
+
 func buildTestBinary(t *testing.T) string {
 	t.Helper()
 	stateDir := t.TempDir()
@@ -777,17 +806,5 @@ func buildTestBinary(t *testing.T) string {
 	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(stateDir, "gitconfig"))
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 	t.Setenv("ELEGANT_GIT_DEPTH", "")
-	dir := t.TempDir()
-	bin := filepath.Join(dir, "eg")
-	root, err := filepath.Abs("../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/eg")
-	cmd.Dir = root
-	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("go build: %v\n%s", err, out)
-	}
-	return bin
+	return egTestBinary
 }
