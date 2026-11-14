@@ -2,7 +2,9 @@ package work
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/extsoft/elegant-git/internal/cli/argspec"
@@ -10,6 +12,7 @@ import (
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/cli/sources"
 	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/config"
 	"github.com/extsoft/elegant-git/internal/exitcode"
 	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/pipe"
@@ -20,6 +23,8 @@ import (
 )
 
 var switchID = cmdid.ID{Command: "work", Action: "switch"}
+
+const otherRevisionChoice = "other revision"
 
 var switchChangeChoices = []prompt.Choice{
 	{Value: "add", Description: "Keep changes and move them onto the new branch."},
@@ -46,7 +51,7 @@ func newSwitchCommand() *cobra.Command {
 func switchSpec() argspec.Spec {
 	var ref, local string
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("ref", 0, true, "Branch, remote branch, or tag", &ref, nil, sources.RefsListed, false),
+		argspec.PositionalInputWithComplete("ref", 0, true, "Branch, remote branch, tag, or revision", &ref, nil, sources.RefsListed, false),
 		argspec.PositionalInput("local-branch", 1, false, "Local branch name", &local, nil),
 	}}
 }
@@ -60,8 +65,8 @@ func switchRun(cmd *cobra.Command, args []string) error {
 	if len(args) >= 2 {
 		localBranch = strings.TrimSpace(args[1])
 	}
-	if strings.HasPrefix(ref, "-") {
-		return cliruntime.NewUsageError(cmd, fmt.Errorf("ref must not start with '-'"))
+	if err := rejectLeadingDash(cmd, ref); err != nil {
+		return err
 	}
 	if err := guardSwitch(); err != nil {
 		return err
@@ -78,8 +83,18 @@ func switchRun(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		picked = true
+		if err := rejectLeadingDash(cmd, ref); err != nil {
+			return err
+		}
 	}
 	return switchTo(cmd, p, ref, localBranch, picked)
+}
+
+func rejectLeadingDash(cmd *cobra.Command, ref string) error {
+	if strings.HasPrefix(ref, "-") {
+		return cliruntime.NewUsageError(cmd, fmt.Errorf("ref must not start with '-'"))
+	}
+	return nil
 }
 
 func guardSwitch() error {
@@ -116,13 +131,14 @@ func pickSwitchRef(ctx context.Context, p prompt.Prompter) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(choices) == 0 {
-		return "", &argspec.ErrEmptySource{Name: "ref"}
+	promptChoices := make([]prompt.Choice, 0, len(choices)+1)
+	for _, c := range choices {
+		promptChoices = append(promptChoices, prompt.Choice{Value: c.Value, Description: c.Description})
 	}
-	promptChoices := make([]prompt.Choice, len(choices))
-	for i, c := range choices {
-		promptChoices[i] = prompt.Choice{Value: c.Value, Description: c.Description}
-	}
+	promptChoices = append(promptChoices, prompt.Choice{
+		Value:       otherRevisionChoice,
+		Description: "Type a commit or other revision.",
+	})
 	val, err := p.Pick("Branch, remote branch, or tag", promptChoices, "")
 	if err != nil {
 		return "", err
@@ -130,6 +146,18 @@ func pickSwitchRef(ctx context.Context, p prompt.Prompter) (string, error) {
 	val = strings.TrimSpace(val)
 	if i := strings.IndexByte(val, '\t'); i >= 0 {
 		val = val[:i]
+	}
+	if val == otherRevisionChoice {
+		line, err := prompt.ValidatedLine(p, "Revision", "", func(s string) string {
+			if strings.TrimSpace(s) == "" {
+				return "revision is required"
+			}
+			return ""
+		})
+		if err != nil {
+			return "", err
+		}
+		val = strings.TrimSpace(line)
 	}
 	if val == "" {
 		return "", fmt.Errorf("ref is required")
@@ -147,12 +175,15 @@ func switchTo(cmd *cobra.Command, p prompt.Prompter, ref, localBranch string, pi
 	}
 	if resolved.kind == switchLocal {
 		if localBranch != "" {
-			return cliruntime.NewUsageError(cmd, fmt.Errorf("local-branch applies only to a remote branch"))
+			return cliruntime.NewUsageError(cmd, fmt.Errorf("local-branch does not apply to a local branch"))
 		}
 		if cliruntime.CurrentBranch() == resolved.name {
 			text.InfoText(fmt.Sprintf("Already on '%s'", resolved.name))
 			return nil
 		}
+	}
+	if resolved.kind == switchTag || resolved.kind == switchRev {
+		return switchNonBranch(cmd.Context(), p, resolved, localBranch)
 	}
 	return withSwitchChanges(cmd.Context(), func() error {
 		return switchAct(p, resolved, localBranch)
@@ -170,8 +201,107 @@ func switchAct(p prompt.Prompter, resolved switchResolved, localBranch string) e
 		}
 		return checkoutTrackedLocal(p, local, resolved.name, fold, trackDivergenceStay)
 	default:
-		return notABranch(resolved.input)
+		return notARef(resolved.input)
 	}
+}
+
+func switchNonBranch(ctx context.Context, p prompt.Prompter, resolved switchResolved, localBranch string) error {
+	if resolved.commit == "" {
+		return notARef(resolved.input)
+	}
+	name, err := resolveNonBranchName(p, resolved, localBranch)
+	if err != nil {
+		return err
+	}
+	return withSwitchChanges(ctx, func() error {
+		if err := git.Verbose("checkout", "-b", name, "--no-track", resolved.commit); err != nil {
+			return err
+		}
+		return config.SetBranchSourceBranch(name, resolved.input)
+	})
+}
+
+func resolveNonBranchName(p prompt.Prompter, resolved switchResolved, localBranch string) (string, error) {
+	suggested, err := autoBranchBase(resolved)
+	if err != nil {
+		return "", err
+	}
+	branches, err := state.LocalBranchNames()
+	if err != nil {
+		return "", err
+	}
+	if prompt.NonInteractive(p) {
+		name := suggested
+		if strings.TrimSpace(localBranch) != "" {
+			name = strings.TrimSpace(localBranch)
+		}
+		if problem := submitNewBranchNameProblem(name, branches); problem != "" {
+			return "", workflowText(problem)
+		}
+		return name, nil
+	}
+	initial := suggested
+	if strings.TrimSpace(localBranch) != "" {
+		initial = strings.TrimSpace(localBranch)
+	}
+	fold := prepareCaseFold()
+	val, err := prompt.ValidatedLine(p, "Local branch name", initial, func(s string) string {
+		return liveBranchProblem(strings.TrimSpace(s), branches, fold)
+	})
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return "", errors.New("end of input")
+		}
+		return "", err
+	}
+	name := strings.TrimSpace(val)
+	if problem := submitNewBranchNameProblem(name, branches); problem != "" {
+		return resolveNewBranchNameFold(p, name, branches, name, &fold)
+	}
+	return name, nil
+}
+
+func autoBranchBase(resolved switchResolved) (string, error) {
+	if resolved.kind == switchTag {
+		return "tag-" + resolved.name, nil
+	}
+	short, err := shortCommit(resolved.commit)
+	if err != nil {
+		return "", err
+	}
+	return "rev-" + short, nil
+}
+
+func shortCommit(sha string) (string, error) {
+	out, err := git.Output("rev-parse", "--short", "--verify", "--end-of-options", sha)
+	if err != nil {
+		return "", git.ErrorFromOutput(out, err)
+	}
+	short := strings.TrimSpace(out)
+	if short == "" {
+		return "", fmt.Errorf("empty short commit")
+	}
+	return short, nil
+}
+
+func peelCommit(ref string) (string, bool) {
+	out, err := git.Output("rev-parse", "--verify", "--quiet", "--end-of-options", ref+"^{commit}")
+	if err != nil {
+		return "", false
+	}
+	sha := strings.TrimSpace(out)
+	if sha == "" {
+		return "", false
+	}
+	return sha, true
+}
+
+func resolveTag(name, input string) (switchResolved, error) {
+	commit, ok := peelCommit("refs/tags/" + name)
+	if !ok {
+		return switchResolved{}, notARef(input)
+	}
+	return switchResolved{kind: switchTag, name: name, input: input, commit: commit}, nil
 }
 
 func withSwitchChanges(ctx context.Context, logic func() error) error {
@@ -208,12 +338,14 @@ const (
 	switchLocal switchKind = iota
 	switchRemote
 	switchTag
+	switchRev
 )
 
 type switchResolved struct {
-	kind  switchKind
-	name  string
-	input string
+	kind   switchKind
+	name   string
+	input  string
+	commit string
 }
 
 type switchHit struct {
@@ -226,34 +358,37 @@ func resolveSwitchRef(input string) (switchResolved, error) {
 	remotes := remoteList()
 	tags := refList("refs/tags")
 	if kind, name, ok := qualifiedKind(input); ok {
-		return resolveQualified(input, kind, name, heads, remotes)
+		return resolveQualified(input, kind, name, heads, remotes, tags)
 	}
 	headSet := refSet(heads)
 	remoteSet := refSet(remotes)
 	tagSet := refSet(tags)
 	if headSet[input] {
 		noteOtherKinds(input, switchLocal, remoteSet, tagSet)
-		return switchResolved{switchLocal, input, input}, nil
+		return switchResolved{switchLocal, input, input, ""}, nil
 	}
 	if remoteSet[input] {
 		noteOtherKinds(input, switchRemote, remoteSet, tagSet)
-		return switchResolved{switchRemote, input, input}, nil
+		return switchResolved{switchRemote, input, input, ""}, nil
 	}
 	if matches := remoteBranchesNamed(input, remotes); len(matches) == 1 {
 		noteOtherKinds(input, switchRemote, remoteSet, tagSet)
-		return switchResolved{switchRemote, matches[0], input}, nil
+		return switchResolved{switchRemote, matches[0], input, ""}, nil
 	} else if len(matches) > 1 {
 		return switchResolved{}, branchListError(fmt.Sprintf("'%s' matches more than one remote branch:", input), matches)
 	}
 	if tagSet[input] {
-		return switchResolved{}, notABranch(input)
+		return resolveTag(input, input)
+	}
+	if commit, ok := peelCommit(input); ok {
+		return switchResolved{kind: switchRev, name: input, input: input, commit: commit}, nil
 	}
 	hits := substringHits(input, heads, remotes)
 	switch len(hits) {
 	case 1:
-		return switchResolved{hits[0].kind, hits[0].name, input}, nil
+		return switchResolved{hits[0].kind, hits[0].name, input, ""}, nil
 	case 0:
-		return switchResolved{}, notABranch(input)
+		return switchResolved{}, notARef(input)
 	default:
 		names := make([]string, len(hits))
 		for i, hit := range hits {
@@ -263,21 +398,25 @@ func resolveSwitchRef(input string) (switchResolved, error) {
 	}
 }
 
-func resolveQualified(input string, kind switchKind, name string, heads, remotes []string) (switchResolved, error) {
+func resolveQualified(input string, kind switchKind, name string, heads, remotes, tags []string) (switchResolved, error) {
 	if name == "" {
-		return switchResolved{}, notABranch(input)
+		return switchResolved{}, notARef(input)
 	}
 	switch kind {
 	case switchLocal:
 		if containsName(heads, name) {
-			return switchResolved{switchLocal, name, input}, nil
+			return switchResolved{switchLocal, name, input, ""}, nil
 		}
 	case switchRemote:
 		if !isRemoteHEAD(name) && containsName(remotes, name) {
-			return switchResolved{switchRemote, name, input}, nil
+			return switchResolved{switchRemote, name, input, ""}, nil
+		}
+	case switchTag:
+		if containsName(tags, name) {
+			return resolveTag(name, input)
 		}
 	}
-	return switchResolved{}, notABranch(input)
+	return switchResolved{}, notARef(input)
 }
 
 func qualifiedKind(input string) (switchKind, string, bool) {
@@ -415,8 +554,8 @@ func isRemoteHEAD(short string) bool {
 	return ok && branch == "HEAD"
 }
 
-func notABranch(ref string) error {
-	return workflowText(fmt.Sprintf("'%s' is not a branch", ref))
+func notARef(ref string) error {
+	return workflowText(fmt.Sprintf("'%s' is not a branch, tag, or commit", ref))
 }
 
 func branchListError(header string, names []string) error {

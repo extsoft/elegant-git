@@ -15,6 +15,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/spf13/cobra"
 )
@@ -118,7 +119,7 @@ func TestSwitchM5Substring(t *testing.T) {
 	buf.Reset()
 	err = runSwitch(prompt.NewNonInteractive(), "zzz")
 	assertWorkflow(t, err)
-	if !strings.Contains(buf.String(), "'zzz' is not a branch") {
+	if !strings.Contains(buf.String(), "'zzz' is not a branch, tag, or commit") {
 		t.Fatalf("out=%q", buf.String())
 	}
 }
@@ -366,13 +367,232 @@ func TestSwitchM21CompletionNoFetch(t *testing.T) {
 func TestSwitchM23LeadingDash(t *testing.T) {
 	r := newSwRepo(t)
 	r.enter()
-	err := runSwitch(prompt.NewNonInteractive(), "-x")
-	if !cliruntime.IsUsageError(err) {
-		t.Fatalf("err=%v", err)
+	for _, ref := range []string{"-x", "--help"} {
+		err := runSwitch(prompt.NewNonInteractive(), ref)
+		if !cliruntime.IsUsageError(err) {
+			t.Fatalf("ref %s err=%v", ref, err)
+		}
+		if r.headRef() != "refs/heads/main" {
+			t.Fatalf("head %s", r.headRef())
+		}
 	}
-	if r.headRef() != "refs/heads/main" {
-		t.Fatalf("head %s", r.headRef())
+	buf := captureText(t)
+	for _, ref := range []string{"main..main", "f", "HEAD:f"} {
+		buf.Reset()
+		err := runSwitch(prompt.NewNonInteractive(), ref)
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "'"+ref+"' is not a branch, tag, or commit") || r.headRef() != "refs/heads/main" {
+			t.Fatalf("ref %s out=%q head %s", ref, buf.String(), r.headRef())
+		}
 	}
+}
+
+func TestSwitchM9Tag(t *testing.T) {
+	r := newSwRepo(t)
+	r.git("tag", "v1.2")
+	want := r.rev("refs/tags/v1.2^{commit}")
+	r.enter()
+	if err := runSwitch(prompt.NewNonInteractive(), "v1.2"); err != nil {
+		t.Fatal(err)
+	}
+	if r.headRef() != "refs/heads/tag-v1.2" || r.rev("refs/heads/tag-v1.2") != want {
+		t.Fatalf("head %s tip %s want %s", r.headRef(), r.rev("HEAD"), want)
+	}
+	if r.sourceOf("tag-v1.2") != "v1.2" {
+		t.Fatalf("source %q", r.sourceOf("tag-v1.2"))
+	}
+	if r.gitAllow("rev-parse", "--abbrev-ref", "tag-v1.2@{upstream}") == nil {
+		t.Fatal("tracking set")
+	}
+}
+
+func TestSwitchTagAsksForName(t *testing.T) {
+	r := newSwRepo(t)
+	r.git("tag", "v1.2")
+	want := r.rev("refs/tags/v1.2^{commit}")
+	r.enter()
+	p := &swPrompter{lines: []string{"mine"}}
+	if err := runSwitch(p, "v1.2"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.stringDefs) == 0 || p.stringDefs[0] != "tag-v1.2" {
+		t.Fatalf("defs %v", p.stringDefs)
+	}
+	if r.headRef() != "refs/heads/mine" || r.rev("refs/heads/mine") != want || r.sourceOf("mine") != "v1.2" {
+		t.Fatalf("head %s source %q", r.headRef(), r.sourceOf("mine"))
+	}
+}
+
+func TestSwitchM10Revision(t *testing.T) {
+	r := newSwRepo(t)
+	r.commit("next", "g", "next\n")
+	full := r.rev("HEAD~1")
+	short := r.git("rev-parse", "--short", full)
+	r.enter()
+	if err := runSwitch(prompt.NewNonInteractive(), full); err != nil {
+		t.Fatal(err)
+	}
+	name := "rev-" + short
+	if r.headRef() != "refs/heads/"+name || r.rev("refs/heads/"+name) != full {
+		t.Fatalf("head %s tip %s", r.headRef(), r.rev("HEAD"))
+	}
+	if r.gitAllow("check-ref-format", "--branch", name) != nil {
+		t.Fatalf("invalid branch name %s", name)
+	}
+	if r.sourceOf(name) != full {
+		t.Fatalf("source %q", r.sourceOf(name))
+	}
+
+	r = newSwRepo(t)
+	r.commit("next", "g", "next\n")
+	full = r.rev("HEAD~1")
+	short = r.git("rev-parse", "--short", full)
+	r.enter()
+	if err := runSwitch(prompt.NewNonInteractive(), "HEAD~1"); err != nil {
+		t.Fatal(err)
+	}
+	name = "rev-" + short
+	if r.headRef() != "refs/heads/"+name || r.rev("HEAD") != full || r.sourceOf(name) != "HEAD~1" {
+		t.Fatalf("head %s tip %s source %q", r.headRef(), r.rev("HEAD"), r.sourceOf(name))
+	}
+}
+
+func TestSwitchM11TagNameTaken(t *testing.T) {
+	t.Run("same commit", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("tag", "v1.2")
+		r.git("branch", "tag-v1.2", "v1.2")
+		tip := r.rev("refs/heads/tag-v1.2")
+		r.enter()
+		buf := captureText(t)
+		err := runSwitch(prompt.NewNonInteractive(), "v1.2")
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "branch 'tag-v1.2' already exists") || r.headRef() != "refs/heads/main" {
+			t.Fatalf("out=%q head %s", buf.String(), r.headRef())
+		}
+		if r.rev("refs/heads/tag-v1.2") != tip {
+			t.Fatal("moved existing branch")
+		}
+	})
+	t.Run("elsewhere", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.commit("next", "g", "next\n")
+		r.git("tag", "v1.2", "HEAD~1")
+		r.git("branch", "tag-v1.2", "HEAD")
+		tip := r.rev("refs/heads/tag-v1.2")
+		r.enter()
+		buf := captureText(t)
+		err := runSwitch(prompt.NewNonInteractive(), "v1.2")
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "branch 'tag-v1.2' already exists") || r.headRef() != "refs/heads/main" {
+			t.Fatalf("out=%q head %s", buf.String(), r.headRef())
+		}
+		if r.rev("refs/heads/tag-v1.2") != tip {
+			t.Fatal("moved existing branch")
+		}
+		if r.gitAllow("rev-parse", "--verify", "--quiet", "refs/heads/tag-v1.2-2") == nil {
+			t.Fatal("suffixed")
+		}
+	})
+}
+
+func TestSwitchM12LocalBranchArg(t *testing.T) {
+	r := newSwRepo(t)
+	r.git("tag", "v1.2")
+	r.git("branch", "taken")
+	want := r.rev("refs/tags/v1.2^{commit}")
+	r.enter()
+	buf := captureText(t)
+	err := runSwitch(prompt.NewNonInteractive(), "v1.2", "taken")
+	assertWorkflow(t, err)
+	if !strings.Contains(buf.String(), "branch 'taken' already exists") || r.headRef() != "refs/heads/main" {
+		t.Fatalf("out=%q head %s", buf.String(), r.headRef())
+	}
+	if r.gitAllow("rev-parse", "--verify", "--quiet", "refs/heads/tag-v1.2") == nil {
+		t.Fatal("auto name created")
+	}
+	if err := runSwitch(prompt.NewNonInteractive(), "v1.2", "mine"); err != nil {
+		t.Fatal(err)
+	}
+	if r.headRef() != "refs/heads/mine" || r.rev("refs/heads/mine") != want || r.sourceOf("mine") != "v1.2" {
+		t.Fatalf("head %s source %q", r.headRef(), r.sourceOf("mine"))
+	}
+}
+
+func TestSwitchM22OtherRevision(t *testing.T) {
+	r := newSwRepo(t)
+	r.commit("next", "g", "next\n")
+	full := r.rev("HEAD~1")
+	short := r.git("rev-parse", "--short", full)
+	r.enter()
+	p := &swPrompter{picks: []string{"other revision"}, lines: []string{"HEAD~1"}}
+	if err := runSwitch(p, ""); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.choices) != 1 || p.choices[0][len(p.choices[0])-1].Value != "other revision" {
+		t.Fatalf("choices %v", choiceValues(p.choices[0]))
+	}
+	name := "rev-" + short
+	if r.headRef() != "refs/heads/"+name || r.rev("HEAD") != full || r.sourceOf(name) != "HEAD~1" {
+		t.Fatalf("head %s tip %s source %q", r.headRef(), r.rev("HEAD"), r.sourceOf(name))
+	}
+
+	r.git("checkout", "-q", "main")
+	buf := captureText(t)
+	p = &swPrompter{picks: []string{"other revision"}, lines: []string{"nope"}}
+	err := runSwitch(p, "")
+	assertWorkflow(t, err)
+	if !strings.Contains(buf.String(), "'nope' is not a branch, tag, or commit") || r.headRef() != "refs/heads/main" {
+		t.Fatalf("out=%q head %s", buf.String(), r.headRef())
+	}
+}
+
+func TestSwitchM24AnnotatedTag(t *testing.T) {
+	r := newSwRepo(t)
+	r.git("tag", "-a", "v2", "-m", "note")
+	tagObj := r.rev("refs/tags/v2")
+	commit := r.rev("refs/tags/v2^{commit}")
+	if tagObj == commit {
+		t.Fatal("expected annotated tag")
+	}
+	r.enter()
+	if err := runSwitch(prompt.NewNonInteractive(), "v2"); err != nil {
+		t.Fatal(err)
+	}
+	if r.headRef() != "refs/heads/tag-v2" || r.rev("refs/heads/tag-v2") != commit || r.rev("refs/heads/tag-v2") == tagObj {
+		t.Fatalf("head %s tip %s commit %s tag %s", r.headRef(), r.rev("HEAD"), commit, tagObj)
+	}
+}
+
+func TestSwitchM27Suffix(t *testing.T) {
+	t.Run("case", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("config", "core.ignorecase", "true")
+		r.git("branch", "Tag-v1")
+		r.git("tag", "v1")
+		r.enter()
+		if r.gitAllow("show-ref", "--verify", "--quiet", "refs/heads/tag-v1") != nil {
+			t.Skip("case-insensitive branch lookup is unavailable")
+		}
+		buf := captureText(t)
+		err := runSwitch(prompt.NewNonInteractive(), "v1")
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "branch 'tag-v1' already exists") || r.headRef() != "refs/heads/main" {
+			t.Fatalf("out=%q head %s", buf.String(), r.headRef())
+		}
+	})
+	t.Run("namespace", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("branch", "tag-v1/x")
+		r.git("tag", "v1")
+		r.enter()
+		buf := captureText(t)
+		err := runSwitch(prompt.NewNonInteractive(), "v1")
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "branch 'tag-v1' conflicts with existing branch 'tag-v1/x'") || r.headRef() != "refs/heads/main" {
+			t.Fatalf("out=%q head %s", buf.String(), r.headRef())
+		}
+	})
 }
 
 func TestSwitchExactTagBeatsSubstring(t *testing.T) {
@@ -382,15 +602,16 @@ func TestSwitchExactTagBeatsSubstring(t *testing.T) {
 	r.git("checkout", "-q", "main")
 	r.git("branch", "-D", "v1-fix")
 	r.git("tag", "v1")
+	want := r.rev("refs/tags/v1^{commit}")
 	r.enter()
-	buf := captureText(t)
-	err := runSwitch(prompt.NewNonInteractive(), "v1")
-	assertWorkflow(t, err)
-	if !strings.Contains(buf.String(), "'v1' is not a branch") {
-		t.Fatalf("out=%q", buf.String())
+	if err := runSwitch(prompt.NewNonInteractive(), "v1"); err != nil {
+		t.Fatal(err)
 	}
-	if r.headRef() != "refs/heads/main" {
-		t.Fatalf("head %s", r.headRef())
+	if r.headRef() != "refs/heads/tag-v1" || r.rev("refs/heads/tag-v1") != want {
+		t.Fatalf("head %s tip %s", r.headRef(), r.rev("HEAD"))
+	}
+	if r.gitAllow("rev-parse", "--verify", "--quiet", "refs/heads/v1-fix") == nil {
+		t.Fatal("substring branch created")
 	}
 }
 
@@ -413,11 +634,24 @@ func TestSwitchM25Kinds(t *testing.T) {
 	}
 	r.git("checkout", "-q", "main")
 	buf.Reset()
-	err := runSwitch(prompt.NewNonInteractive(), "tags/x")
-	assertWorkflow(t, err)
-	if !strings.Contains(buf.String(), "'tags/x' is not a branch") || r.headRef() != "refs/heads/main" {
-		t.Fatalf("out=%q head %s", buf.String(), r.headRef())
+	if err := runSwitch(prompt.NewNonInteractive(), "tags/x"); err != nil {
+		t.Fatalf("%v out=%q", err, buf.String())
 	}
+	if r.headRef() != "refs/heads/tag-x" || r.rev("refs/heads/tag-x") != r.rev("refs/tags/x^{commit}") {
+		t.Fatalf("head %s", r.headRef())
+	}
+	if r.sourceOf("tag-x") != "tags/x" {
+		t.Fatalf("source %q", r.sourceOf("tag-x"))
+	}
+	r.git("checkout", "-q", "main")
+	r.git("branch", "-D", "tag-x")
+	if err := runSwitch(prompt.NewNonInteractive(), "refs/tags/x"); err != nil {
+		t.Fatal(err)
+	}
+	if r.headRef() != "refs/heads/tag-x" || r.sourceOf("tag-x") != "refs/tags/x" {
+		t.Fatalf("head %s source %q", r.headRef(), r.sourceOf("tag-x"))
+	}
+	r.git("checkout", "-q", "main")
 	if err := runSwitch(prompt.NewNonInteractive(), "refs/heads/x"); err != nil {
 		t.Fatal(err)
 	}
@@ -735,6 +969,15 @@ func (r *swRepo) stashList() string {
 	return r.git("stash", "list")
 }
 
+func (r *swRepo) sourceOf(branch string) string {
+	r.t.Helper()
+	s, _, err := memrepo.LoadFromCWD()
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	return memrepo.BranchSource(s, branch)
+}
+
 func gitDir(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command(git.Executable(), args...)
@@ -825,13 +1068,22 @@ func readMarker(t *testing.T, path string) string {
 }
 
 type swPrompter struct {
-	picks    []string
-	pickN    int
-	pickDefs []string
-	choices  [][]prompt.Choice
+	picks      []string
+	pickN      int
+	pickDefs   []string
+	choices    [][]prompt.Choice
+	lines      []string
+	lineN      int
+	stringDefs []string
 }
 
 func (p *swPrompter) String(_, def string) (string, error) {
+	p.stringDefs = append(p.stringDefs, def)
+	if p.lineN < len(p.lines) {
+		v := p.lines[p.lineN]
+		p.lineN++
+		return v, nil
+	}
 	if def != "" {
 		return def, nil
 	}
