@@ -19,8 +19,27 @@ one. In interactive mode, leaving it out offers a picker of remote branches. The
 name is optional; interactive mode offers the branch part of the remote as a suggestion.
 
 The command fetches all remotes, then matches. Zero matches or more than one is an error — make
-the pattern unambiguous. Then it checks out `-B` the local branch onto that remote so it tracks
-it.
+the pattern unambiguous.
+
+A free local name is created with `checkout -b` so the new branch tracks that remote. An
+existing local branch is not moved unless you ask for that.
+
+When the local name already exists and tracks a different remote, or tracks nothing, the command
+stops. A name that conflicts across a slash with an existing branch is the same kind of error.
+Non-interactive mode exits with a [workflow error](reference/exit-codes.md). Interactive mode
+prints the problem and asks for another name.
+
+When the local branch already tracks the matched remote, non-interactive mode exits with that
+workflow error and tells you to run `git switch` on the branch. Interactive mode asks what to
+do:
+
+- check the branch out without moving its tip
+- fast-forward it, when it is an ancestor of the remote
+- reset it to the remote; the choice warns when the local branch has commits the remote does not
+- pick a new local name and create that branch
+
+The fast-forward choice is the default when it is offered. Otherwise the default is to check the
+branch out without moving its tip.
 
 There are no pipes and no protected-branch check. Without remotes, bare `eg work` does not offer
 `track`.

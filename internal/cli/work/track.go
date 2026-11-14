@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/extsoft/elegant-git/internal/cli/argspec"
@@ -11,8 +12,10 @@ import (
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/cli/sources"
 	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/exitcode"
 	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/state"
 	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
@@ -107,7 +110,7 @@ func trackLogic(ctx context.Context, p prompt.Prompter, pattern, localBranch str
 	if err != nil {
 		return err
 	}
-	return git.Verbose("checkout", "-B", local, remote)
+	return checkoutTrackedLocal(p, local, remote)
 }
 
 func resolveRemotePattern(ctx context.Context, p prompt.Prompter, pattern string) (string, error) {
@@ -161,14 +164,144 @@ func resolveLocalBranch(p prompt.Prompter, remote, localBranch string) (string, 
 	return val, nil
 }
 
+func checkoutTrackedLocal(p prompt.Prompter, local, remote string) error {
+	branches, err := state.LocalBranchNames()
+	if err != nil {
+		return err
+	}
+	if branchListed(branches, local) && localTracksRemote(local, remote) {
+		return trackSameUpstream(p, local, remote)
+	}
+	if submitNewBranchNameProblem(local, branches) != "" {
+		name, err := resolveNewBranchName(p, local, branches)
+		if err != nil {
+			return err
+		}
+		return createTrackingBranch(name, remote)
+	}
+	return createTrackingBranch(local, remote)
+}
+
+func branchListed(branches []string, name string) bool {
+	for _, existing := range branches {
+		if existing == name {
+			return true
+		}
+	}
+	return false
+}
+
+func createTrackingBranch(local, remote string) error {
+	return git.Verbose("checkout", "-b", local, "--track", remoteTrackingRef(remote))
+}
+
+func trackSameUpstream(p prompt.Prompter, local, remote string) error {
+	if prompt.NonInteractive(p) {
+		text.ErrorText(fmt.Sprintf("local branch '%s' already tracks '%s'; run 'git switch %s'", local, remote, local))
+		return cliruntime.ExitStatus{Code: exitcode.WorkflowError}
+	}
+	choices, def := trackUpstreamChoices(local, remote)
+	label := fmt.Sprintf("Local branch '%s' already tracks '%s'", local, remote)
+	ans, err := p.Pick(label, choices, def)
+	if err != nil {
+		return err
+	}
+	switch ans {
+	case "switch":
+		return git.Verbose("checkout", local, "--")
+	case "fast-forward":
+		if err := git.Verbose("checkout", local, "--"); err != nil {
+			return err
+		}
+		return git.Verbose("merge", "--ff-only", remoteTrackingRef(remote))
+	case "reset":
+		return git.Verbose("checkout", "-B", local, remoteTrackingRef(remote))
+	case "new name":
+		branches, err := state.LocalBranchNames()
+		if err != nil {
+			return err
+		}
+		name, err := askNewBranchName(p, "Branch name", branches)
+		if err != nil {
+			return err
+		}
+		return createTrackingBranch(name, remote)
+	default:
+		return fmt.Errorf("invalid choice %q", ans)
+	}
+}
+
+func trackUpstreamChoices(local, remote string) ([]prompt.Choice, string) {
+	choices := []prompt.Choice{{
+		Value:       "switch",
+		Description: "Check out the local branch without moving its tip.",
+	}}
+	def := "switch"
+	if localIsAncestorOfRemote(local, remote) {
+		choices = append(choices, prompt.Choice{
+			Value:       "fast-forward",
+			Description: "Fast-forward the local branch to the remote.",
+		})
+		def = "fast-forward"
+	}
+	reset := "Point the local branch at the remote."
+	if localHasCommitsNotInRemote(local, remote) {
+		reset = "Point the local branch at the remote and drop its other commits."
+	}
+	choices = append(choices,
+		prompt.Choice{Value: "reset", Description: reset},
+		prompt.Choice{Value: "new name", Description: "Create a different local branch that tracks the remote."},
+	)
+	return choices, def
+}
+
+func remoteTrackingRef(short string) string {
+	return "refs/remotes/" + short
+}
+
+func localTracksRemote(local, remote string) bool {
+	out, err := git.Output("rev-parse", "--symbolic-full-name", local+"@{upstream}")
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(out) == remoteTrackingRef(remote)
+}
+
+func localIsAncestorOfRemote(local, remote string) bool {
+	_, err := git.Output("merge-base", "--is-ancestor", "refs/heads/"+local, remoteTrackingRef(remote))
+	return err == nil
+}
+
+func localHasCommitsNotInRemote(local, remote string) bool {
+	out, err := git.Output("rev-list", "--count", remoteTrackingRef(remote)+"..refs/heads/"+local)
+	if err != nil {
+		return true
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil {
+		return true
+	}
+	return n > 0
+}
+
 func remoteBranchesMatching(pattern string) []string {
-	remotes := strings.Split(git.OutputOK("for-each-ref", "--format=%(refname:short)", "refs/remotes"), "\n")
+	remotes := strings.Split(git.OutputOK("for-each-ref", "--format=%(refname)", "refs/remotes"), "\n")
 	var matches []string
 	for _, ref := range remotes {
-		ref = strings.TrimSpace(ref)
-		if ref != "" && strings.Contains(ref, pattern) {
-			matches = append(matches, ref)
+		short, ok := remoteShort(ref)
+		if ok && strings.Contains(short, pattern) {
+			matches = append(matches, short)
 		}
 	}
 	return matches
+}
+
+func remoteShort(ref string) (string, bool) {
+	const prefix = "refs/remotes/"
+	ref = strings.TrimSpace(ref)
+	if !strings.HasPrefix(ref, prefix) {
+		return "", false
+	}
+	short := strings.TrimPrefix(ref, prefix)
+	return short, short != ""
 }
