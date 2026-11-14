@@ -1,10 +1,24 @@
 package work
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/exitcode"
 	"github.com/extsoft/elegant-git/internal/git"
+	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/text"
+	"github.com/spf13/cobra"
 )
 
 var errNoUpstream = fmt.Errorf("no upstream")
@@ -44,4 +58,382 @@ func TestParseStartChangesChoice(t *testing.T) {
 			t.Errorf("parseStartChangesChoice(%q) = %q, %v; want %q, %v", tc.in, mode, ok, tc.mode, tc.ok)
 		}
 	}
+}
+
+func TestStartRejectsExistingNameBeforeSideEffects(t *testing.T) {
+	tests := []struct {
+		branches string
+		name     string
+		want     string
+	}{
+		{"main", "main", "branch 'main' already exists"},
+		{"main", " main ", "branch 'main' already exists"},
+		{"feature", "feature/x", "branch 'feature/x' conflicts with existing branch 'feature'"},
+		{"a/b", "a", "branch 'a' conflicts with existing branch 'a/b'"},
+		{"main", "bad name", "branch name cannot contain ' '"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := setupStart(t, tc.branches)
+			m.Repo.Remotes = []string{"origin"}
+			m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+			buf := captureText(t)
+			err := runStart(prompt.NewNonInteractive(), tc.name)
+			assertWorkflow(t, err)
+			if buf.String() != tc.want+"\n" {
+				t.Fatalf("out=%q", buf.String())
+			}
+			assertNoStartMutations(t, m)
+		})
+	}
+}
+
+func TestStartCheckRefFormatRejectsBeforeCheckout(t *testing.T) {
+	m := setupStart(t, "main")
+	m.FailOn["check-ref-format --branch HEAD"] = fmt.Errorf("fatal: 'HEAD' is not a valid branch name")
+	buf := captureText(t)
+	err := runStart(prompt.NewNonInteractive(), "HEAD")
+	assertWorkflow(t, err)
+	if buf.String() != "fatal: 'HEAD' is not a valid branch name\n" {
+		t.Fatalf("out=%q", buf.String())
+	}
+	assertNoStartMutations(t, m)
+}
+
+func TestStartBranchListError(t *testing.T) {
+	m := setupStart(t, "main")
+	m.FailOn["for-each-ref --format=%(refname:lstrip=2) refs/heads"] = fmt.Errorf("not a git repository")
+	err := runStart(prompt.NewNonInteractive(), "topic")
+	if err == nil || err.Error() != "not a git repository" {
+		t.Fatalf("err=%v", err)
+	}
+	assertNoStartMutations(t, m)
+}
+
+func TestStartCaseOnlyNameProceeds(t *testing.T) {
+	m := setupStart(t, "main")
+	if err := runStart(prompt.NewNonInteractive(), "Main"); err != nil {
+		t.Fatal(err)
+	}
+	got := checkoutCall(m)
+	want := []string{"checkout", "-b", "Main", "--no-track", "main"}
+	if len(got) != len(want) {
+		t.Fatalf("checkout=%v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("checkout=%v", got)
+		}
+	}
+}
+
+func TestStartInteractiveReasksThenStarts(t *testing.T) {
+	m := setupStart(t, "main")
+	buf := captureText(t)
+	p := &startPrompter{answers: []string{"main", "bad name", "", "feature"}}
+	if err := runStart(p, "main"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.defaults) != 4 || p.defaults[0] != "" || p.questions[0] != "Branch name" {
+		t.Fatalf("prompts q=%v def=%v", p.questions, p.defaults)
+	}
+	out := buf.String()
+	if count := bytes.Count([]byte(out), []byte("branch 'main' already exists")); count != 2 {
+		t.Fatalf("exists count=%d out=%q", count, out)
+	}
+	for _, want := range []string{"branch name cannot contain ' '", "branch name is required"} {
+		if !bytes.Contains([]byte(out), []byte(want)) {
+			t.Fatalf("missing %q in %q", want, out)
+		}
+	}
+	got := checkoutCall(m)
+	want := []string{"checkout", "-b", "feature", "--no-track", "main"}
+	if len(got) != len(want) {
+		t.Fatalf("checkout=%v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("checkout=%v", got)
+		}
+	}
+}
+
+func TestStartPromptedDuplicateReasks(t *testing.T) {
+	m := setupStart(t, "main")
+	m.Repo.Remotes = []string{"origin"}
+	m.Outputs["for-each-ref --format=%(refname:short)\t%(upstream:short) refs/heads"] = "main\t"
+	buf := captureText(t)
+	p := &startPrompter{answers: []string{"main", "feature"}, pickAns: "main"}
+	p.onPick = func() {
+		if len(p.questions) != 2 {
+			t.Fatalf("from-ref asked before the name was accepted: %v", p.questions)
+		}
+	}
+	if err := runStart(p); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(p.events, ",") != "string,string,pick" {
+		t.Fatalf("order=%v", p.events)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("branch 'main' already exists")) {
+		t.Fatalf("out=%q", buf.String())
+	}
+	sawFetch := false
+	for _, c := range m.Calls {
+		if len(c.Args) > 0 && c.Args[0] == "fetch" {
+			sawFetch = true
+		}
+	}
+	if !sawFetch {
+		t.Fatal("expected fetch while choosing where to start")
+	}
+	got := checkoutCall(m)
+	if len(got) < 3 || got[2] != "feature" {
+		t.Fatalf("checkout=%v", got)
+	}
+}
+
+func TestStartInteractiveCancel(t *testing.T) {
+	m := setupStart(t, "main")
+	p := &startPrompter{stringErr: prompt.ErrUserCancelled}
+	err := runStart(p, "main")
+	if !errors.Is(err, prompt.ErrUserCancelled) {
+		t.Fatalf("err=%v", err)
+	}
+	assertNoStartMutations(t, m)
+}
+
+func TestStartIgnoreCaseLooseNameRejected(t *testing.T) {
+	m := setupStart(t, "main")
+	m.Repo.LocalConfig["core.ignorecase"] = "true"
+	m.Outputs["show-ref --verify --quiet refs/heads/Main"] = ""
+	buf := captureText(t)
+	err := runStart(prompt.NewNonInteractive(), "Main")
+	assertWorkflow(t, err)
+	if buf.String() != "branch 'Main' already exists\n" {
+		t.Fatalf("out=%q", buf.String())
+	}
+	assertNoStartMutations(t, m)
+}
+
+func TestStartIgnoreCasePackedNameProceeds(t *testing.T) {
+	m := setupStart(t, "main")
+	m.Repo.LocalConfig["core.ignorecase"] = "true"
+	if err := runStart(prompt.NewNonInteractive(), "Main"); err != nil {
+		t.Fatal(err)
+	}
+	got := checkoutCall(m)
+	if len(got) < 3 || got[2] != "Main" {
+		t.Fatalf("checkout=%v", got)
+	}
+}
+
+func TestStartIgnoreCaseSlashConflict(t *testing.T) {
+	m := setupStart(t, "feature\na/b")
+	m.Repo.LocalConfig["core.ignorecase"] = "true"
+	buf := captureText(t)
+	err := runStart(prompt.NewNonInteractive(), "Feature/x")
+	assertWorkflow(t, err)
+	if buf.String() != "branch 'Feature/x' conflicts with existing branch 'feature'\n" {
+		t.Fatalf("out=%q", buf.String())
+	}
+	assertNoStartMutations(t, m)
+
+	buf.Reset()
+	err = runStart(prompt.NewNonInteractive(), "A")
+	assertWorkflow(t, err)
+	if buf.String() != "branch 'A' conflicts with existing branch 'a/b'\n" {
+		t.Fatalf("out=%q", buf.String())
+	}
+	assertNoStartMutations(t, m)
+}
+
+func TestStartEndOfInput(t *testing.T) {
+	m := setupStart(t, "main")
+	p := &startPrompter{stringErr: io.EOF}
+	err := runStart(p, "main")
+	if err == nil || err.Error() != "end of input" {
+		t.Fatalf("err=%v", err)
+	}
+	assertNoStartMutations(t, m)
+}
+
+func TestStartLooseCaseOnlyRealRepo(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is unavailable")
+	}
+	dir := t.TempDir()
+	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(dir, "none"))
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(dir, "state.json"))
+	if err := os.WriteFile(filepath.Join(dir, "none"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitCmd := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	gitCmd("init", "-b", "main")
+	gitCmd("config", "user.email", "test@example.com")
+	gitCmd("config", "user.name", "Test")
+	gitCmd("config", "commit.gpgsign", "false")
+	if err := os.WriteFile(filepath.Join(dir, "f"), []byte("o\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitCmd("add", "f")
+	gitCmd("commit", "-q", "-m", "o")
+	ignore, err := exec.Command("git", "-C", dir, "config", "--get", "core.ignorecase").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	git.Use(git.RealRunner{})
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	t.Chdir(dir)
+	buf := captureText(t)
+	err = runStart(prompt.NewNonInteractive(), "Main")
+	if strings.TrimSpace(string(ignore)) == "true" {
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "branch 'Main' already exists") {
+			t.Fatalf("out=%q", buf.String())
+		}
+		stash, sErr := exec.Command("git", "-C", dir, "stash", "list").Output()
+		if sErr != nil {
+			t.Fatal(sErr)
+		}
+		if strings.TrimSpace(string(stash)) != "" {
+			t.Fatalf("stash=%q", stash)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func setupStart(t *testing.T, branches string) *git.MemoryRunner {
+	t.Helper()
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(gitDir, "elegant-git", "state.json"))
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	m.Outputs["for-each-ref --format=%(refname:lstrip=2) refs/heads"] = branches
+	if err := memrepo.Save(gitDir, &memrepo.State{DefaultBranch: "main"}); err != nil {
+		t.Fatal(err)
+	}
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	return m
+}
+
+func runStart(p prompt.Prompter, args ...string) error {
+	var name, fromRef string
+	spec := startSpec(&name, &fromRef)
+	cmd := &cobra.Command{}
+	cmd.SetContext(prompt.WithPrompter(context.Background(), p))
+	return startRun(cmd, args, spec)
+}
+
+func captureText(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var buf bytes.Buffer
+	text.SetOutput(&buf)
+	t.Cleanup(func() { text.SetOutput(os.Stdout) })
+	return &buf
+}
+
+func assertWorkflow(t *testing.T, err error) {
+	t.Helper()
+	var es cliruntime.ExitStatus
+	if !errors.As(err, &es) || es.Code != exitcode.WorkflowError {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func assertNoStartMutations(t *testing.T, m *git.MemoryRunner) {
+	t.Helper()
+	for _, c := range m.Calls {
+		if len(c.Args) == 0 {
+			continue
+		}
+		switch c.Args[0] {
+		case "fetch", "stash", "reset", "checkout", "update-index", "diff-index":
+			t.Fatalf("unexpected git %v", c.Args)
+		}
+	}
+}
+
+func checkoutCall(m *git.MemoryRunner) []string {
+	for _, c := range m.Calls {
+		if len(c.Args) > 0 && c.Args[0] == "checkout" {
+			return c.Args
+		}
+	}
+	return nil
+}
+
+type startPrompter struct {
+	answers   []string
+	pickAns   string
+	stringErr error
+	errOn     int
+	n         int
+	questions []string
+	defaults  []string
+	picks     int
+	events    []string
+	onPick    func()
+}
+
+func (p *startPrompter) String(question, defaultVal string) (string, error) {
+	p.events = append(p.events, "string")
+	p.questions = append(p.questions, question)
+	p.defaults = append(p.defaults, defaultVal)
+	if p.stringErr != nil && p.n == p.errOn {
+		p.n++
+		return "", p.stringErr
+	}
+	if p.n >= len(p.answers) {
+		return "", io.EOF
+	}
+	ans := p.answers[p.n]
+	p.n++
+	return ans, nil
+}
+
+func (p *startPrompter) Confirm(string, bool) (bool, error) {
+	return false, fmt.Errorf("unexpected confirm")
+}
+func (p *startPrompter) Choose(string, []string) (int, error) {
+	return -1, fmt.Errorf("unexpected choose")
+}
+func (p *startPrompter) Required(string, string) error { return fmt.Errorf("unexpected required") }
+func (p *startPrompter) EditOrAccept(string, string) (string, error) {
+	return "", fmt.Errorf("unexpected edit")
+}
+func (p *startPrompter) Optional(string, string) (string, error) {
+	return "", fmt.Errorf("unexpected optional")
+}
+func (p *startPrompter) Closed(string, []string, string, bool) (string, error) {
+	return "", fmt.Errorf("unexpected closed")
+}
+func (p *startPrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
+	return prompt.BatchSkip, fmt.Errorf("unexpected batch")
+}
+
+func (p *startPrompter) Pick(string, []prompt.Choice, string) (string, error) {
+	if p.onPick != nil {
+		p.onPick()
+	}
+	p.events = append(p.events, "pick")
+	p.picks++
+	if p.pickAns == "" {
+		return "", fmt.Errorf("unexpected pick")
+	}
+	return p.pickAns, nil
 }

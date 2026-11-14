@@ -151,6 +151,9 @@ func (m *MemoryRunner) simulate(args []string) (string, error) {
 	if len(args) > 0 && args[0] == "config" {
 		return m.handleConfig(args)
 	}
+	if len(args) >= 2 && args[0] == "show-ref" && args[1] == "--verify" {
+		return "", fmt.Errorf("not found")
+	}
 	if len(args) == 3 && args[0] == "check-ref-format" && args[1] == "--branch" {
 		if err := validateBranchName(args[2]); err != nil {
 			return "", fmt.Errorf("fatal: bad refname %s", args[2])

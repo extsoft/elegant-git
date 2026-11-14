@@ -3,6 +3,7 @@ package work
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/extsoft/elegant-git/internal/cli/argspec"
 	"github.com/extsoft/elegant-git/internal/cli/completion"
@@ -55,10 +56,41 @@ func startSpec(name, fromRef *string) argspec.Spec {
 }
 
 func startRun(cmd *cobra.Command, args []string, spec argspec.Spec) error {
+	p := prompt.FromContext(cmd.Context())
+	bindStartArgs(args, spec)
+	name, err := ensureStartName(p, spec)
+	if err != nil {
+		return err
+	}
+	spec.Inputs[0].Set(name)
 	if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 		return err
 	}
-	return startRunWithRefs(cmd.Context(), spec.Inputs[0].Get(), spec.Inputs[1].Get())
+	return startRunWithRefs(cmd.Context(), name, spec.Inputs[1].Get())
+}
+
+func bindStartArgs(args []string, spec argspec.Spec) {
+	for i := range spec.Inputs {
+		in := &spec.Inputs[i]
+		if in.Kind == argspec.Positional && in.Index < len(args) && strings.TrimSpace(in.Get()) == "" {
+			in.Set(args[in.Index])
+		}
+	}
+}
+
+func ensureStartName(p prompt.Prompter, spec argspec.Spec) (string, error) {
+	name := strings.TrimSpace(spec.Inputs[0].Get())
+	if name != "" {
+		return guardNewBranchName(p, name)
+	}
+	if prompt.NonInteractive(p) {
+		return "", &argspec.ErrMissingRequired{Names: []string{"name"}}
+	}
+	branches, err := state.LocalBranchNames()
+	if err != nil {
+		return "", err
+	}
+	return askNewBranchName(p, "Branch name", branches)
 }
 
 func startRunWithRefs(ctx context.Context, name, fromRef string) error {

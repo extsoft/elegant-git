@@ -69,6 +69,22 @@ func RefExists(ref string) bool {
 	return err == nil
 }
 
+// LocalBranchNames returns short names of local branches.
+func LocalBranchNames() ([]string, error) {
+	out, err := git.Output("for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads")
+	if err != nil {
+		return nil, git.ErrorFromOutput(out, err)
+	}
+	var names []string
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			names = append(names, line)
+		}
+	}
+	return names, nil
+}
+
 // LocalBranchExists reports whether a local branch ref exists.
 func LocalBranchExists(name string) bool {
 	_, err := git.Output("rev-parse", "--verify", "--quiet", "--abbrev-ref", "--branches=refs/heads", name)
