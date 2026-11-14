@@ -174,13 +174,10 @@ func evenOrNoUpstream(s snapshot) bool {
 
 func askOptions(s snapshot) []string {
 	if s.Detached {
-		if s.Remotes {
-			return []string{"start", "track", "help", "quit"}
-		}
-		return []string{"start", "help", "quit"}
+		return []string{"start", "switch", "help", "quit"}
 	}
 	if s.Protected {
-		return []string{"start", "track", "accept", "list", "help", "quit"}
+		return []string{"start", "switch", "accept", "list", "help", "quit"}
 	}
 	if s.HasUpstream && s.Ahead > 0 && s.Behind > 0 {
 		return []string{"sync", "push", "start", "accept", "list", "help", "quit"}
@@ -190,8 +187,9 @@ func askOptions(s snapshot) []string {
 	}
 	opts := []string{"start", "accept", "list"}
 	if s.Remotes {
-		opts = append(opts, "push", "track")
+		opts = append(opts, "push")
 	}
+	opts = append(opts, "switch")
 	return append(opts, "help", "quit")
 }
 

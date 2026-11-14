@@ -346,6 +346,7 @@ func recordDeprecatedSurface(cmd *cobra.Command) {
 		"memory workspaces":   {id: deprecation.DEP019, replacement: "workspace list all"},
 		"memory repositories": {id: deprecation.DEP019, replacement: "repo list all"},
 		"work amend":          {id: deprecation.DEP020, replacement: "work save"},
+		"work track":          {id: deprecation.DEP021, replacement: "work switch"},
 	}
 	for c := cmd; c != nil; c = c.Parent() {
 		surface := c.Annotations[deprecation.SurfaceAnnotation]

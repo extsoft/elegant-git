@@ -65,6 +65,25 @@ func TestListFindsHookFiles(t *testing.T) {
 	}
 }
 
+func TestListShowsWorkTrackHook(t *testing.T) {
+	root := t.TempDir()
+	hooksDir := filepath.Join(root, ".config", "elegant-git", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(hooksDir, "work-track-ahead")
+	if err := os.WriteFile(path, []byte("# hook\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if err := listHooks(runtime.RepoLayout{RepoRoot: root}, &buf); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), path) {
+		t.Fatalf("missing work-track-ahead:\n%s", buf.String())
+	}
+}
+
 func TestListRunsStatusAndListHooks(t *testing.T) {
 	root := t.TempDir()
 	hooksDir := filepath.Join(root, ".config", "elegant-git", "hooks")

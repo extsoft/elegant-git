@@ -22,3 +22,4 @@
 | DEP-018 | 2026-08-30 | commands: `memory status`, `git status`, `repo status`, `hook status` | `memory list`, `git list`, `repo list`, `hook list` | use replacement commands | 2027-06-30 | active |
 | DEP-019 | 2026-08-30 | objects: `git *`, `memory *` | `self *`, `workspace list all`, `repo list all` | `eg repo doctor` (hook files) | 2027-06-30 | active |
 | DEP-020 | 2026-09-03 | command: `work amend` | `work save` | use `eg work save` | 2027-03-03 | active |
+| DEP-021 | 2026-11-14 | command: `work track` (`work-track-*` hooks do not run for `work switch`) | `work switch` | use `eg work switch`; copy `work-track-*` hooks to `work-switch-*` | 2027-05-14 | active |

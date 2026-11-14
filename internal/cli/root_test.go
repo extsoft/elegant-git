@@ -510,7 +510,7 @@ func hasGitCall(m *git.MemoryRunner, args ...string) bool {
 
 func pickerChoices() []string {
 	return []string{
-		"work sync", "work start", "work accept", "work list",
+		"work sync", "work start", "work accept", "work list", "work switch",
 		"repo list", "repo sync", "repo prune", "repo configure", "repo doctor",
 		"workspace new",
 		"hook list", "hook new", "hook edit",

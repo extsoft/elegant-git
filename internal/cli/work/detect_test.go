@@ -160,7 +160,7 @@ func TestAskOptions(t *testing.T) {
 		{
 			name: "protected clean",
 			snap: snapshot{Protected: true},
-			want: []string{"start", "track", "accept", "list", "help", "quit"},
+			want: []string{"start", "switch", "accept", "list", "help", "quit"},
 		},
 		{
 			name: "unique ahead",
@@ -180,22 +180,22 @@ func TestAskOptions(t *testing.T) {
 		{
 			name: "detached remotes",
 			snap: snapshot{Detached: true, Remotes: true},
-			want: []string{"start", "track", "help", "quit"},
+			want: []string{"start", "switch", "help", "quit"},
 		},
 		{
 			name: "detached no remotes",
 			snap: snapshot{Detached: true},
-			want: []string{"start", "help", "quit"},
+			want: []string{"start", "switch", "help", "quit"},
 		},
 		{
 			name: "idle feature remotes",
 			snap: snapshot{Remotes: true},
-			want: []string{"start", "accept", "list", "push", "track", "help", "quit"},
+			want: []string{"start", "accept", "list", "push", "switch", "help", "quit"},
 		},
 		{
 			name: "idle feature no remotes",
 			snap: snapshot{},
-			want: []string{"start", "accept", "list", "help", "quit"},
+			want: []string{"start", "accept", "list", "switch", "help", "quit"},
 		},
 	}
 	for _, tc := range tests {

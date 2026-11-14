@@ -107,7 +107,7 @@ or more options you get [the picker](#picker), showing each action and its purpo
 What now:
 > quit          Leave without another action.
   work start    Creates a new branch.
-  work track    Checks out a remote-tracking branch.
+  work switch   Switches to a branch, or creates one from a remote branch, tag, or revision.
   work list     Prints HEAD state.
   work help     Shows available actions.
 ```
@@ -157,9 +157,9 @@ it was. Backspace removes the last character. Alt+Backspace deletes a trailing r
 spaces, `/`, `-`, `_`, or `.`, then the characters back to the previous one of those.
 On Windows a lone Esc waits for the next key, here and in the picker, because a console
 read cannot time out.
-`work start`, `work track`, and `work switch` use this for a new local branch name. A name you
-pass to `work start` that is rejected is reported, and the prompt then starts empty. `work track`
-and `work switch` start from the suggested local name. If a name passes this prompt and a last
+`work start` and `work switch` use this for a new local branch name. A name you
+pass to `work start` that is rejected is reported, and the prompt then starts empty. `work switch`
+starts from the suggested local name. If a name passes this prompt and a last
 check still rejects it, the prompt opens again with that name filled in. When the terminal
 cannot edit the line this way, the problem is printed and the question is asked again.
 

@@ -48,13 +48,13 @@ stateDiagram-v2
   direction LR
   [*] --> OnProtected
   start --> OnFeature
-  track --> OnFeature
+  switch --> OnFeature
   OnFeature --> OnProtected: accept
   OnProtected --> [*]
 
   state OnProtected {
     [*] --> start
-    [*] --> track
+    [*] --> switch
   }
 
   state OnFeature {

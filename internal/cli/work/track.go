@@ -13,6 +13,7 @@ import (
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/cli/sources"
 	"github.com/extsoft/elegant-git/internal/cmdid"
+	"github.com/extsoft/elegant-git/internal/deprecation"
 	"github.com/extsoft/elegant-git/internal/exitcode"
 	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/prompt"
@@ -26,14 +27,19 @@ var trackID = cmdid.ID{Command: "work", Action: "track"}
 func newTrackCommand() *cobra.Command {
 	spec := trackSpec()
 	c := &cobra.Command{
-		Use:   "track <name> [local-branch]",
-		Short: "Checks out a remote-tracking branch",
+		Use:    "track <name> [local-branch]",
+		Short:  "Checks out a remote-tracking branch",
+		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, trackID, func() error {
 				return trackRun(cmd, args)
 			})
 		},
 	}
+	if c.Annotations == nil {
+		c.Annotations = map[string]string{}
+	}
+	c.Annotations[deprecation.SurfaceAnnotation] = "work track"
 	c.SetHelpFunc(cliruntime.CommandHelp)
 	completion.Attach(c, spec)
 	return c

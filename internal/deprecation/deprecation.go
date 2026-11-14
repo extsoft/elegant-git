@@ -32,6 +32,7 @@ const (
 	DEP018 = "DEP-018"
 	DEP019 = "DEP-019"
 	DEP020 = "DEP-020"
+	DEP021 = "DEP-021"
 
 	// SurfaceAnnotation marks a cobra command as a deprecated renamed surface.
 	SurfaceAnnotation = "elegant-git.deprecated-surface"
