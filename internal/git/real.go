@@ -18,7 +18,7 @@ type RealRunner struct{}
 
 func (RealRunner) Verbose(args ...string) error {
 	text.CommandText(append([]string{"git"}, args...)...)
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(Executable(), args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -27,7 +27,7 @@ func (RealRunner) Verbose(args ...string) error {
 
 func (RealRunner) VerboseOp(processor func(string), args ...string) error {
 	text.CommandText(append([]string{"git"}, args...)...)
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(Executable(), args...)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
@@ -49,7 +49,7 @@ func (RealRunner) StreamLines(lineFn func(string), args ...string) error {
 }
 
 func streamGitLines(echo bool, lineFn func(string), args ...string) error {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(Executable(), args...)
 	cmd.Stdin = os.Stdin
 	pr, pw := io.Pipe()
 	cmd.Stdout = pw
@@ -85,7 +85,7 @@ func (RealRunner) Output(args ...string) (string, error) {
 }
 
 func outputWithEnv(extra []string, args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(Executable(), args...)
 	if len(extra) > 0 {
 		cmd.Env = append(os.Environ(), extra...)
 	}

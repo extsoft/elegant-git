@@ -221,7 +221,7 @@ func CopyNotesIfPossible(notes string) {
 }
 
 func GitStdout(args ...string) error {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(git.Executable(), args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

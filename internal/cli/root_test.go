@@ -75,7 +75,7 @@ func TestBareEgOutsideRepoPrintsHelp(t *testing.T) {
 func TestBareEgInRepoNonInteractivePrintsHelp(t *testing.T) {
 	bin := buildTestBinary(t)
 	dir := t.TempDir()
-	init := exec.Command("git", "init")
+	init := exec.Command(git.Executable(), "init")
 	init.Dir = dir
 	if out, err := init.CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v\n%s", err, out)

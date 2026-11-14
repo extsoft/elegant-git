@@ -96,7 +96,7 @@ func TestValidateBranchNameMatchesGit(t *testing.T) {
 		"foo/.lock", "lock", "@@", "refs/heads/foo", "HEAD/x",
 	}
 	for _, name := range names {
-		cmd := exec.Command("git", "check-ref-format", "--branch", name)
+		cmd := exec.Command(Executable(), "check-ref-format", "--branch", name)
 		gitOK := cmd.Run() == nil
 		err := validateBranchName(name)
 		if gitOK != (err == nil) {

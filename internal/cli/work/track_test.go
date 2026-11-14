@@ -481,7 +481,7 @@ func TestTrackRealRepo(t *testing.T) {
 	}
 	gitAt := func(dir string, args ...string) string {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command(git.Executable(), args...)
 		cmd.Dir = dir
 		env := make([]string, 0, len(os.Environ()))
 		for _, e := range os.Environ() {

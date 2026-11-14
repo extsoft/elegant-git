@@ -430,7 +430,7 @@ func TestStartLooseCaseOnlyRealRepo(t *testing.T) {
 	}
 	gitCmd := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command(git.Executable(), args...)
 		cmd.Dir = dir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -446,7 +446,7 @@ func TestStartLooseCaseOnlyRealRepo(t *testing.T) {
 	}
 	gitCmd("add", "f")
 	gitCmd("commit", "-q", "-m", "o")
-	ignore, err := exec.Command("git", "-C", dir, "config", "--get", "core.ignorecase").Output()
+	ignore, err := exec.Command(git.Executable(), "-C", dir, "config", "--get", "core.ignorecase").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,7 +460,7 @@ func TestStartLooseCaseOnlyRealRepo(t *testing.T) {
 		if !strings.Contains(buf.String(), "branch 'Main' already exists") {
 			t.Fatalf("out=%q", buf.String())
 		}
-		stash, sErr := exec.Command("git", "-C", dir, "stash", "list").Output()
+		stash, sErr := exec.Command(git.Executable(), "-C", dir, "stash", "list").Output()
 		if sErr != nil {
 			t.Fatal(sErr)
 		}

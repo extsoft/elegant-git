@@ -17,7 +17,7 @@ import (
 
 func requireMergeTree(t *testing.T) {
 	t.Helper()
-	out, _ := exec.Command("git", "merge-tree", "-h").CombinedOutput()
+	out, _ := exec.Command(git.Executable(), "merge-tree", "-h").CombinedOutput()
 	if !strings.Contains(string(out), "--write-tree") {
 		t.Skip("git merge-tree --write-tree requires Git 2.40 or newer")
 	}
@@ -61,7 +61,7 @@ func (r *gitRepo) gitErr(args ...string) error {
 }
 
 func (r *gitRepo) gitRaw(args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command(git.Executable(), args...)
 	cmd.Dir = r.dir
 	cmd.Env = append(os.Environ(), "GIT_EDITOR=true", "GIT_SEQUENCE_EDITOR=true")
 	out, err := cmd.CombinedOutput()
@@ -113,7 +113,7 @@ func (r *gitRepo) commitsAB() (a1, a2, b1, b2 string) {
 func (r *gitRepo) addOrigin(branches ...string) {
 	r.t.Helper()
 	bare := r.t.TempDir()
-	cmd := exec.Command("git", "init", "--bare", bare)
+	cmd := exec.Command(git.Executable(), "init", "--bare", bare)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		r.t.Fatalf("bare init: %v\n%s", err, out)
 	}
@@ -124,7 +124,7 @@ func (r *gitRepo) addOrigin(branches ...string) {
 func (r *gitRepo) deleteRemoteHead(branch string) {
 	r.t.Helper()
 	url := r.git("remote", "get-url", "origin")
-	cmd := exec.Command("git", "--git-dir", url, "update-ref", "-d", "refs/heads/"+branch)
+	cmd := exec.Command(git.Executable(), "--git-dir", url, "update-ref", "-d", "refs/heads/"+branch)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		r.t.Fatalf("delete %s on origin: %v\n%s", branch, err, out)
 	}

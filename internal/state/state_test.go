@@ -56,7 +56,7 @@ func TestLocalBranchNamesRealRepo(t *testing.T) {
 	dir := t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command("git", args...)
+		cmd := exec.Command(git.Executable(), args...)
 		cmd.Dir = dir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
