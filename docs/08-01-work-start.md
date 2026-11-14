@@ -24,9 +24,13 @@ branch (`feature` and `feature/x`, including when only the letter case differs).
 in letter case alone is refused when Git resolves it to the existing branch, which happens on
 a case-insensitive filesystem while that ref is loose. Once the ref is packed, Git may allow
 the other spelling, and Elegant Git allows it too. Surrounding whitespace on a supplied name
-is trimmed. Interactive mode prints the problem and asks for a name again, including when the
-name was given on the command line. Where to start is asked only after the name is usable, so a
-rejected name does not fetch. Non-interactive mode stops with a
+is trimmed. In a terminal, interactive mode shows the problem under the name while you type
+and ignores Enter until the name is usable. That includes names Git rejects, such as one that
+starts with `-`, a component that starts with `.`, or a component that ends with `.lock`. A
+name given on the command line is reported first, then the prompt starts empty. If you submit
+a name that the prompt accepted and a last check still rejects it, the prompt opens again with
+that name filled in. Where to start is asked only after the name is usable, so a rejected
+name does not fetch. Non-interactive mode stops with a
 [workflow error](reference/exit-codes.md).
 
 Any [ahead hook](reference/hook-files.md) for this command still runs before the name check.

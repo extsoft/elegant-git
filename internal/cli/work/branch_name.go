@@ -19,28 +19,44 @@ func guardNewBranchName(p prompt.Prompter, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return resolveNewBranchName(p, name, branches)
+	return resolveNewBranchName(p, name, branches, "")
 }
 
-func resolveNewBranchName(p prompt.Prompter, name string, branches []string) (string, error) {
+func resolveNewBranchName(p prompt.Prompter, name string, branches []string, reask string) (string, error) {
+	return resolveNewBranchNameFold(p, name, branches, reask, nil)
+}
+
+func resolveNewBranchNameFold(p prompt.Prompter, name string, branches []string, reask string, fold *caseFold) (string, error) {
 	name = strings.TrimSpace(name)
 	if problem := submitNewBranchNameProblem(name, branches); problem != "" {
 		text.ErrorText(problem)
 		if prompt.NonInteractive(p) {
 			return "", cliruntime.ExitStatus{Code: exitcode.WorkflowError}
 		}
-		return askNewBranchName(p, "Branch name", branches)
+		ready := caseFold{}
+		if fold != nil {
+			ready = *fold
+		} else {
+			ready = prepareCaseFold()
+		}
+		return askNewBranchName(p, "Branch name", branches, reask, ready)
 	}
 	return name, nil
 }
 
-func askNewBranchName(p prompt.Prompter, label string, branches []string) (string, error) {
+func askNewBranchName(p prompt.Prompter, label string, branches []string, initial string, fold caseFold) (string, error) {
 	for {
-		name, err := readBranchName(p, label)
+		name, err := prompt.ValidatedLine(p, label, initial, func(s string) string {
+			return liveBranchProblem(strings.TrimSpace(s), branches, fold)
+		})
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return "", errors.New("end of input")
+			}
 			return "", err
 		}
 		name = strings.TrimSpace(name)
+		initial = name
 		if problem := submitNewBranchNameProblem(name, branches); problem != "" {
 			text.ErrorText(problem)
 			continue
@@ -49,12 +65,51 @@ func askNewBranchName(p prompt.Prompter, label string, branches []string) (strin
 	}
 }
 
-func readBranchName(p prompt.Prompter, label string) (string, error) {
-	name, err := p.String(label, "")
-	if errors.Is(err, io.EOF) {
-		return "", errors.New("end of input")
+func liveBranchProblem(name string, branches []string, fold caseFold) string {
+	if problem := git.NewBranchNameProblem(name, branches); problem != "" {
+		return problem
 	}
-	return name, err
+	if !fold.on {
+		return ""
+	}
+	for _, existing := range branches {
+		if existing == "" {
+			continue
+		}
+		if strings.EqualFold(existing, name) {
+			if existing != name && caseOnlyResolves(fold, name) {
+				return fmt.Sprintf("branch '%s' already exists", name)
+			}
+			continue
+		}
+		if foldSlashPrefix(name, existing) || foldSlashPrefix(existing, name) {
+			return fmt.Sprintf("branch '%s' conflicts with existing branch '%s'", name, existing)
+		}
+	}
+	return ""
+}
+
+type caseFold struct {
+	on   bool
+	memo map[string]bool
+}
+
+func prepareCaseFold() caseFold {
+	if !coreIgnoreCase() {
+		return caseFold{}
+	}
+	return caseFold{on: true, memo: map[string]bool{}}
+}
+
+func caseOnlyResolves(fold caseFold, name string) bool {
+	key := strings.ToLower(name)
+	if resolved, ok := fold.memo[key]; ok {
+		return resolved
+	}
+	_, err := git.Output("show-ref", "--verify", "--quiet", "refs/heads/"+name)
+	resolved := err == nil
+	fold.memo[key] = resolved
+	return resolved
 }
 
 func submitNewBranchNameProblem(name string, branches []string) string {

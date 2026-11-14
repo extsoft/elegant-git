@@ -53,8 +53,8 @@ func TestTrackLogicPromptsAfterFetch(t *testing.T) {
 	if fetchIdx < 0 {
 		t.Fatal("missing fetch")
 	}
-	if len(p.edits) != 1 || p.edits[0].suggested != "OPS-2114" {
-		t.Fatalf("edits=%+v", p.edits)
+	if len(p.stringDefaults) != 1 || p.stringDefaults[0] != "OPS-2114" || p.stringLabels[0] != "Local branch name" {
+		t.Fatalf("strings=%v defaults=%v", p.stringLabels, p.stringDefaults)
 	}
 	checkoutIdx := -1
 	for i, c := range m.Calls {
@@ -78,15 +78,15 @@ func TestTrackLogicLocalBranchOverride(t *testing.T) {
 	m.Outputs["for-each-ref --format=%(refname) refs/remotes"] = "refs/remotes/origin/feature/133"
 	git.Use(m)
 
-	p := &trackRecordingPrompter{editValues: []string{"task-133"}}
+	p := &trackRecordingPrompter{stringValues: []string{"task-133"}}
 	if err := trackLogic(context.Background(), p, "origin/feature/133", ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(p.picks) != 0 {
 		t.Fatalf("unexpected pick")
 	}
-	if len(p.edits) != 1 || p.edits[0].suggested != "feature/133" {
-		t.Fatalf("edits=%+v", p.edits)
+	if len(p.stringDefaults) != 1 || p.stringDefaults[0] != "feature/133" || p.stringLabels[0] != "Local branch name" {
+		t.Fatalf("strings=%v defaults=%v", p.stringLabels, p.stringDefaults)
 	}
 	if !exactGitCall(m, "checkout", "-b", "task-133", "--track", "refs/remotes/origin/feature/133") {
 		t.Fatalf("calls=%v", m.Calls)
@@ -114,25 +114,37 @@ func TestTrackLogicNonInteractiveSkipsPrompts(t *testing.T) {
 }
 
 type trackRecordingPrompter struct {
-	pickValues   []string
-	editValues   []string
-	stringValues []string
-	picks        []string
-	pickChoices  [][]prompt.Choice
-	pickDefaults []string
-	stringLabels []string
-	edits        []struct{ label, suggested string }
-	pickIdx      int
-	editIdx      int
-	stringIdx    int
+	pickValues     []string
+	editValues     []string
+	stringValues   []string
+	picks          []string
+	pickChoices    [][]prompt.Choice
+	pickDefaults   []string
+	stringLabels   []string
+	stringDefaults []string
+	edits          []struct{ label, suggested string }
+	pickIdx        int
+	editIdx        int
+	stringIdx      int
+	onString       func()
 }
 
-func (p *trackRecordingPrompter) String(label, _ string) (string, error) {
+func (p *trackRecordingPrompter) String(label, def string) (string, error) {
+	if p.onString != nil {
+		p.onString()
+	}
 	p.stringLabels = append(p.stringLabels, label)
+	p.stringDefaults = append(p.stringDefaults, def)
 	if p.stringIdx < len(p.stringValues) {
 		v := p.stringValues[p.stringIdx]
 		p.stringIdx++
+		if v == "" {
+			return def, nil
+		}
 		return v, nil
+	}
+	if def != "" {
+		return def, nil
 	}
 	return "", fmt.Errorf("no more branch names")
 }
@@ -228,15 +240,12 @@ func TestTrackForeignDuplicateInteractive(t *testing.T) {
 	t.Run("derived", func(t *testing.T) {
 		m := trackRunner(t, "origin/x", "x")
 		buf := captureText(t)
-		p := &trackRecordingPrompter{editValues: []string{""}, stringValues: []string{"fresh"}}
+		p := &trackRecordingPrompter{stringValues: []string{"", "fresh"}}
 		if err := trackLogic(context.Background(), p, "origin/x", ""); err != nil {
 			t.Fatal(err)
 		}
-		if len(p.edits) != 1 || p.edits[0].suggested != "x" {
-			t.Fatalf("edits=%+v", p.edits)
-		}
-		if len(p.stringLabels) != 1 || p.stringLabels[0] != "Branch name" {
-			t.Fatalf("strings=%v", p.stringLabels)
+		if len(p.stringDefaults) < 1 || p.stringDefaults[0] != "x" || p.stringLabels[0] != "Local branch name" {
+			t.Fatalf("strings=%v defaults=%v", p.stringLabels, p.stringDefaults)
 		}
 		if strings.Count(buf.String(), "branch 'x' already exists\n") != 1 {
 			t.Fatalf("out=%q", buf.String())
@@ -249,12 +258,12 @@ func TestTrackForeignDuplicateInteractive(t *testing.T) {
 	t.Run("cli", func(t *testing.T) {
 		m := trackRunner(t, "origin/x", "mine")
 		m.Outputs["rev-parse --symbolic-full-name mine@{upstream}"] = "refs/remotes/origin/elsewhere"
-		p := &trackRecordingPrompter{editValues: []string{""}, stringValues: []string{"fresh"}}
+		p := &trackRecordingPrompter{stringValues: []string{"", "fresh"}}
 		if err := trackLogic(context.Background(), p, "origin/x", "mine"); err != nil {
 			t.Fatal(err)
 		}
-		if len(p.edits) != 1 || p.edits[0].suggested != "mine" {
-			t.Fatalf("edits=%+v", p.edits)
+		if len(p.stringDefaults) < 1 || p.stringDefaults[0] != "mine" || p.stringLabels[0] != "Local branch name" {
+			t.Fatalf("strings=%v defaults=%v", p.stringLabels, p.stringDefaults)
 		}
 		if !exactGitCall(m, "checkout", "-b", "fresh", "--track", "refs/remotes/origin/x") {
 			t.Fatalf("calls=%v", m.Calls)
@@ -264,12 +273,12 @@ func TestTrackForeignDuplicateInteractive(t *testing.T) {
 	t.Run("edit to a free name", func(t *testing.T) {
 		m := trackRunner(t, "origin/x", "x")
 		buf := captureText(t)
-		p := &trackRecordingPrompter{editValues: []string{"fresh"}}
+		p := &trackRecordingPrompter{stringValues: []string{"fresh"}}
 		if err := trackLogic(context.Background(), p, "origin/x", ""); err != nil {
 			t.Fatal(err)
 		}
-		if len(p.stringLabels) != 0 {
-			t.Fatalf("strings=%v", p.stringLabels)
+		if len(p.stringLabels) != 1 || p.stringLabels[0] != "Local branch name" || p.stringDefaults[0] != "x" {
+			t.Fatalf("strings=%v defaults=%v", p.stringLabels, p.stringDefaults)
 		}
 		if strings.Contains(buf.String(), "already exists") {
 			t.Fatalf("out=%q", buf.String())
@@ -400,15 +409,30 @@ func TestTrackSameUpstreamChoices(t *testing.T) {
 	})
 	t.Run("new name", func(t *testing.T) {
 		m := trackSameUpstreamRepo(t)
+		var configBeforeNewName int
+		stringsSeen := 0
 		p := &trackRecordingPrompter{
-			editValues:   []string{""},
 			pickValues:   []string{"new name"},
-			stringValues: []string{"fresh"},
+			stringValues: []string{"", "fresh"},
+			onString: func() {
+				stringsSeen++
+				if stringsSeen == 2 {
+					configBeforeNewName = 0
+					for _, c := range m.Calls {
+						if strings.Join(c.Args, " ") == "config --get core.ignorecase" {
+							configBeforeNewName++
+						}
+					}
+				}
+			},
 		}
 		if err := trackLogic(context.Background(), p, "origin/x", ""); err != nil {
 			t.Fatal(err)
 		}
-		if len(p.stringLabels) != 1 || p.stringLabels[0] != "Branch name" {
+		if configBeforeNewName != 1 {
+			t.Fatalf("core.ignorecase reads before new-name prompt = %d", configBeforeNewName)
+		}
+		if len(p.stringLabels) != 2 || p.stringLabels[0] != "Local branch name" || p.stringLabels[1] != "Branch name" {
 			t.Fatalf("strings=%v", p.stringLabels)
 		}
 		if !exactGitCall(m, "checkout", "-b", "fresh", "--track", "refs/remotes/origin/x") {
@@ -602,7 +626,29 @@ func trackSameUpstreamRepo(t *testing.T) *git.MemoryRunner {
 	m := trackRunner(t, "origin/x", "x")
 	m.Outputs["rev-parse --symbolic-full-name x@{upstream}"] = "refs/remotes/origin/x"
 	m.Outputs["rev-list --count refs/remotes/origin/x..refs/heads/x"] = "0"
+	m.Outputs["for-each-ref --format="+branchUpstreamFormat+" refs/heads"] = "x\trefs/remotes/origin/x"
 	return m
+}
+
+func TestTrackingSetMatchesFullUpstream(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.Outputs["for-each-ref --format="+branchUpstreamFormat+" refs/heads"] = strings.Join([]string{
+		"x\trefs/remotes/origin/x",
+		"mine\trefs/remotes/origin/elsewhere",
+		"local\trefs/heads/main",
+		"none\t",
+		"plain",
+	}, "\n")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	set := trackingSet("origin/x")
+	if len(m.Calls) != 1 || strings.Join(m.Calls[0].Args, " ") != "for-each-ref --format="+branchUpstreamFormat+" refs/heads" {
+		t.Fatalf("calls=%v", m.Calls)
+	}
+	if !set["x"] || set["mine"] || set["local"] || set["none"] || set["plain"] {
+		t.Fatalf("set=%v", set)
+	}
 }
 
 func assertUpstreamChoices(t *testing.T, p *trackRecordingPrompter, want []string, def string) {

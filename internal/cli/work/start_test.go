@@ -90,14 +90,173 @@ func TestStartRejectsExistingNameBeforeSideEffects(t *testing.T) {
 
 func TestStartCheckRefFormatRejectsBeforeCheckout(t *testing.T) {
 	m := setupStart(t, "main")
-	m.FailOn["check-ref-format --branch HEAD"] = fmt.Errorf("fatal: 'HEAD' is not a valid branch name")
 	buf := captureText(t)
 	err := runStart(prompt.NewNonInteractive(), "HEAD")
 	assertWorkflow(t, err)
-	if buf.String() != "fatal: 'HEAD' is not a valid branch name\n" {
+	if buf.String() != "branch name cannot be 'HEAD'\n" {
 		t.Fatalf("out=%q", buf.String())
 	}
 	assertNoStartMutations(t, m)
+}
+
+func TestAskReopensPrefilledWhenSubmitRejects(t *testing.T) {
+	m := setupStart(t, "main")
+	m.FailOn["check-ref-format --branch weird"] = fmt.Errorf("fatal: 'weird' is not a valid branch name")
+	buf := captureText(t)
+	p := &startPrompter{answers: []string{"weird", "feature"}}
+	got, err := askNewBranchName(p, "Branch name", []string{"main"}, "", prepareCaseFold())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "feature" {
+		t.Fatalf("got %q", got)
+	}
+	if len(p.defaults) < 2 || p.defaults[0] != "" || p.defaults[1] != "weird" {
+		t.Fatalf("defaults=%v", p.defaults)
+	}
+	if !strings.Contains(buf.String(), "fatal: 'weird' is not a valid branch name") {
+		t.Fatalf("out=%q", buf.String())
+	}
+}
+
+func TestLiveIgnoreCaseResolvesOnDemand(t *testing.T) {
+	branches := []string{"main", "feature"}
+	for i := 0; i < 40; i++ {
+		branches = append(branches, fmt.Sprintf("other%d", i))
+	}
+	m := setupStart(t, strings.Join(branches, "\n"))
+	m.Repo.LocalConfig["core.ignorecase"] = "true"
+	m.Outputs["show-ref --verify --quiet refs/heads/Main"] = ""
+	fold := prepareCaseFold()
+	for _, c := range m.Calls {
+		if len(c.Args) > 0 && c.Args[0] == "show-ref" {
+			t.Fatalf("prepare spawned %v", c.Args)
+		}
+	}
+	before := len(m.Calls)
+	if got := liveBranchProblem("Main", branches, fold); got != "branch 'Main' already exists" {
+		t.Fatalf("loose=%q", got)
+	}
+	if len(m.Calls) != before+1 {
+		t.Fatalf("calls=%v", m.Calls[before:])
+	}
+	before = len(m.Calls)
+	if got := liveBranchProblem("MAIN", branches, fold); got != "branch 'MAIN' already exists" {
+		t.Fatalf("memo=%q", got)
+	}
+	if len(m.Calls) != before {
+		t.Fatalf("memo spawned %v", m.Calls[before:])
+	}
+	before = len(m.Calls)
+	if got := liveBranchProblem("Feature/x", branches, fold); got != "branch 'Feature/x' conflicts with existing branch 'feature'" {
+		t.Fatalf("slash=%q", got)
+	}
+	if len(m.Calls) != before {
+		t.Fatalf("slash spawned %v", m.Calls[before:])
+	}
+	if got := liveBranchProblem("Feature", branches, fold); got != "" {
+		t.Fatalf("packed=%q", got)
+	}
+	if got := liveBranchProblem("FEATURE", branches, fold); got != "" {
+		t.Fatalf("packed memo=%q", got)
+	}
+	showRefs := 0
+	for _, c := range m.Calls[before:] {
+		if len(c.Args) > 0 && c.Args[0] == "show-ref" {
+			showRefs++
+		}
+	}
+	if showRefs != 1 {
+		t.Fatalf("show-ref=%d calls=%v", showRefs, m.Calls[before:])
+	}
+	before = len(m.Calls)
+	if got := liveBranchProblem("-x", branches, fold); got == "" {
+		t.Fatal("expected -x rejected")
+	}
+	if len(m.Calls) != before {
+		t.Fatalf("-x spawned %v", m.Calls[before:])
+	}
+}
+
+func TestPromptGitCallsDoNotGrowWithBranches(t *testing.T) {
+	startOpened := func(n int) int {
+		t.Helper()
+		names := make([]string, n)
+		for i := range names {
+			names[i] = fmt.Sprintf("branch%d", i)
+		}
+		m := setupStart(t, strings.Join(names, "\n"))
+		m.Repo.LocalConfig["core.ignorecase"] = "true"
+		fold := prepareCaseFold()
+		var opened int
+		seen := false
+		p := &startPrompter{answers: []string{"zz-free"}, onString: func() {
+			if !seen {
+				seen = true
+				opened = len(m.Calls)
+				for _, c := range m.Calls[:opened] {
+					if len(c.Args) > 0 && c.Args[0] == "show-ref" {
+						t.Fatalf("show-ref before prompt: %v", c.Args)
+					}
+				}
+			}
+		}}
+		if _, err := askNewBranchName(p, "Branch name", names, "", fold); err != nil {
+			t.Fatal(err)
+		}
+		if !seen {
+			t.Fatal("prompt did not open")
+		}
+		return opened
+	}
+	if a, b := startOpened(3), startOpened(120); a != b {
+		t.Fatalf("start git calls before prompt: %d vs %d", a, b)
+	}
+
+	trackOpened := func(n int) (int, []git.Call) {
+		t.Helper()
+		names := make([]string, n)
+		for i := range names {
+			names[i] = fmt.Sprintf("branch%d", i)
+		}
+		m := trackRunner(t, "origin/x", strings.Join(names, "\n"))
+		m.Repo.LocalConfig["core.ignorecase"] = "true"
+		var opened int
+		seen := false
+		p := &trackRecordingPrompter{stringValues: []string{"zz-free"}, onString: func() {
+			if !seen {
+				seen = true
+				opened = len(m.Calls)
+			}
+		}}
+		if err := trackLogic(context.Background(), p, "origin/x", ""); err != nil {
+			t.Fatal(err)
+		}
+		if !seen {
+			t.Fatal("prompt did not open")
+		}
+		return opened, append([]git.Call(nil), m.Calls[:opened]...)
+	}
+	a, aCalls := trackOpened(3)
+	b, bCalls := trackOpened(120)
+	if a != b {
+		t.Fatalf("track git calls before prompt: %d vs %d", a, b)
+	}
+	for _, calls := range [][]git.Call{aCalls, bCalls} {
+		upstream := 0
+		for _, c := range calls {
+			joined := strings.Join(c.Args, " ")
+			if (len(c.Args) > 0 && c.Args[0] == "show-ref") || strings.Contains(joined, "@{upstream}") {
+				t.Fatalf("per-branch git before prompt: %v", c.Args)
+			}
+			if len(c.Args) >= 2 && c.Args[0] == "for-each-ref" && strings.Contains(c.Args[1], "%(upstream)") {
+				upstream++
+			}
+		}
+		if upstream != 1 {
+			t.Fatalf("upstream for-each-ref=%d calls=%v", upstream, calls)
+		}
+	}
 }
 
 func TestStartBranchListError(t *testing.T) {
@@ -388,9 +547,13 @@ type startPrompter struct {
 	picks     int
 	events    []string
 	onPick    func()
+	onString  func()
 }
 
 func (p *startPrompter) String(question, defaultVal string) (string, error) {
+	if p.onString != nil {
+		p.onString()
+	}
 	p.events = append(p.events, "string")
 	p.questions = append(p.questions, question)
 	p.defaults = append(p.defaults, defaultVal)

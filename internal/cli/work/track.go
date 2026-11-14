@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -106,11 +107,11 @@ func trackLogic(ctx context.Context, p prompt.Prompter, pattern, localBranch str
 	}
 	remote := matches[0]
 
-	local, err := resolveLocalBranch(p, remote, localBranch)
+	local, fold, err := resolveLocalBranch(p, remote, localBranch)
 	if err != nil {
 		return err
 	}
-	return checkoutTrackedLocal(p, local, remote)
+	return checkoutTrackedLocal(p, local, remote, fold)
 }
 
 func resolveRemotePattern(ctx context.Context, p prompt.Prompter, pattern string) (string, error) {
@@ -142,38 +143,68 @@ func resolveRemotePattern(ctx context.Context, p prompt.Prompter, pattern string
 	return val, nil
 }
 
-func resolveLocalBranch(p prompt.Prompter, remote, localBranch string) (string, error) {
+func resolveLocalBranch(p prompt.Prompter, remote, localBranch string) (string, caseFold, error) {
 	suggested := cliruntime.BranchFromRemoteBranch(remote)
 	if prompt.NonInteractive(p) {
 		if strings.TrimSpace(localBranch) != "" {
-			return strings.TrimSpace(localBranch), nil
+			return strings.TrimSpace(localBranch), caseFold{}, nil
 		}
-		return suggested, nil
+		return suggested, caseFold{}, nil
 	}
 	if strings.TrimSpace(localBranch) != "" {
 		suggested = strings.TrimSpace(localBranch)
 	}
-	val, err := p.EditOrAccept("Local branch name", suggested)
+	branches, err := state.LocalBranchNames()
 	if err != nil {
-		return "", err
+		return "", caseFold{}, err
 	}
-	val = strings.TrimSpace(val)
-	if val == "" {
-		return suggested, nil
+	fold := prepareCaseFold()
+	tracking := trackingSet(remote)
+	val, err := prompt.ValidatedLine(p, "Local branch name", suggested, func(s string) string {
+		s = strings.TrimSpace(s)
+		if tracking[s] {
+			return ""
+		}
+		return liveBranchProblem(s, branches, fold)
+	})
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return "", caseFold{}, errors.New("end of input")
+		}
+		return "", caseFold{}, err
 	}
-	return val, nil
+	return strings.TrimSpace(val), fold, nil
 }
 
-func checkoutTrackedLocal(p prompt.Prompter, local, remote string) error {
+const branchUpstreamFormat = "%(refname:lstrip=2)\t%(upstream)"
+
+func trackingSet(remote string) map[string]bool {
+	set := map[string]bool{}
+	out := git.OutputOK("for-each-ref", "--format="+branchUpstreamFormat, "refs/heads")
+	want := remoteTrackingRef(remote)
+	for _, line := range strings.Split(out, "\n") {
+		if line == "" {
+			continue
+		}
+		name, upstream, ok := strings.Cut(line, "\t")
+		if !ok || name == "" || upstream != want {
+			continue
+		}
+		set[name] = true
+	}
+	return set
+}
+
+func checkoutTrackedLocal(p prompt.Prompter, local, remote string, fold caseFold) error {
 	branches, err := state.LocalBranchNames()
 	if err != nil {
 		return err
 	}
 	if branchListed(branches, local) && localTracksRemote(local, remote) {
-		return trackSameUpstream(p, local, remote)
+		return trackSameUpstream(p, local, remote, fold)
 	}
 	if submitNewBranchNameProblem(local, branches) != "" {
-		name, err := resolveNewBranchName(p, local, branches)
+		name, err := resolveNewBranchNameFold(p, local, branches, local, &fold)
 		if err != nil {
 			return err
 		}
@@ -195,7 +226,7 @@ func createTrackingBranch(local, remote string) error {
 	return git.Verbose("checkout", "-b", local, "--track", remoteTrackingRef(remote))
 }
 
-func trackSameUpstream(p prompt.Prompter, local, remote string) error {
+func trackSameUpstream(p prompt.Prompter, local, remote string, fold caseFold) error {
 	if prompt.NonInteractive(p) {
 		text.ErrorText(fmt.Sprintf("local branch '%s' already tracks '%s'; run 'git switch %s'", local, remote, local))
 		return cliruntime.ExitStatus{Code: exitcode.WorkflowError}
@@ -221,7 +252,7 @@ func trackSameUpstream(p prompt.Prompter, local, remote string) error {
 		if err != nil {
 			return err
 		}
-		name, err := askNewBranchName(p, "Branch name", branches)
+		name, err := askNewBranchName(p, "Branch name", branches, "", fold)
 		if err != nil {
 			return err
 		}

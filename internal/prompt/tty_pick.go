@@ -1,10 +1,13 @@
 package prompt
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/extsoft/elegant-git/internal/text"
 	"golang.org/x/term"
@@ -283,8 +286,13 @@ const (
 	pickKeyUp
 	pickKeyDown
 	pickKeyBackspace
+	pickKeyWordBackspace
 	pickKeyRune
 )
+
+const escFollowTimeout = 50 * time.Millisecond
+
+var errKeyTimeout = errors.New("key timeout")
 
 type pickKey struct {
 	kind pickKeyKind
@@ -292,41 +300,162 @@ type pickKey struct {
 }
 
 func readPickKey(in *os.File) (pickKey, error) {
-	var buf [3]byte
-	n, err := in.Read(buf[:1])
+	return readInputKey(in, false)
+}
+
+func readValidatedKey(in *os.File) (pickKey, error) {
+	return readInputKey(in, true)
+}
+
+func readInputKey(in *os.File, textLine bool) (pickKey, error) {
+	b, err := readOne(in)
 	if err != nil {
 		return pickKey{}, err
 	}
-	if n == 0 {
-		return pickKey{}, io.EOF
+	return interpretByte(in, b, textLine)
+}
+
+func readOne(in *os.File) (byte, error) {
+	var buf [1]byte
+	n, err := in.Read(buf[:])
+	if n == 1 {
+		return buf[0], nil
 	}
-	b := buf[0]
+	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return 0, io.EOF
+	}
+	return 0, err
+}
+
+func interpretByte(in *os.File, b byte, textLine bool) (pickKey, error) {
 	switch b {
 	case 3, 4: // Ctrl+C, Ctrl+D
 		return pickKey{kind: pickKeyCancel}, nil
 	case 13, 10:
 		return pickKey{kind: pickKeyEnter}, nil
 	case 27:
-		n2, err := in.Read(buf[1:3])
-		if err != nil || n2 == 0 {
-			return pickKey{kind: pickKeyCancel}, nil
-		}
-		if n2 >= 2 && buf[1] == '[' {
-			switch buf[2] {
-			case 'A':
-				return pickKey{kind: pickKeyUp}, nil
-			case 'B':
-				return pickKey{kind: pickKeyDown}, nil
-			}
-		}
-		return pickKey{kind: pickKeyCancel}, nil
+		return readEscape(in, textLine)
 	case 127, 8:
 		return pickKey{kind: pickKeyBackspace}, nil
 	default:
+		if textLine && b >= utf8.RuneSelf {
+			return readUTF8Rune(in, b, textLine)
+		}
 		if isPrintable(rune(b)) {
 			return pickKey{kind: pickKeyRune, rune: rune(b)}, nil
 		}
 		return pickKey{kind: pickKeyNone}, nil
+	}
+}
+
+func readEscape(in *os.File, textLine bool) (pickKey, error) {
+	b, err := readByteWait(in, escFollowTimeout)
+	if err != nil {
+		if errors.Is(err, errKeyTimeout) || errors.Is(err, io.EOF) {
+			return pickKey{kind: pickKeyCancel}, nil
+		}
+		return pickKey{}, err
+	}
+	switch b {
+	case '[':
+		return readCSI(in, textLine)
+	case 'O':
+		_, err := readByteWait(in, escFollowTimeout)
+		if err != nil && !errors.Is(err, errKeyTimeout) && !errors.Is(err, io.EOF) {
+			return pickKey{}, err
+		}
+		return pickKey{kind: pickKeyNone}, nil
+	case 127, 8:
+		if textLine {
+			return pickKey{kind: pickKeyWordBackspace}, nil
+		}
+		return pickKey{kind: pickKeyBackspace}, nil
+	default:
+		if textLine {
+			return pickKey{kind: pickKeyNone}, nil
+		}
+		return pickKey{kind: pickKeyCancel}, nil
+	}
+}
+
+func readCSI(in *os.File, textLine bool) (pickKey, error) {
+	for n := 0; n < 64; n++ {
+		b, err := readByteWait(in, escFollowTimeout)
+		if err != nil {
+			if errors.Is(err, errKeyTimeout) {
+				return pickKey{kind: pickKeyNone}, nil
+			}
+			if errors.Is(err, io.EOF) {
+				return pickKey{}, io.EOF
+			}
+			return pickKey{}, err
+		}
+		if b >= 0x40 && b <= 0x7E {
+			return csiKey(b, textLine), nil
+		}
+	}
+	return pickKey{kind: pickKeyNone}, nil
+}
+
+func csiKey(final byte, textLine bool) pickKey {
+	switch final {
+	case 'A':
+		return pickKey{kind: pickKeyUp}
+	case 'B':
+		return pickKey{kind: pickKeyDown}
+	case 'C', 'D':
+		if textLine {
+			return pickKey{kind: pickKeyNone}
+		}
+		return pickKey{kind: pickKeyCancel}
+	default:
+		if textLine {
+			return pickKey{kind: pickKeyNone}
+		}
+		return pickKey{kind: pickKeyCancel}
+	}
+}
+
+func readUTF8Rune(in *os.File, lead byte, textLine bool) (pickKey, error) {
+	size := utf8SequenceLen(lead)
+	if size < 2 {
+		return pickKey{kind: pickKeyNone}, nil
+	}
+	buf := make([]byte, size)
+	buf[0] = lead
+	for i := 1; i < size; i++ {
+		b, err := readOne(in)
+		if err != nil {
+			return pickKey{}, err
+		}
+		if b&0xC0 != 0x80 {
+			return interpretByte(in, b, textLine)
+		}
+		buf[i] = b
+	}
+	r, n := utf8.DecodeRune(buf)
+	if r == utf8.RuneError || n != size || !isPrintable(r) {
+		return pickKey{kind: pickKeyNone}, nil
+	}
+	return pickKey{kind: pickKeyRune, rune: r}, nil
+}
+
+func utf8SequenceLen(b byte) int {
+	switch {
+	case b&0xE0 == 0xC0:
+		if b < 0xC2 {
+			return 0
+		}
+		return 2
+	case b&0xF0 == 0xE0:
+		return 3
+	case b&0xF8 == 0xF0:
+		if b > 0xF4 {
+			return 0
+		}
+		return 4
+	default:
+		return 0
 	}
 }
 

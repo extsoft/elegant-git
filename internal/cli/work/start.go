@@ -90,7 +90,7 @@ func ensureStartName(p prompt.Prompter, spec argspec.Spec) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return askNewBranchName(p, "Branch name", branches)
+	return askNewBranchName(p, "Branch name", branches, "", prepareCaseFold())
 }
 
 func startRunWithRefs(ctx context.Context, name, fromRef string) error {

@@ -13,7 +13,7 @@ func TestValidateBranchName(t *testing.T) {
 			t.Errorf("%q: %v", name, err)
 		}
 	}
-	invalid := []string{"", ".hidden", "bad name", "foo..bar", "ends/", "trail.", "has@{", "a.lock"}
+	invalid := []string{"", ".hidden", "bad name", "foo..bar", "ends/", "trail.", "has@{", "a.lock", "-x", "/x", "foo/.bar", "a.lock/b", "HEAD", "@{0}"}
 	for _, name := range invalid {
 		if err := validateBranchName(name); err == nil {
 			t.Errorf("%q: expected error", name)
@@ -71,8 +71,40 @@ func TestCheckBranchNameReportsGitText(t *testing.T) {
 	t.Cleanup(func() { Use(RealRunner{}) })
 	for _, name := range []string{"HEAD", "-x", "a/.b", "a.lock/b"} {
 		err := CheckBranchName(name)
-		if err == nil || strings.Contains(err.Error(), "exit status") || !strings.Contains(err.Error(), name) {
+		if err == nil || strings.Contains(err.Error(), "exit status") {
 			t.Fatalf("%q: %v", name, err)
 		}
+	}
+	if err := CheckBranchName("@"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateBranchNameMatchesGit(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is unavailable")
+	}
+	names := []string{
+		"main", "feature/foo", "datadog-alerts", "OPS-2162", "v1.0.0", "a.b", "foo.lockbar",
+		"a.LOCK", "foo./bar", "a/@", "@/a", "head", "@", "café", "中",
+		"-x", "-foo", "--", "-",
+		"/x", "foo/.bar", "a.lock/b", "HEAD",
+		".hidden", "bad name", "foo..bar", "ends/", "trail.", "has@{", "a.lock",
+		"a//b", "a/./b", "a/../b", "foo/bar.lock", "a/b.lock/c", ".foo/bar",
+		"*", "?", "[", "\\", "~", "^", ":", " ",
+		"a\t", "a\n", "foo\x7fbar", "@{0}", "foo@{bar}", "a.b.lock",
+		"foo/.lock", "lock", "@@", "refs/heads/foo", "HEAD/x",
+	}
+	for _, name := range names {
+		cmd := exec.Command("git", "check-ref-format", "--branch", name)
+		gitOK := cmd.Run() == nil
+		err := validateBranchName(name)
+		if gitOK != (err == nil) {
+			t.Errorf("%q gitOK=%v pure=%v", name, gitOK, err)
+		}
+	}
+	// git check-ref-format --branch expands @{-n}; a new branch name must not.
+	if err := validateBranchName("@{-1}"); err == nil {
+		t.Fatal("@{-1} accepted")
 	}
 }

@@ -148,6 +148,21 @@ A **required text** question has no suggestion, so you have to type a value:
 Workspace name: some name
 ```
 
+A **validated text** question checks the answer while you type. The line is `<prompt>: <typed>`.
+It may open with a value already filled in, and that value is checked immediately. An empty
+line you have not edited yet shows no problem, and Enter on it does nothing. After you type, a
+second line shows the problem in red and disappears as soon as the text is usable. Enter does
+nothing while a problem is showing. Esc, Ctrl+C, and Ctrl+D cancel and leave the terminal as
+it was. Backspace removes the last character. Alt+Backspace deletes a trailing run of
+spaces, `/`, `-`, `_`, or `.`, then the characters back to the previous one of those.
+On Windows a lone Esc waits for the next key, here and in the picker, because a console
+read cannot time out.
+`work start` and `work track` use this for a new local branch name. A name you pass to
+`work start` that is rejected is reported, and the prompt then starts empty. `work track`
+starts from the suggested local name. If a name passes this prompt and a last check still
+rejects it, the prompt opens again with that name filled in. When the terminal cannot edit
+the line this way, the problem is printed and the question is asked again.
+
 An **optional text** question may stay empty when nothing is suggested. A value that is already
 configured is shown as the suggestion, and an empty Enter records it:
 

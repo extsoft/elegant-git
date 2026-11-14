@@ -3,7 +3,6 @@ package git
 import (
 	"fmt"
 	"strings"
-	"unicode"
 )
 
 // CheckBranchName reports whether name is a valid git branch name.
@@ -57,28 +56,43 @@ func validateBranchName(name string) error {
 	if name == "" {
 		return fmt.Errorf("branch name is required")
 	}
-	if strings.HasPrefix(name, ".") {
-		return fmt.Errorf("branch name cannot start with '.'")
+	if name == "HEAD" {
+		return fmt.Errorf("branch name cannot be 'HEAD'")
 	}
-	if strings.HasSuffix(name, ".") || strings.HasSuffix(name, "/") {
-		return fmt.Errorf("branch name cannot end with '.' or '/'")
+	if name[0] == '-' {
+		return fmt.Errorf("branch name cannot start with '-'")
 	}
-	if strings.HasSuffix(name, ".lock") {
-		return fmt.Errorf("branch name cannot end with '.lock'")
+	for i := 0; i < len(name); i++ {
+		b := name[i]
+		if b == ' ' {
+			return fmt.Errorf("branch name cannot contain ' '")
+		}
+		if b <= ' ' || b == 0x7f {
+			return fmt.Errorf("branch name cannot contain control characters")
+		}
+		switch b {
+		case '~', '^', ':', '?', '*', '[', '\\':
+			return fmt.Errorf("branch name cannot contain %q", rune(b))
+		}
 	}
-	if strings.Contains(name, "..") || strings.Contains(name, "//") {
-		return fmt.Errorf("branch name cannot contain '..' or '//'")
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("branch name cannot contain '..'")
 	}
 	if strings.Contains(name, "@{") {
 		return fmt.Errorf("branch name cannot contain '@{'")
 	}
-	for _, r := range name {
-		if unicode.IsControl(r) {
-			return fmt.Errorf("branch name cannot contain control characters")
+	if strings.HasSuffix(name, ".") || strings.HasSuffix(name, "/") {
+		return fmt.Errorf("branch name cannot end with '.' or '/'")
+	}
+	for _, part := range strings.Split(name, "/") {
+		if part == "" {
+			return fmt.Errorf("branch name cannot contain an empty component")
 		}
-		switch r {
-		case ' ', '~', '^', ':', '?', '*', '[', '\\':
-			return fmt.Errorf("branch name cannot contain %q", r)
+		if strings.HasPrefix(part, ".") {
+			return fmt.Errorf("branch name cannot contain a component starting with '.'")
+		}
+		if strings.HasSuffix(part, ".lock") {
+			return fmt.Errorf("branch name cannot contain a component ending with '.lock'")
 		}
 	}
 	return nil
