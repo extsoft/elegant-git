@@ -22,6 +22,7 @@ func NewCommand() *cobra.Command {
 	c.AddCommand(newPolishCommand())
 	c.AddCommand(newSyncCommand())
 	c.AddCommand(newPushCommand())
+	c.AddCommand(newSwitchCommand())
 	c.AddCommand(newTrackCommand())
 	c.AddCommand(newAcceptCommand())
 	return c

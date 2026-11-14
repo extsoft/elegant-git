@@ -25,7 +25,17 @@ func HasChanges() bool {
 }
 
 // StashPipe runs fn with optional auto-stash around it for id.
+// A failed fn leaves the stash in place so the command can resume.
 func StashPipe(id cmdid.ID, fn func() error) error {
+	return runStashPipe(id, fn, false)
+}
+
+// StashPipeRestoring runs fn like StashPipe and pops the stash when fn fails.
+func StashPipeRestoring(id cmdid.ID, fn func() error) error {
+	return runStashPipe(id, fn, true)
+}
+
+func runStashPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
 	_ = gitQuiet("update-index", "-q", "--really-refresh")
 
 	if HasChanges() {
@@ -43,20 +53,28 @@ func StashPipe(id cmdid.ID, fn func() error) error {
 	}
 
 	if err := fn(); err != nil {
+		if restoreOnError {
+			_ = popStash(id)
+		}
 		return err
 	}
 
+	return popStash(id)
+}
+
+func popStash(id cmdid.ID) error {
 	saved, _ := cmdmem.Get(id, cmdmem.FieldStash)
-	if saved != "" {
-		_ = gitQuiet("update-index", "-q", "--really-refresh")
-		_ = cmdmem.Unset(id, cmdmem.FieldStash)
-		if sid := stashID(saved); sid != "" {
-			if source := stashWIPBranch(saved); source != "" && !state.LocalBranchExists(source) {
-				text.InfoText(fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists.", source))
-				return nil
-			}
-			return git.Verbose("stash", "pop", sid)
+	if saved == "" {
+		return nil
+	}
+	_ = gitQuiet("update-index", "-q", "--really-refresh")
+	_ = cmdmem.Unset(id, cmdmem.FieldStash)
+	if sid := stashID(saved); sid != "" {
+		if source := stashWIPBranch(saved); source != "" && !state.LocalBranchExists(source) {
+			text.InfoText(fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists.", source))
+			return nil
 		}
+		return git.Verbose("stash", "pop", sid)
 	}
 	return nil
 }

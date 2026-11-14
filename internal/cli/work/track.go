@@ -111,7 +111,7 @@ func trackLogic(ctx context.Context, p prompt.Prompter, pattern, localBranch str
 	if err != nil {
 		return err
 	}
-	return checkoutTrackedLocal(p, local, remote, fold)
+	return checkoutTrackedLocal(p, local, remote, fold, trackDivergenceError)
 }
 
 func resolveRemotePattern(ctx context.Context, p prompt.Prompter, pattern string) (string, error) {
@@ -195,13 +195,20 @@ func trackingSet(remote string) map[string]bool {
 	return set
 }
 
-func checkoutTrackedLocal(p prompt.Prompter, local, remote string, fold caseFold) error {
+type trackDivergence int
+
+const (
+	trackDivergenceError trackDivergence = iota
+	trackDivergenceStay
+)
+
+func checkoutTrackedLocal(p prompt.Prompter, local, remote string, fold caseFold, divergence trackDivergence) error {
 	branches, err := state.LocalBranchNames()
 	if err != nil {
 		return err
 	}
 	if branchListed(branches, local) && localTracksRemote(local, remote) {
-		return trackSameUpstream(p, local, remote, fold)
+		return trackSameUpstream(p, local, remote, fold, divergence)
 	}
 	if submitNewBranchNameProblem(local, branches) != "" {
 		name, err := resolveNewBranchNameFold(p, local, branches, local, &fold)
@@ -226,8 +233,11 @@ func createTrackingBranch(local, remote string) error {
 	return git.Verbose("checkout", "-b", local, "--track", remoteTrackingRef(remote))
 }
 
-func trackSameUpstream(p prompt.Prompter, local, remote string, fold caseFold) error {
+func trackSameUpstream(p prompt.Prompter, local, remote string, fold caseFold, divergence trackDivergence) error {
 	if prompt.NonInteractive(p) {
+		if divergence == trackDivergenceStay {
+			return fastForwardOrStay(local, remote)
+		}
 		text.ErrorText(fmt.Sprintf("local branch '%s' already tracks '%s'; run 'git switch %s'", local, remote, local))
 		return cliruntime.ExitStatus{Code: exitcode.WorkflowError}
 	}
@@ -260,6 +270,20 @@ func trackSameUpstream(p prompt.Prompter, local, remote string, fold caseFold) e
 	default:
 		return fmt.Errorf("invalid choice %q", ans)
 	}
+}
+
+func fastForwardOrStay(local, remote string) error {
+	if localIsAncestorOfRemote(local, remote) {
+		if err := git.Verbose("checkout", local, "--"); err != nil {
+			return err
+		}
+		return git.Verbose("merge", "--ff-only", remoteTrackingRef(remote))
+	}
+	if err := git.Verbose("checkout", local, "--"); err != nil {
+		return err
+	}
+	text.InfoText(fmt.Sprintf("Local branch '%s' has diverged from '%s'; checked it out without moving it.", local, remote))
+	return nil
 }
 
 func trackUpstreamChoices(local, remote string) ([]prompt.Choice, string) {

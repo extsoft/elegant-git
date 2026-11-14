@@ -61,6 +61,7 @@ var Groups = []Group{
 		{Action: "polish", Purpose: "Rebases HEAD interactively."},
 		{Action: "sync", Purpose: "Rebases onto the source branch, or a named branch."},
 		{Action: "push", Purpose: "Publishes HEAD to a remote repository."},
+		{Action: "switch", Purpose: "Switches to a branch, or creates one from a remote branch, tag, or revision."},
 		{Action: "track", Purpose: "Checks out a remote-tracking branch."},
 		{Action: "accept", Purpose: "Adds modifications to the default development branch."},
 	}},

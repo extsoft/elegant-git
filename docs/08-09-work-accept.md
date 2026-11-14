@@ -2,7 +2,7 @@
 layout: default
 title: eg work accept
 parent: '"work" guide'
-nav_order: 9
+nav_order: 10
 permalink: /work/accept/
 ---
 

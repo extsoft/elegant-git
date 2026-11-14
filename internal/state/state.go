@@ -14,6 +14,36 @@ func IsThereActiveRebase() bool {
 	return rebaseDir("rebase-merge") != "" || rebaseDir("rebase-apply") != ""
 }
 
+// InProgressOperation returns merge, cherry-pick, revert, rebase, or bisect when
+// one of those operations is in progress, or "" otherwise.
+func InProgressOperation() string {
+	switch {
+	case gitMetadataFile("MERGE_HEAD"):
+		return "merge"
+	case gitMetadataFile("CHERRY_PICK_HEAD"):
+		return "cherry-pick"
+	case gitMetadataFile("REVERT_HEAD"):
+		return "revert"
+	case IsThereActiveRebase():
+		return "rebase"
+	case gitMetadataFile("BISECT_LOG"):
+		return "bisect"
+	default:
+		return ""
+	}
+}
+
+// IsBareRepository reports whether the current repository has no working tree.
+func IsBareRepository() bool {
+	return strings.TrimSpace(git.OutputOK("rev-parse", "--is-bare-repository")) == "true"
+}
+
+// HeadUnborn reports whether HEAD does not yet point at a commit.
+func HeadUnborn() bool {
+	_, err := git.Output("rev-parse", "--verify", "--quiet", "HEAD")
+	return err != nil
+}
+
 // RebasingBranch returns the branch name being rebased, or "" if none.
 func RebasingBranch() string {
 	for _, loc := range []string{"rebase-merge", "rebase-apply"} {
@@ -110,6 +140,15 @@ func rebaseDir(name string) string {
 func isRebaseMetadataDir(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+func gitMetadataFile(name string) bool {
+	path, err := gitPath(name)
+	if err != nil {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 // ChangesContained reports whether ref's changes are already in target.

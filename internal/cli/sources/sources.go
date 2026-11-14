@@ -27,12 +27,21 @@ func fetchRemotes() {
 // Refs returns local branches, remote-tracking branches, and tags.
 func Refs(_ context.Context) ([]argspec.Choice, error) {
 	fetchRemotes()
+	return refsListed(), nil
+}
+
+// RefsListed returns local branches, remote-tracking branches, and tags without fetching.
+func RefsListed(_ context.Context) ([]argspec.Choice, error) {
+	return refsListed(), nil
+}
+
+func refsListed() []argspec.Choice {
 	var out []argspec.Choice
 	out = append(out, forEachRefChoices("refs/heads", "%(refname:short)\t%(upstream:short)")...)
 	out = append(out, forEachRefChoices("refs/remotes", "%(refname:short)")...)
 	out = append(out, forEachRefChoices("refs/tags", "%(refname:short)")...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
-	return out, nil
+	return out
 }
 
 // LocalBranches returns local branch short names.

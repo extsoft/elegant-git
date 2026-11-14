@@ -130,6 +130,10 @@ func startRunWithRefs(ctx context.Context, name, fromRef string) error {
 }
 
 func resolveStartChanges(ctx context.Context) (string, error) {
+	return resolveWorkChanges(ctx, startChangeChoices)
+}
+
+func resolveWorkChanges(ctx context.Context, choices []prompt.Choice) (string, error) {
 	if !pipe.HasChanges() {
 		return "none", nil
 	}
@@ -137,7 +141,7 @@ func resolveStartChanges(ctx context.Context) (string, error) {
 	if prompt.NonInteractive(p) {
 		return "stash", nil
 	}
-	ans, err := p.Pick("There are uncommitted changes", startChangeChoices, "add")
+	ans, err := p.Pick("There are uncommitted changes", choices, "add")
 	if err != nil {
 		return "", err
 	}
