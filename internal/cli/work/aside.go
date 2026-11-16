@@ -151,10 +151,7 @@ func restoreAsideFiles(skipTracked bool) error {
 			kept++
 			continue
 		}
-		dst := filepath.Join(root, rel)
-		if _, err := os.Lstat(dst); err == nil {
-			return fmt.Errorf("refusing to restore %s because it already exists; the aside copy was kept at %s", filepath.ToSlash(rel), aside)
-		} else if err != nil && !os.IsNotExist(err) {
+		if err := checkAsideDestination(root, aside, rel); err != nil {
 			return err
 		}
 		pending = append(pending, rel)
@@ -178,6 +175,45 @@ func restoreAsideFiles(skipTracked bool) error {
 		text.InfoText(fmt.Sprintf("Restored %d files from .git/elegant-git/aside.", restored))
 	}
 	return nil
+}
+
+func checkAsideDestination(root, aside, rel string) error {
+	cleaned := filepath.Clean(rel)
+	slash := filepath.ToSlash(rel)
+	if cleaned == "." || filepath.IsAbs(cleaned) || escapesWorktree(cleaned) {
+		return fmt.Errorf("refusing to restore %s because it leaves the worktree; the aside copy was kept at %s. Recovery is required", slash, aside)
+	}
+	cur := root
+	parts := strings.Split(cleaned, string(os.PathSeparator))
+	for i, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return fmt.Errorf("refusing to restore %s because it leaves the worktree; the aside copy was kept at %s. Recovery is required", slash, aside)
+		}
+		cur = filepath.Join(cur, part)
+		info, err := os.Lstat(cur)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			link := filepath.ToSlash(filepath.Join(parts[:i+1]...))
+			return fmt.Errorf("refusing to restore %s because %s is a symlink; the aside copy was kept at %s. Recovery is required", slash, link, aside)
+		}
+		if i == len(parts)-1 {
+			return fmt.Errorf("refusing to restore %s because it already exists; the aside copy was kept at %s", slash, aside)
+		}
+		if !info.IsDir() {
+			parent := filepath.ToSlash(filepath.Join(parts[:i+1]...))
+			return fmt.Errorf("refusing to restore %s because %s is not a directory; the aside copy was kept at %s. Recovery is required", slash, parent, aside)
+		}
+	}
+	return nil
+}
+
+func escapesWorktree(cleaned string) bool {
+	return cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(os.PathSeparator))
 }
 
 func rollbackAside(root, aside string, moved []string, cause error) error {

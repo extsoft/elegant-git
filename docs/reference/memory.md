@@ -67,7 +67,9 @@ source branch or detached commit, the phase, and the backup id. See
 
 `<repo>/.git/elegant-git/aside/` holds untracked files a rebase would otherwise refuse to
 overwrite, until that command finishes rebasing and checking out. Restoring an aside file stops
-if any destination already exists. Nothing is moved, and the error names the aside path.
+if any destination already exists, a parent on that path is a symlink, or the path leaves the
+worktree. Nothing is moved, and the error names the aside path. Recovery is required before you
+move that copy yourself.
 
 ## Schema
 

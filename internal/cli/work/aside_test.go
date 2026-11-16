@@ -160,3 +160,77 @@ func TestRestoreAsideLeavesEarlierFilesWhenALaterDestinationExists(t *testing.T)
 		t.Fatalf("a.txt left the aside: %v", err)
 	}
 }
+
+func TestRestoreAsideRefusesSymlinkedDestinationParent(t *testing.T) {
+	root := t.TempDir()
+	gitDir := t.TempDir()
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "collision")); err != nil {
+		t.Fatal(err)
+	}
+	asideDir := filepath.Join(gitDir, "elegant-git", "aside", "collision")
+	if err := os.MkdirAll(asideDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(asideDir, "payload"), []byte("backup\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --show-toplevel"] = root
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	err := restoreAside()
+	if err == nil || !strings.Contains(err.Error(), "symlink") || !strings.Contains(err.Error(), "Recovery is required") {
+		t.Fatalf("err=%v", err)
+	}
+	kept, readErr := os.ReadFile(filepath.Join(asideDir, "payload"))
+	if readErr != nil || string(kept) != "backup\n" {
+		t.Fatalf("aside %q err=%v", kept, readErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(outside, "payload")); !os.IsNotExist(statErr) {
+		t.Fatalf("backup left the worktree: %v", statErr)
+	}
+}
+
+func TestRestoreAsideRefusesPathTraversal(t *testing.T) {
+	root := t.TempDir()
+	err := checkAsideDestination(root, filepath.Join(root, ".git", "elegant-git", "aside"), "../payload")
+	if err == nil || !strings.Contains(err.Error(), "leaves the worktree") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestRestoreAsideRestoresIntoRealDirectory(t *testing.T) {
+	root := t.TempDir()
+	gitDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "collision"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	asideDir := filepath.Join(gitDir, "elegant-git", "aside", "collision")
+	if err := os.MkdirAll(asideDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(asideDir, "payload"), []byte("backup\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --show-toplevel"] = root
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	if err := restoreAside(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(root, "collision", "payload"))
+	if err != nil || string(got) != "backup\n" {
+		t.Fatalf("restored %q err=%v", got, err)
+	}
+	if _, err := os.Stat(filepath.Join(asideDir, "payload")); !os.IsNotExist(err) {
+		t.Fatalf("aside copy remained: %v", err)
+	}
+}
