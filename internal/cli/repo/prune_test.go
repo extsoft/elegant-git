@@ -24,6 +24,7 @@ func setupPrune(t *testing.T) *git.MemoryRunner {
 	t.Setenv("ELEGANT_GIT_REPO_STATE_FILE", filepath.Join(gitDir, "elegant-git", "state.json"))
 	m := git.NewMemoryRunner()
 	m.Outputs["rev-parse --git-dir"] = gitDir
+	m.Outputs["rev-parse --git-common-dir"] = gitDir
 	m.FailOn["rev-parse --abbrev-ref main@{upstream}"] = fmt.Errorf("no upstream")
 	git.Use(m)
 	t.Cleanup(func() { git.Use(git.RealRunner{}) })
@@ -261,6 +262,47 @@ func TestPruneStashesDropDescending(t *testing.T) {
 	}
 	if callIndex(calls, "stash drop stash@{1}") >= 0 {
 		t.Fatalf("dropped unselected: %v", calls)
+	}
+}
+
+func TestPruneHidesRecoveryStash(t *testing.T) {
+	m := setupPrune(t)
+	gitDir := m.Outputs["rev-parse --git-dir"]
+	if err := os.MkdirAll(filepath.Join(gitDir, "elegant-git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	recorded := "eg work.sync auto-stash abc"
+	body := []byte(`{"work.sync":{"stash":"` + recorded + `"}}` + "\n")
+	if err := os.WriteFile(filepath.Join(gitDir, "elegant-git", "commands.json"), body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m.Outputs["stash list --format="+pruneStashFormat] = strings.Join([]string{
+		pruneRow("stash@{0}", day, "2025-10-08", "On main: "+recorded),
+		pruneRow("stash@{1}", 2*week, "2025-09-25", "On main: eg work.sync auto-stash orphan"),
+		pruneRow("stash@{2}", 3*week, "2025-09-18", "wip"),
+	}, "\n")
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{1}"}})
+	if err := runPrune(p, "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.calls) != 1 || len(p.calls[0].choices) != 2 || p.calls[0].choices[0].Value != "stash@{2}" || p.calls[0].choices[1].Value != "stash@{1}" {
+		t.Fatalf("choices: %+v", p.calls)
+	}
+	if callIndex(gitCalls(m), "stash drop stash@{0}") >= 0 {
+		t.Fatalf("dropped recovery stash: %v", gitCalls(m))
+	}
+}
+
+func TestPruneStashesRefuseWhenCommonDirIsUnknown(t *testing.T) {
+	m := setupPrune(t)
+	delete(m.Outputs, "rev-parse --git-common-dir")
+	m.Outputs["stash list --format="+pruneStashFormat] = pruneRow("stash@{0}", day, "2025-10-08", "wip")
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
+	if err := runPrune(p, "stashes"); err == nil {
+		t.Fatal("expected missing common dir to refuse prune")
+	}
+	if callIndex(gitCalls(m), "stash drop stash@{0}") >= 0 {
+		t.Fatal("dropped a stash without a common dir")
 	}
 }
 

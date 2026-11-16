@@ -157,8 +157,25 @@ func backupStateFile(path string) (string, error) {
 // GitDir returns the absolute .git directory for the current repository.
 func GitDir() (string, error) {
 	out, err := git.Output("rev-parse", "--git-dir")
+	if err != nil {
+		return "", fmt.Errorf("not a git repository")
+	}
+	return absGitPath(out)
+}
+
+// GitCommonDir returns the absolute common git directory for the current repository.
+// Linked worktrees share this directory, including stash refs.
+func GitCommonDir() (string, error) {
+	out, err := git.Output("rev-parse", "--git-common-dir")
+	if err != nil {
+		return "", fmt.Errorf("not a git repository")
+	}
+	return absGitPath(out)
+}
+
+func absGitPath(out string) (string, error) {
 	out = strings.TrimSpace(out)
-	if err != nil || out == "" {
+	if out == "" {
 		return "", fmt.Errorf("not a git repository")
 	}
 	if !filepath.IsAbs(out) {
@@ -168,7 +185,11 @@ func GitDir() (string, error) {
 		}
 		out = filepath.Join(wd, out)
 	}
-	return filepath.Clean(out), nil
+	out = filepath.Clean(out)
+	if resolved, err := filepath.EvalSymlinks(out); err == nil {
+		return resolved, nil
+	}
+	return out, nil
 }
 
 // LoadFromCWD loads state using the current repository git dir.

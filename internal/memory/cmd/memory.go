@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/extsoft/elegant-git/internal/cmdid"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
@@ -31,6 +32,7 @@ type Entry struct {
 type State map[string]*Entry
 
 // Path returns the commands state file path for a git directory.
+// ELEGANT_GIT_CMD_STATE_FILE overrides it only when the file stays inside gitDir.
 func Path(gitDir string) string {
 	if override := os.Getenv("ELEGANT_GIT_CMD_STATE_FILE"); override != "" {
 		return override
@@ -38,8 +40,78 @@ func Path(gitDir string) string {
 	return filepath.Join(gitDir, dirName, fileName)
 }
 
+// ValidatePath rejects a command-state override outside this worktree's
+// elegant-git directory. A symlink that leaves that directory, or a file under
+// another worktree, is refused.
+func ValidatePath(gitDir string) error {
+	override := os.Getenv("ELEGANT_GIT_CMD_STATE_FILE")
+	if override == "" {
+		return nil
+	}
+	absGit, err := resolvePath(gitDir)
+	if err != nil {
+		return err
+	}
+	absOver, err := resolvePath(override)
+	if err != nil {
+		return err
+	}
+	root := filepath.Join(absGit, dirName)
+	rel, err := filepath.Rel(root, absOver)
+	if err != nil {
+		return err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
+		return fmt.Errorf("refusing command state file %s outside %s", absOver, root)
+	}
+	return nil
+}
+
+func resolvePath(p string) (string, error) {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	abs = filepath.Clean(abs)
+	if info, lerr := os.Lstat(abs); lerr == nil && info.Mode()&os.ModeSymlink != 0 {
+		resolved, err := filepath.EvalSymlinks(abs)
+		if err != nil {
+			return "", fmt.Errorf("refusing command state file %s: %w", abs, err)
+		}
+		return resolved, nil
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return resolved, nil
+	}
+	parent := filepath.Dir(abs)
+	if parent == abs {
+		return abs, nil
+	}
+	resolvedParent, err := resolvePath(parent)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(resolvedParent, filepath.Base(abs)), nil
+}
+
+// ValidateForCurrent rejects an unsafe command-state override for this worktree.
+// It is a no-op outside a git repository or when the override is unset.
+func ValidateForCurrent() error {
+	if os.Getenv("ELEGANT_GIT_CMD_STATE_FILE") == "" {
+		return nil
+	}
+	gitDir, err := memrepo.GitDir()
+	if err != nil {
+		return nil
+	}
+	return ValidatePath(gitDir)
+}
+
 // Load reads command state from gitDir.
 func Load(gitDir string) (State, error) {
+	if err := ValidatePath(gitDir); err != nil {
+		return nil, err
+	}
 	p := Path(gitDir)
 	data, err := os.ReadFile(p)
 	if err != nil {
@@ -60,6 +132,9 @@ func Load(gitDir string) (State, error) {
 
 // Save atomically writes command state (creates parent dir; keeps file even when empty).
 func Save(gitDir string, s State) error {
+	if err := ValidatePath(gitDir); err != nil {
+		return err
+	}
 	if s == nil {
 		s = State{}
 	}

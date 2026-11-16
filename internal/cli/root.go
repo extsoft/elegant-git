@@ -26,6 +26,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/migrate"
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/recovery"
 	"github.com/extsoft/elegant-git/internal/runtime"
 	"github.com/extsoft/elegant-git/internal/version"
 	"github.com/extsoft/elegant-git/internal/workflows"
@@ -251,6 +252,9 @@ func init() {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		recordDeprecatedSurface(cmd)
 		git.Use(git.RealRunner{})
+		if err := guardPendingRecovery(cmd); err != nil {
+			return err
+		}
 		nested := invocationNested()
 		if !skipAuto(cmd) {
 			migrate.Auto()
@@ -364,6 +368,23 @@ func recordDeprecatedSurface(cmd *cobra.Command) {
 		deprecation.RecordRenamedSurface(surface, replacement, "")
 		return
 	}
+}
+
+func guardPendingRecovery(cmd *cobra.Command) error {
+	id := commandID(cmd)
+	exempt := skipAuto(cmd) || id == "repo.doctor" || id == "repo.prune" || invocationNested()
+	return recovery.Guard(id, exempt)
+}
+
+func commandID(cmd *cobra.Command) string {
+	if cmd == nil {
+		return ""
+	}
+	var parts []string
+	for c := cmd; c != nil && c.Parent() != nil; c = c.Parent() {
+		parts = append([]string{c.Name()}, parts...)
+	}
+	return strings.Join(parts, ".")
 }
 
 func shouldAutoConfigure(cmd *cobra.Command, nested bool) bool {

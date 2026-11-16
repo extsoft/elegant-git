@@ -678,15 +678,20 @@ func TestRebaseMovesUntrackedTargetFileAside(t *testing.T) {
 	r.write("kept", "local\n")
 	r.enter()
 	r.checkout("B")
-	if err := rebaseOnto("main"); err != nil {
-		t.Fatal(err)
+	err := rebaseOnto("main")
+	if err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("err=%v", err)
 	}
 	body, err := os.ReadFile(filepath.Join(r.dir, "kept"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(body) != "local\n" {
+	if string(body) != "from-main\n" {
 		t.Fatalf("file = %q", body)
+	}
+	aside, err := os.ReadFile(r.asidePath("kept"))
+	if err != nil || string(aside) != "local\n" {
+		t.Fatalf("aside = %q err=%v", aside, err)
 	}
 }
 
@@ -792,15 +797,20 @@ func TestRebaseRestoresTrackedAsideAfterRebase(t *testing.T) {
 	if err := os.WriteFile(aside, []byte("local\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := rebaseOnto("main"); err != nil {
-		t.Fatal(err)
+	err := rebaseOnto("main")
+	if err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("err=%v", err)
 	}
 	body, err := os.ReadFile(filepath.Join(r.dir, "kept"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(body) != "local\n" {
+	if string(body) != "from-main\n" {
 		t.Fatalf("file = %q", body)
+	}
+	kept, err := os.ReadFile(aside)
+	if err != nil || string(kept) != "local\n" {
+		t.Fatalf("aside = %q err=%v", kept, err)
 	}
 }
 
@@ -833,15 +843,19 @@ func TestSyncContinueRebasesWithTrackedAside(t *testing.T) {
 	r.git("add", "f")
 	t.Setenv("GIT_EDITOR", "true")
 	t.Setenv("GIT_SEQUENCE_EDITOR", "true")
-	if err := syncLogic("", false); err != nil {
-		t.Fatal(err)
+	if err := syncLogic("", false); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("err=%v", err)
 	}
 	body, err = os.ReadFile(filepath.Join(r.dir, "kept"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(body) != "local\n" {
+	if string(body) != "from-main\n" {
 		t.Fatalf("file = %q", body)
+	}
+	aside, err := os.ReadFile(r.asidePath("kept"))
+	if err != nil || string(aside) != "local\n" {
+		t.Fatalf("aside = %q err=%v", aside, err)
 	}
 }
 
@@ -891,14 +905,18 @@ func TestAcceptCheckoutWithUntrackedTargetFile(t *testing.T) {
 	spec := acceptSpec(&branch)
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
-	if err := acceptRun(cmd, []string{"B"}, spec); err != nil {
-		t.Fatal(err)
+	if err := acceptRun(cmd, []string{"B"}, spec); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("err=%v", err)
 	}
 	body, err := os.ReadFile(filepath.Join(r.dir, "kept"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(body) != "local\n" {
+	if string(body) != "from-main\n" {
 		t.Fatalf("file = %q", body)
+	}
+	aside, err := os.ReadFile(r.asidePath("kept"))
+	if err != nil || string(aside) != "local\n" {
+		t.Fatalf("aside = %q err=%v", aside, err)
 	}
 }

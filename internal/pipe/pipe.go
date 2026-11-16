@@ -4,7 +4,6 @@ package pipe
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/extsoft/elegant-git/internal/cmdid"
 	"github.com/extsoft/elegant-git/internal/git"
@@ -33,50 +32,6 @@ func StashPipe(id cmdid.ID, fn func() error) error {
 // StashPipeRestoring runs fn like StashPipe and pops the stash when fn fails.
 func StashPipeRestoring(id cmdid.ID, fn func() error) error {
 	return runStashPipe(id, fn, true)
-}
-
-func runStashPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
-	_ = gitQuiet("update-index", "-q", "--really-refresh")
-
-	if HasChanges() {
-		if msg, _ := cmdmem.Get(id, cmdmem.FieldStash); msg == "" {
-			branch, _ := git.Output("rev-parse", "--abbrev-ref", "HEAD")
-			message := fmt.Sprintf("eg %s auto-stash: WIP in '%s' branch on %s",
-				id.String(), strings.TrimSpace(branch), time.Now().Format("2006-01-02T15:04:05"))
-			if err := git.Verbose("stash", "push", "--message", message); err != nil {
-				return err
-			}
-			if sid := stashID(message); sid != "" {
-				_ = cmdmem.Set(id, cmdmem.FieldStash, message)
-			}
-		}
-	}
-
-	if err := fn(); err != nil {
-		if restoreOnError {
-			_ = popStash(id)
-		}
-		return err
-	}
-
-	return popStash(id)
-}
-
-func popStash(id cmdid.ID) error {
-	saved, _ := cmdmem.Get(id, cmdmem.FieldStash)
-	if saved == "" {
-		return nil
-	}
-	_ = gitQuiet("update-index", "-q", "--really-refresh")
-	_ = cmdmem.Unset(id, cmdmem.FieldStash)
-	if sid := stashID(saved); sid != "" {
-		if source := stashWIPBranch(saved); source != "" && !state.LocalBranchExists(source) {
-			text.InfoText(fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists.", source))
-			return nil
-		}
-		return git.Verbose("stash", "pop", sid)
-	}
-	return nil
 }
 
 // BranchPipe restores the original branch after fn if checkout changed it and
@@ -109,11 +64,6 @@ func BranchPipe(id cmdid.ID, fn func() error) error {
 		return nil
 	}
 	return git.Verbose("checkout", previous)
-}
-
-func stashID(message string) string {
-	out := git.OutputOK("stash", "list", "--grep="+message, "--format=%gd")
-	return strings.TrimSpace(strings.Split(out, "\n")[0])
 }
 
 func stashWIPBranch(message string) string {

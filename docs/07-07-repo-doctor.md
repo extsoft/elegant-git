@@ -40,5 +40,10 @@ prints that the current repository was repaired.
 - personal or repo-tracked hooks still live under `.workflows/` — moves them; tracked hooks need
   a commit afterwards, so doctor prints the `git add` / `git commit` to use
 - hook files still use the `git-` command prefix — renames them to `self-`
+- a pipe recovery is still open — prints the command, phase, source, backup id, and private ref.
+  Confirming clears that record only. It does not apply or drop the stash, and it does not run
+  the command again. An `applying` phase is never applied a second time. A recovery ref with no
+  journal entry is reported and is not deleted. The manual restore commands are on the
+  [stash pipe](reference/pipes.md#recovery) page
 
 The hook layout itself is on the [hook files](reference/hook-files.md) page.

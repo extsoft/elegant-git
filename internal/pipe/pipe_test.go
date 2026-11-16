@@ -3,6 +3,7 @@ package pipe
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/extsoft/elegant-git/internal/cmdid"
@@ -99,6 +100,71 @@ func TestStashPipeSkipsPopWhenSourceBranchGone(t *testing.T) {
 	}
 }
 
+func TestStashPipeKeepsAssociationWhenPopFails(t *testing.T) {
+	m := setupBranchPipeTest(t, "main")
+	stubLocalBranch(m, "feat")
+	id := cmdid.ID{Command: "work", Action: "accept"}
+	msg := "eg work.accept auto-stash: WIP in 'feat' branch on 2020-01-01T00:00:00"
+	if err := cmdmem.Set(id, cmdmem.FieldStash, msg); err != nil {
+		t.Fatal(err)
+	}
+	m.Outputs["stash list --grep="+msg+" --format=%gd"] = "stash@{0}"
+	m.FailOn["stash pop stash@{0}"] = fmt.Errorf("conflict")
+
+	err := StashPipe(id, func() error { return nil })
+	if err == nil {
+		t.Fatal("expected restore error")
+	}
+	got, gerr := cmdmem.Get(id, cmdmem.FieldStash)
+	if gerr != nil || got != msg {
+		t.Fatalf("association %q err=%v", got, gerr)
+	}
+	if hasStashDrop(m) {
+		t.Fatalf("dropped a stash, calls=%v", m.Calls)
+	}
+}
+
+func TestStashPipeMissingLegacyBackupDropsNothing(t *testing.T) {
+	m := setupBranchPipeTest(t, "main")
+	stubLocalBranch(m, "feat")
+	id := cmdid.ID{Command: "work", Action: "accept"}
+	msg := "eg work.accept auto-stash: WIP in 'feat' branch on 2020-01-01T00:00:00"
+	if err := cmdmem.Set(id, cmdmem.FieldStash, msg); err != nil {
+		t.Fatal(err)
+	}
+	m.Outputs["stash list --grep="+msg+" --format=%gd"] = ""
+	m.Outputs["stash list --format=%gd"] = "stash@{0}"
+
+	err := StashPipe(id, func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("err=%v", err)
+	}
+	if hasStashPop(m, "stash@{0}") || hasStashDrop(m) {
+		t.Fatalf("changed another stash, calls=%v", m.Calls)
+	}
+	got, _ := cmdmem.Get(id, cmdmem.FieldStash)
+	if got != msg {
+		t.Fatalf("association %q", got)
+	}
+}
+
+func TestStashPipeReportsBothBodyAndRestoreErrors(t *testing.T) {
+	m := setupBranchPipeTest(t, "main")
+	stubLocalBranch(m, "feat")
+	id := cmdid.ID{Command: "work", Action: "switch"}
+	msg := "eg work.switch auto-stash: WIP in 'feat' branch on 2020-01-01T00:00:00"
+	if err := cmdmem.Set(id, cmdmem.FieldStash, msg); err != nil {
+		t.Fatal(err)
+	}
+	m.Outputs["stash list --grep="+msg+" --format=%gd"] = "stash@{0}"
+	m.FailOn["stash pop stash@{0}"] = fmt.Errorf("conflict")
+
+	err := StashPipeRestoring(id, func() error { return fmt.Errorf("body failed") })
+	if err == nil || !strings.Contains(err.Error(), "body failed") || !strings.Contains(err.Error(), "conflict") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
 func TestHasChangesRefreshesIndexFirst(t *testing.T) {
 	m := setupBranchPipeTest(t, "main")
 
@@ -140,6 +206,15 @@ func hasCheckout(m *git.MemoryRunner, branch string) bool {
 func hasStashPop(m *git.MemoryRunner, sid string) bool {
 	for _, c := range m.Calls {
 		if len(c.Args) == 3 && c.Args[0] == "stash" && c.Args[1] == "pop" && c.Args[2] == sid {
+			return true
+		}
+	}
+	return false
+}
+
+func hasStashDrop(m *git.MemoryRunner) bool {
+	for _, c := range m.Calls {
+		if len(c.Args) >= 2 && c.Args[0] == "stash" && c.Args[1] == "drop" {
 			return true
 		}
 	}

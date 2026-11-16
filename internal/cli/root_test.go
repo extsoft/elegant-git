@@ -16,6 +16,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/git"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/recovery"
 	"github.com/spf13/cobra"
 )
 
@@ -804,6 +805,35 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 	os.RemoveAll(dir)
 	os.Exit(code)
+}
+
+func TestNestedInvocationSkipsRecoveryGuard(t *testing.T) {
+	t.Setenv("ELEGANT_GIT_DEPTH", "")
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	m.Outputs["rev-parse --git-common-dir"] = gitDir
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	if err := recovery.Save(gitDir, recovery.File{Ops: []recovery.Op{{
+		ID: "abc", Command: "work.sync", Worktree: gitDir, Phase: recovery.PhaseRunning,
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	cmd := &cobra.Command{Use: "start"}
+	work := &cobra.Command{Use: "work"}
+	root := &cobra.Command{Use: "eg"}
+	root.AddCommand(work)
+	work.AddCommand(cmd)
+
+	if err := guardPendingRecovery(cmd); err == nil {
+		t.Fatal("expected a top-level command to be blocked")
+	}
+	t.Setenv("ELEGANT_GIT_DEPTH", "1")
+	if err := guardPendingRecovery(cmd); err != nil {
+		t.Fatal(err)
+	}
 }
 
 const hermeticGitConfig = `[user]

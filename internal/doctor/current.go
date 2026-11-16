@@ -51,6 +51,11 @@ func CurrentRepo(s *shared.State, p prompt.Prompter, w io.Writer) ([]Finding, er
 	out = append(out, diagnoseRepoLegacy(s)...)
 	out = append(out, diagnoseLegacyHooks(w)...)
 	out = append(out, diagnoseRenamedHooks(w)...)
+	recoveryFindings, err := diagnoseRecovery()
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, recoveryFindings...)
 	return out, nil
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/recovery"
 	"github.com/extsoft/elegant-git/internal/state"
 	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
@@ -25,7 +26,7 @@ var pruneID = cmdid.ID{Command: "repo", Action: "prune"}
 
 const (
 	pruneRefFormat   = "%(refname:short)%09%(committerdate:unix)%09%(committerdate:short)%09%(upstream:short)"
-	pruneStashFormat = "%gd%x09%ct%x09%cs%x09%s"
+	pruneStashFormat = "%gd%x09%ct%x09%cs%x09%s%x09%H"
 	pruneNameMaxLen  = 40
 )
 
@@ -433,11 +434,22 @@ func collectStashes(progress *pruneProgress) ([]prompt.Choice, error) {
 	out := git.OutputOK("stash", "list", "--format="+pruneStashFormat)
 	lines := splitLines(out)
 	progress.setTotal(len(lines))
+	common, err := repo.GitCommonDir()
+	if err != nil {
+		return nil, err
+	}
 	var choices []prompt.Choice
 	for i := len(lines) - 1; i >= 0; i-- {
-		ref, unix, short, subject := splitRef(lines[i])
+		ref, unix, short, subject, oid := splitStash(lines[i])
 		progress.tick(ref)
 		if ref == "" {
+			continue
+		}
+		protected, err := recovery.Protects(common, oid, subject)
+		if err != nil {
+			return nil, err
+		}
+		if protected {
 			continue
 		}
 		choices = append(choices, datedChoice(ref, unix, short, subject))
@@ -544,12 +556,41 @@ func deleteStashes(refs []string) error {
 	sort.SliceStable(sorted, func(i, j int) bool {
 		return stashIndex(sorted[i]) > stashIndex(sorted[j])
 	})
+	common, err := repo.GitCommonDir()
+	if err != nil {
+		return err
+	}
 	for _, ref := range sorted {
+		oid, subject, err := stashAt(ref)
+		if err != nil {
+			return err
+		}
+		protected, err := recovery.Protects(common, oid, subject)
+		if err != nil {
+			return err
+		}
+		if protected {
+			return fmt.Errorf("refusing to drop %s; it is a recovery backup", ref)
+		}
 		if err := git.Verbose("stash", "drop", ref); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func stashAt(ref string) (oid, subject string, err error) {
+	out, err := git.Output("stash", "list", "--format="+pruneStashFormat)
+	if err != nil {
+		return "", "", err
+	}
+	for _, line := range splitLines(out) {
+		name, _, _, sub, id := splitStash(line)
+		if name == ref {
+			return id, sub, nil
+		}
+	}
+	return "", "", fmt.Errorf("stash %s is not in the list; nothing was dropped", ref)
 }
 
 func stashIndex(ref string) int {
@@ -611,6 +652,26 @@ func splitLines(out string) []string {
 		return nil
 	}
 	return strings.Split(out, "\n")
+}
+
+func splitStash(line string) (ref, unix, short, subject, oid string) {
+	parts := strings.Split(line, "\t")
+	if len(parts) > 0 {
+		ref = strings.TrimSpace(parts[0])
+	}
+	if len(parts) > 1 {
+		unix = strings.TrimSpace(parts[1])
+	}
+	if len(parts) > 2 {
+		short = strings.TrimSpace(parts[2])
+	}
+	if len(parts) > 3 {
+		subject = strings.TrimSpace(parts[3])
+	}
+	if len(parts) > 4 {
+		oid = strings.TrimSpace(parts[4])
+	}
+	return ref, unix, short, subject, oid
 }
 
 func splitRef(line string) (name, unix, short, extra string) {

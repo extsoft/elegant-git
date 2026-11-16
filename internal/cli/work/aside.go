@@ -145,15 +145,22 @@ func restoreAsideFiles(skipTracked bool) error {
 	}
 	restored := 0
 	kept := 0
+	var pending []string
 	for _, rel := range files {
 		if skipTracked && tracked[filepath.ToSlash(rel)] {
 			kept++
 			continue
 		}
 		dst := filepath.Join(root, rel)
-		if err := os.RemoveAll(dst); err != nil {
+		if _, err := os.Lstat(dst); err == nil {
+			return fmt.Errorf("refusing to restore %s because it already exists; the aside copy was kept at %s", filepath.ToSlash(rel), aside)
+		} else if err != nil && !os.IsNotExist(err) {
 			return err
 		}
+		pending = append(pending, rel)
+	}
+	for _, rel := range pending {
+		dst := filepath.Join(root, rel)
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return err
 		}

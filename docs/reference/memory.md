@@ -56,9 +56,18 @@ branch and the protected branches, and to `origin` for the remote.
 
 Next to it sits `<repo>/.git/elegant-git/commands.json`, the per-repo command memory. That is where
 the [pipes](pipes.md) park the stash message and the branch name they have to
-restore, which is why an interrupted command can be rerun without losing your work.
+restore. A linked worktree has its own file. `ELEGANT_GIT_CMD_STATE_FILE` can point somewhere
+else only when that path stays inside that worktree's `elegant-git` directory. A path outside it,
+a symlink that leaves it, or another worktree's file is refused.
+
+The recovery journal is `<git-common-dir>/elegant-git/recovery.json`. Worktrees of one repository
+share it, because stash refs are shared. It records the operation id, the owning worktree, the
+source branch or detached commit, the phase, and the backup id. See
+[Pipes](pipes.md#recovery) for the phases and the manual restore commands.
+
 `<repo>/.git/elegant-git/aside/` holds untracked files a rebase would otherwise refuse to
-overwrite, until that command finishes rebasing and checking out.
+overwrite, until that command finishes rebasing and checking out. Restoring an aside file stops
+if any destination already exists. Nothing is moved, and the error names the aside path.
 
 ## Schema
 

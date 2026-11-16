@@ -90,6 +90,50 @@ func TestUnsetRemovesEntryKeepsFile(t *testing.T) {
 	}
 }
 
+func TestValidatePathRejectsSharedOverride(t *testing.T) {
+	gitDir := t.TempDir()
+	t.Setenv("ELEGANT_GIT_CMD_STATE_FILE", filepath.Join(t.TempDir(), "commands.json"))
+	if err := ValidatePath(gitDir); err == nil {
+		t.Fatal("expected shared command state to be refused")
+	}
+}
+
+func TestValidatePathAllowsOverrideInsideGitDir(t *testing.T) {
+	gitDir := t.TempDir()
+	t.Setenv("ELEGANT_GIT_CMD_STATE_FILE", filepath.Join(gitDir, "elegant-git", "commands.json"))
+	if err := ValidatePath(gitDir); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidatePathRejectsSymlinkOutsideGitDir(t *testing.T) {
+	gitDir := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "commands.json")
+	link := filepath.Join(gitDir, "elegant-git", "commands.json")
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, link); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ELEGANT_GIT_CMD_STATE_FILE", link)
+	if err := ValidatePath(gitDir); err == nil {
+		t.Fatal("expected symlink outside the git dir to be refused")
+	}
+}
+
+func TestValidatePathRejectsOtherWorktreeFile(t *testing.T) {
+	gitDir := t.TempDir()
+	other := filepath.Join(gitDir, "worktrees", "wt", "elegant-git", "commands.json")
+	if err := os.MkdirAll(filepath.Dir(other), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ELEGANT_GIT_CMD_STATE_FILE", other)
+	if err := ValidatePath(gitDir); err == nil {
+		t.Fatal("expected another worktree's command state to be refused")
+	}
+}
+
 func TestGetSetRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	gitDir := filepath.Join(dir, ".git")
