@@ -57,9 +57,11 @@ The journal phases are `preparing`, `preserved`, `running`, `suspended`, `applyi
 `applied`. A crash while `applying` is never applied a second time. Re-running the command does
 not repeat the body when the outcome is unknown (`running`). A `suspended` backup, where the
 command already returned an error, does not run that command again just to restore the stash.
-The backup stays until you inspect it. An active rebase is the only continuation that runs:
-it is not stashed, and the backup stays until that rebase is finished. Finishing or aborting
-the rebase outside Elegant Git leaves the backup recorded and does not run the command again.
+The backup stays until you inspect it. A later rebase continues only when its
+branch, onto commit, and original HEAD are the ones recorded for that backup.
+Any other rebase is left alone, and the backup is not applied or dropped.
+Finishing or aborting the rebase outside Elegant Git leaves the backup
+recorded and does not run the command again.
 Merge, cherry-pick, revert, and bisect are refused only when there are
 changes to stash. A clean tree still runs the command. `applied` only finishes cleanup and does
 not run the command again. If creating the stash fails, or Git saves nothing, the preparing record is removed and the

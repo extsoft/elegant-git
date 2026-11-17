@@ -44,6 +44,41 @@ func HeadUnborn() bool {
 	return err != nil
 }
 
+// RebaseMarker is the identity of the rebase currently in progress.
+// Head is the head-name ref, Onto and Orig are the onto and original HEAD commits.
+type RebaseMarker struct {
+	Head string
+	Onto string
+	Orig string
+}
+
+// ActiveRebase reads that identity. It is false when no rebase is active or a
+// marker needed to recognize it is missing.
+func ActiveRebase() (RebaseMarker, bool) {
+	for _, loc := range []string{"rebase-merge", "rebase-apply"} {
+		dir := rebaseDir(loc)
+		if dir == "" {
+			continue
+		}
+		head, errH := os.ReadFile(filepath.Join(dir, "head-name"))
+		onto, errO := os.ReadFile(filepath.Join(dir, "onto"))
+		orig, errR := os.ReadFile(filepath.Join(dir, "orig-head"))
+		if errH != nil || errO != nil || errR != nil {
+			return RebaseMarker{}, false
+		}
+		marker := RebaseMarker{
+			Head: strings.TrimSpace(string(head)),
+			Onto: strings.TrimSpace(string(onto)),
+			Orig: strings.TrimSpace(string(orig)),
+		}
+		if marker.Head == "" || marker.Onto == "" || marker.Orig == "" {
+			return RebaseMarker{}, false
+		}
+		return marker, true
+	}
+	return RebaseMarker{}, false
+}
+
 // RebasingBranch returns the branch name being rebased, or "" if none.
 func RebasingBranch() string {
 	for _, loc := range []string{"rebase-merge", "rebase-apply"} {

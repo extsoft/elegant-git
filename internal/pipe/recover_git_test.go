@@ -125,6 +125,10 @@ func TestRealGitSuspendedRebaseContinuationRunsBody(t *testing.T) {
 	if r.read("f") == "dirty\n" {
 		t.Fatal("backup applied during rebase")
 	}
+	op := r.oneRecoveryOp(t)
+	if op.RebaseHead != "refs/heads/feat" || op.RebaseOnto == "" || op.RebaseOrig == "" || op.Phase != recovery.PhaseSuspended {
+		t.Fatalf("owned rebase %+v", op)
+	}
 }
 
 func TestRealGitExternalRebaseAbortDoesNotReplay(t *testing.T) {
@@ -186,6 +190,147 @@ func TestRealGitExternalRebaseContinueDoesNotReplay(t *testing.T) {
 	}
 	if calls != 0 || r.git("stash", "list") != stash || r.read("f") == "dirty\n" {
 		t.Fatalf("calls=%d stash=%q file=%q", calls, r.git("stash", "list"), r.read("f"))
+	}
+}
+
+func TestRealGitAbortThenUnrelatedRebaseIsNotContinuation(t *testing.T) {
+	r, id := divergentFeat(t)
+	if err := StashPipe(id, func() error { return r.gitErr("rebase", "main") }); err == nil {
+		t.Fatal("expected rebase conflict")
+	}
+	r.git("rebase", "--abort")
+	r.git("checkout", "-q", "-b", "unrelated", "main~1")
+	r.write("f", "unrelated\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "unrelated")
+	if err := r.gitErr("rebase", "main"); err == nil {
+		t.Fatal("expected unrelated conflict")
+	}
+	hold := r.recoveryHold(t)
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return r.gitErr("rebase", "--continue")
+	})
+	if err == nil || !strings.Contains(err.Error(), "not owned by this backup") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || r.recoveryHold(t) != hold || r.read("f") == "dirty\n" {
+		t.Fatalf("calls=%d file=%q", calls, r.read("f"))
+	}
+	if got := rebaseHeadName(t, r); got != "refs/heads/unrelated" {
+		t.Fatalf("rebase head %q", got)
+	}
+}
+
+func TestRealGitReplacedRebaseIsNotContinuation(t *testing.T) {
+	r, id := divergentFeat(t)
+	if err := StashPipe(id, func() error { return r.gitErr("rebase", "main") }); err == nil {
+		t.Fatal("expected rebase conflict")
+	}
+	r.git("rebase", "--abort")
+	r.git("checkout", "-q", "main")
+	r.write("g", "moved\n")
+	r.git("add", "g")
+	r.git("commit", "-q", "-m", "move main")
+	r.git("checkout", "-q", "feat")
+	if err := r.gitErr("rebase", "main"); err == nil {
+		t.Fatal("expected replaced conflict")
+	}
+	hold := r.recoveryHold(t)
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "not owned by this backup") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || r.recoveryHold(t) != hold || r.read("f") == "dirty\n" {
+		t.Fatalf("calls=%d file=%q", calls, r.read("f"))
+	}
+}
+
+func TestRealGitUnownedSuspendedRebaseDoesNotContinue(t *testing.T) {
+	r, id := divergentFeat(t)
+	if err := StashPipe(id, func() error { return r.gitErr("rebase", "main") }); err == nil {
+		t.Fatal("expected rebase conflict")
+	}
+	common := r.commonDir(t)
+	file, err := recovery.Load(common)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Ops[0].RebaseHead = ""
+	file.Ops[0].RebaseOnto = ""
+	file.Ops[0].RebaseOrig = ""
+	if err := recovery.Save(common, file); err != nil {
+		t.Fatal(err)
+	}
+	hold := r.recoveryHold(t)
+	calls := 0
+	err = StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "not owned by this backup") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || r.recoveryHold(t) != hold || r.read("f") == "dirty\n" {
+		t.Fatalf("calls=%d file=%q", calls, r.read("f"))
+	}
+	if r.oneRecoveryOp(t).Phase != recovery.PhaseSuspended {
+		t.Fatal("journal was cleared")
+	}
+}
+
+func TestRealGitAcceptHelperRebaseContinuesOnlyWhenOwned(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "main\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "main2")
+	r.git("checkout", "-q", "-b", "__eg", "HEAD~1")
+	r.write("f", "helper\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "helper")
+	r.write("f", "dirty\n")
+	id := cmdid.ID{Command: "work", Action: "accept"}
+	calls := 0
+	if err := StashPipe(id, func() error {
+		calls++
+		return r.gitErr("rebase", "main")
+	}); err == nil {
+		t.Fatal("expected helper conflict")
+	}
+	op := r.oneRecoveryOp(t)
+	if op.RebaseHead != "refs/heads/__eg" {
+		t.Fatalf("head %q", op.RebaseHead)
+	}
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "rebase") || calls != 2 {
+		t.Fatalf("continuation calls=%d err=%v", calls, err)
+	}
+	r.git("rebase", "--abort")
+	r.git("checkout", "-q", "-b", "unrelated", "main~1")
+	r.write("f", "unrelated\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "unrelated")
+	if err := r.gitErr("rebase", "main"); err == nil {
+		t.Fatal("expected unrelated conflict")
+	}
+	hold := r.recoveryHold(t)
+	err = StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "not owned by this backup") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 2 || r.recoveryHold(t) != hold {
+		t.Fatalf("calls=%d", calls)
 	}
 }
 
@@ -718,6 +863,63 @@ var gitLocalEnvKeys = []string{
 	"GIT_OBJECT_DIRECTORY",
 	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
 	"GIT_NAMESPACE",
+}
+
+func (r *pipeRepo) commonDir(t *testing.T) string {
+	t.Helper()
+	common := r.git("rev-parse", "--git-common-dir")
+	if !filepath.IsAbs(common) {
+		common = filepath.Join(r.dir, common)
+	}
+	return common
+}
+
+func (r *pipeRepo) oneRecoveryOp(t *testing.T) recovery.Op {
+	t.Helper()
+	file, err := recovery.Load(r.commonDir(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(file.Ops) != 1 {
+		t.Fatalf("ops %+v", file.Ops)
+	}
+	return file.Ops[0]
+}
+
+func (r *pipeRepo) recoveryHold(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(r.commonDir(t), "elegant-git", "recovery.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r.git("stash", "list", "--format=%H %gd") + "\n" + r.git("for-each-ref", recovery.RefPrefix) + "\n" + string(data)
+}
+
+func rebaseHeadName(t *testing.T, r *pipeRepo) string {
+	t.Helper()
+	path := r.git("rev-parse", "--git-path", "rebase-merge/head-name")
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(r.dir, path)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(body))
+}
+
+func divergentFeat(t *testing.T) (*pipeRepo, cmdid.ID) {
+	t.Helper()
+	r := newPipeRepo(t)
+	r.write("f", "main\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "main2")
+	r.git("checkout", "-q", "-b", "feat", "HEAD~1")
+	r.write("f", "feat\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "feat")
+	r.write("f", "dirty\n")
+	return r, cmdid.ID{Command: "work", Action: "sync"}
 }
 
 func (r *pipeRepo) commit(msg, name, body string) {

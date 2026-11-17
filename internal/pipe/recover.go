@@ -111,6 +111,9 @@ func decideOwn(dec *decision, common string, id cmdid.ID, f *recovery.File, op r
 		return recovery.NoSecondApplyError(op)
 	case recovery.PhaseRunning:
 		if state.InProgressOperation() == "rebase" {
+			if err := allowOwnedRebase(op); err != nil {
+				return err
+			}
 			dec.runBody = true
 			dec.opID = op.ID
 			return nil
@@ -118,6 +121,9 @@ func decideOwn(dec *decision, common string, id cmdid.ID, f *recovery.File, op r
 		return recovery.NoReplayError(op)
 	case recovery.PhaseSuspended:
 		if state.InProgressOperation() == "rebase" {
+			if err := allowOwnedRebase(op); err != nil {
+				return err
+			}
 			dec.runBody = true
 			dec.opID = op.ID
 			return nil
@@ -300,6 +306,7 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 		if bodyErr != nil && !restoreOnError {
 			if op.Phase == recovery.PhaseRunning {
 				op.Phase = recovery.PhaseSuspended
+				rememberOwnedRebase(&op)
 				f.Upsert(op)
 				if err := recovery.Save(common, f); err != nil {
 					return combine(bodyErr, err)
@@ -445,6 +452,31 @@ func sourceKeptMessage(op recovery.Op) string {
 		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is no longer detached at %s. Inspect it with `eg repo doctor`.", op.Source)
 	}
 	return fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists. Inspect it with `eg repo doctor`.", op.Source)
+}
+
+func rememberOwnedRebase(op *recovery.Op) {
+	if op.RebaseHead != "" || op.RebaseOnto != "" || op.RebaseOrig != "" {
+		return
+	}
+	if state.InProgressOperation() != "rebase" {
+		return
+	}
+	cur, ok := state.ActiveRebase()
+	if !ok {
+		return
+	}
+	op.RebaseHead = cur.Head
+	op.RebaseOnto = cur.Onto
+	op.RebaseOrig = cur.Orig
+}
+
+func allowOwnedRebase(op recovery.Op) error {
+	cur, ok := state.ActiveRebase()
+	owned := op.RebaseHead != "" && op.RebaseOnto != "" && op.RebaseOrig != ""
+	if !ok || !owned || cur.Head != op.RebaseHead || cur.Onto != op.RebaseOnto || cur.Orig != op.RebaseOrig {
+		return fmt.Errorf("recovery backup %s was kept because the active rebase is not owned by this backup. Inspect it with `eg repo doctor`. This command will not continue it or restore the backup", op.StashOID)
+	}
+	return nil
 }
 
 func captureSource() (string, bool, error) {

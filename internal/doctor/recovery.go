@@ -100,8 +100,12 @@ func recoveryProblem(op recovery.Op) string {
 	if ref == "" {
 		ref = "no private ref yet"
 	}
-	return fmt.Sprintf("Recovery for %s is %s (source %s, backup %s, ref %s). %s A phase of applying is never applied again automatically.",
-		op.Command, op.Phase, source, backup, ref, manual)
+	owned := ""
+	if op.RebaseHead != "" {
+		owned = " Owned rebase is " + op.RebaseHead + "."
+	}
+	return fmt.Sprintf("Recovery for %s is %s (source %s, backup %s, ref %s). %s%s A phase of applying is never applied again automatically.",
+		op.Command, op.Phase, source, backup, ref, manual, owned)
 }
 
 func legacyStashPresent(message string) (bool, error) {
