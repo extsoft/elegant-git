@@ -21,20 +21,24 @@ There are the following pipes:
 - **branch pipe** which preserves and restores current branch when that local ref still exists
 - **stash pipe** which preserves and restores uncommitted changes
 
-The stash pipe is used by `work sync`, `work polish`, `work push`, `work accept`, and
-`release new`. Those commands still stash tracked changes only. `work start` and
-`work switch` use the same recovery journal when you choose `carry` or `stash`, and they
-also keep non-ignored untracked files and the staged and unstaged split. `carry` restores
-that backup on the branch you land on. `stash` checks that the stash is still there, then
-drops the recovery record and the private ref so the stash is an ordinary one you can
-restore yourself with `git stash apply --index <oid>`. It is not applied on the branch you
-land on, and it does not come back automatically when you return. If that handoff fails,
-the record stays. If the branch the stash was taken from is gone — for example
-because `work accept` deleted it — the changes are not restored onto the current branch. The
-stash entry stays in the list. The branch pipe is used by `work accept` and `release new`, so both of them can
-walk away from your branch and bring you back to it. If the saved branch is gone — for example
-because `work accept` deleted the local branch you were on — the pipe leaves you on whatever
-branch the command checked out.
+`work sync`, `work polish`, `work push`, `work accept`, and `release new` ask
+`carry`, `stash`, `discard`, or `cancel` before they change a dirty tree, the same four
+words as `work start` and `work switch`. A non-interactive run fails until `--dirty` is set.
+A clean tree does not ask. An in-progress rebase is continued first, and a merge,
+cherry-pick, revert, or bisect is refused, before that question. Conflict resolutions are
+not stashed or reset. `carry` and `stash` keep tracked and non-ignored untracked files and
+the staged and unstaged split. `carry` restores that backup on the branch the command is
+allowed to return to: the branch you stayed on for sync, polish, and push, or the branch
+you started on for accept and release new. `stash` checks that the stash is still there,
+then drops the recovery record and the private ref so the stash is an ordinary one you can
+restore yourself with `git stash apply --index <oid>`. It is not applied afterward. If that
+handoff fails, the record stays. If the branch the stash was taken from is gone — for
+example because `work accept` deleted it — the changes are not restored onto the current
+branch. The stash entry stays in the list. A failed command keeps the backup and does not
+run the push, tag, or delete again when you repeat it. The branch pipe is used by
+`work accept` and `release new`, so both of them can walk away from your branch and bring
+you back to it. If the saved branch is gone — for example because `work accept` deleted the
+local branch you were on — the pipe leaves you on whatever branch the command checked out.
 
 If a "piped" command is used, each pipe stores the state in per-repo command memory
 (`.git/elegant-git/commands.json`), runs the original command, and restores saved state if the
@@ -49,8 +53,8 @@ The file itself is described with the rest of [per-repo memory](memory.md#per-re
 
 ## Recovery
 
-A stash pipe keeps a backup until restore finishes. The backup is a plain tracked stash (the same
-scope these commands use today), a private ref `refs/elegant-git/recovery/<id>`, and a journal at
+A stash pipe keeps a backup until restore finishes. The backup is a stash of tracked and
+non-ignored untracked files, a private ref `refs/elegant-git/recovery/<id>`, and a journal at
 `<git-common-dir>/elegant-git/recovery.json`. The id in the stash subject is the identity.
 `stash@{n}` is not.
 
@@ -68,8 +72,8 @@ branch, onto commit, and original HEAD are the ones recorded for that backup.
 Any other rebase is left alone, and the backup is not applied or dropped.
 Finishing or aborting the rebase outside Elegant Git leaves the backup
 recorded and does not run the command again.
-Merge, cherry-pick, revert, and bisect are refused only when there are
-changes to stash. A clean tree still runs the command. `applied` only finishes cleanup and does
+Merge, cherry-pick, revert, and bisect are refused before any backup, including on a
+clean tree. `applied` only finishes cleanup and does
 not run the command again. Cleanup removes the private ref and the journal after the
 changes are restored. It leaves the stash entry. Git cannot remove that one entry
 without possibly removing a different stash, so the command names the backup and

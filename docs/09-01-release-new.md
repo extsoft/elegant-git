@@ -26,8 +26,15 @@ Elegant Git
 4. produces the release notes in the `smart` layout and puts them on your clipboard when `pbcopy`
    or `xclip` is available, printing them otherwise
 
-The command runs inside both the [stash pipe and the branch pipe](reference/pipes.md), so
-uncommitted changes and the branch you were on are preserved and restored — you end up back where
-you started, and the changes are restored only when that branch is still checked out in this
-worktree. "The last tag" means the highest tag by version order, not the most recently created
+A dirty tree uses the same `carry`, `stash`, `discard`, and `cancel` choice as
+[eg work sync](08-06-work-sync.md). `carry` restores the changes on the branch you started on,
+when that branch still exists. If it is gone, the backup stays. Without a terminal, a dirty
+tree fails until `--dirty` is set. An in-progress Git operation is refused first. The tag
+message is written to a temporary file outside the worktree, so a file named `tag-message` in
+your tree is left alone. The editor for that message is still Git's, including when Elegant
+Git is non-interactive. A failed pull happens before the tag exists. A failed tag push says
+the local tag was created and the remote was not updated. Repeating the command after that
+failure does not create or push the tag again. The
+[branch pipe](reference/pipes.md) brings you back to the branch you were on when it still
+exists. "The last tag" means the highest tag by version order, not the most recently created
 one.

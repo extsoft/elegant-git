@@ -11,8 +11,8 @@ import (
 
 	"github.com/extsoft/elegant-git/internal/config"
 	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/extsoft/elegant-git/internal/state"
-	"github.com/spf13/cobra"
 )
 
 func requireMergeTree(t *testing.T) {
@@ -653,8 +653,11 @@ func TestRebaseMovesIgnoredVendorAside(t *testing.T) {
 	r.write("third_party/p/CHANGELOG.md", "regenerated\n")
 	r.enter()
 	r.checkout("B")
-	if err := rebaseOnto("main"); err != nil {
-		t.Fatal(err)
+	buf := captureText(t)
+	err := rebaseOnto("main")
+	assertWorkflow(t, err)
+	if !strings.Contains(buf.String(), "left in place") {
+		t.Fatalf("out=%q", buf.String())
 	}
 	body, err := os.ReadFile(filepath.Join(r.dir, "third_party", "p", "CHANGELOG.md"))
 	if err != nil {
@@ -664,7 +667,47 @@ func TestRebaseMovesIgnoredVendorAside(t *testing.T) {
 		t.Fatalf("file = %q", body)
 	}
 	if _, err := os.Stat(r.asidePath("third_party/p/CHANGELOG.md")); !os.IsNotExist(err) {
-		t.Fatal("aside file remains")
+		t.Fatal("ignored file was moved aside")
+	}
+}
+
+func TestRebaseRefusesIgnoredFromSubdirectory(t *testing.T) {
+	r := newGitRepo(t)
+	r.branch("B", "main")
+	if err := os.MkdirAll(filepath.Join(r.dir, "third_party", "p"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r.commit("vendor", "third_party/p/CHANGELOG.md", "tracked\n")
+	r.git("rm", "-q", "third_party/p/CHANGELOG.md")
+	r.write(".gitignore", "third_party/\n")
+	r.git("add", ".gitignore")
+	r.git("commit", "-q", "-m", "drop")
+	r.commit("b1", "c", "b1\n")
+	if err := os.MkdirAll(filepath.Join(r.dir, "third_party", "p"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r.write("third_party/p/CHANGELOG.md", "regenerated\n")
+	r.enter()
+	r.checkout("B")
+	sub := filepath.Join(r.dir, "nested")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(sub); err != nil {
+		t.Fatal(err)
+	}
+	buf := captureText(t)
+	err := rebaseOnto("main")
+	assertWorkflow(t, err)
+	if !strings.Contains(buf.String(), "left in place") {
+		t.Fatalf("out=%q", buf.String())
+	}
+	body, err := os.ReadFile(filepath.Join(r.dir, "third_party", "p", "CHANGELOG.md"))
+	if err != nil || string(body) != "regenerated\n" {
+		t.Fatalf("file %q err=%v", body, err)
+	}
+	if _, statErr := os.Stat(r.asidePath("third_party/p/CHANGELOG.md")); !os.IsNotExist(statErr) {
+		t.Fatal("ignored file was moved aside")
 	}
 }
 
@@ -725,61 +768,43 @@ func TestRebaseRestoresAsideWhenContinueFinishes(t *testing.T) {
 	r.branchWithIgnoredVendorAndConflict()
 	r.enter()
 	r.checkout("B")
-	if err := rebaseOnto("main"); err == nil {
-		t.Fatal("expected a conflict")
+	buf := captureText(t)
+	err := rebaseOnto("main")
+	assertWorkflow(t, err)
+	if !strings.Contains(buf.String(), "left in place") {
+		t.Fatalf("out=%q", buf.String())
 	}
-	if !state.IsThereActiveRebase() {
-		t.Fatal("expected the rebase to stay active")
+	if state.IsThereActiveRebase() {
+		t.Fatal("rebase started")
 	}
-	body, err := os.ReadFile(r.asidePath("third_party/p/CHANGELOG.md"))
-	if err != nil {
-		t.Fatal(err)
+	body, err := os.ReadFile(filepath.Join(r.dir, "third_party", "p", "CHANGELOG.md"))
+	if err != nil || string(body) != "regenerated\n" {
+		t.Fatalf("file %q err=%v", body, err)
 	}
-	if string(body) != "regenerated\n" {
-		t.Fatalf("aside = %q", body)
-	}
-	r.write("f", "resolved\n")
-	r.git("add", "f")
-	t.Setenv("GIT_EDITOR", "true")
-	t.Setenv("GIT_SEQUENCE_EDITOR", "true")
-	if err := syncLogic("", false); err != nil {
-		t.Fatal(err)
-	}
-	body, err = os.ReadFile(filepath.Join(r.dir, "third_party", "p", "CHANGELOG.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(body) != "regenerated\n" {
-		t.Fatalf("file = %q", body)
-	}
-	aside := filepath.Join(r.git("rev-parse", "--absolute-git-dir"), "elegant-git", "aside")
-	if _, err := os.Stat(aside); !os.IsNotExist(err) {
-		t.Fatal("aside directory remains")
+	if _, err := os.Stat(r.asidePath("third_party/p/CHANGELOG.md")); !os.IsNotExist(err) {
+		t.Fatal("ignored file was moved aside")
 	}
 }
 
 func TestRebaseRestoresLeftoverAsideAfterAbort(t *testing.T) {
 	r := newGitRepo(t)
-	r.branchWithIgnoredVendorAndConflict()
 	r.enter()
-	r.checkout("B")
-	if err := rebaseOnto("main"); err == nil {
-		t.Fatal("expected a conflict")
+	aside := r.asidePath("notes.txt")
+	if err := os.MkdirAll(filepath.Dir(aside), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	r.git("rebase", "--abort")
-	if _, err := os.Stat(filepath.Join(r.dir, "third_party", "p", "CHANGELOG.md")); !os.IsNotExist(err) {
-		t.Fatal("file should stay aside after abort")
+	if err := os.WriteFile(aside, []byte("kept\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	r.checkout("main")
 	if err := rebaseOnto("main"); err != nil {
 		t.Fatal(err)
 	}
-	body, err := os.ReadFile(filepath.Join(r.dir, "third_party", "p", "CHANGELOG.md"))
-	if err != nil {
-		t.Fatal(err)
+	body, err := os.ReadFile(filepath.Join(r.dir, "notes.txt"))
+	if err != nil || string(body) != "kept\n" {
+		t.Fatalf("restored %q err=%v", body, err)
 	}
-	if string(body) != "regenerated\n" {
-		t.Fatalf("file = %q", body)
+	if _, err := os.Stat(aside); !os.IsNotExist(err) {
+		t.Fatal("aside copy remained")
 	}
 }
 
@@ -879,8 +904,13 @@ func TestPolishMovesIgnoredVendorAside(t *testing.T) {
 	r.checkout("B")
 	t.Setenv("GIT_EDITOR", "true")
 	t.Setenv("GIT_SEQUENCE_EDITOR", "true")
-	if err := polishRun(); err != nil {
-		t.Fatal(err)
+	cmd := newPolishCommand()
+	cmd.SetContext(context.Background())
+	buf := captureText(t)
+	err := polishRun(cmd)
+	assertWorkflow(t, err)
+	if !strings.Contains(buf.String(), "left in place") {
+		t.Fatalf("out=%q", buf.String())
 	}
 	body, err := os.ReadFile(filepath.Join(r.dir, "third_party", "p", "CHANGELOG.md"))
 	if err != nil {
@@ -889,9 +919,12 @@ func TestPolishMovesIgnoredVendorAside(t *testing.T) {
 	if string(body) != "regenerated\n" {
 		t.Fatalf("file = %q", body)
 	}
+	if _, statErr := os.Stat(r.asidePath("third_party/p/CHANGELOG.md")); !os.IsNotExist(statErr) {
+		t.Fatal("ignored file was moved aside")
+	}
 }
 
-func TestAcceptCheckoutWithUntrackedTargetFile(t *testing.T) {
+func TestAcceptRefusesUntrackedCollisionBeforePrep(t *testing.T) {
 	r := newGitRepo(t)
 	r.branch("B", "main")
 	r.commit("b1", "c", "b1\n")
@@ -903,20 +936,28 @@ func TestAcceptCheckoutWithUntrackedTargetFile(t *testing.T) {
 	r.checkout("B")
 	var branch string
 	spec := acceptSpec(&branch)
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
-	if err := acceptRun(cmd, []string{"B"}, spec); err == nil || !strings.Contains(err.Error(), "already exists") {
-		t.Fatalf("err=%v", err)
+	cmd := newAcceptCommand()
+	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	if err := cmd.Flags().Set("dirty", "carry"); err != nil {
+		t.Fatal(err)
+	}
+	buf := captureText(t)
+	err := acceptRun(cmd, []string{"B"}, spec)
+	assertWorkflow(t, err)
+	if !strings.Contains(buf.String(), "would be overwritten") || strings.Contains(buf.String(), "recovery backup was kept") {
+		t.Fatalf("out=%q", buf.String())
 	}
 	body, err := os.ReadFile(filepath.Join(r.dir, "kept"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(body) != "from-main\n" {
+	if string(body) != "local\n" {
 		t.Fatalf("file = %q", body)
 	}
-	aside, err := os.ReadFile(r.asidePath("kept"))
-	if err != nil || string(aside) != "local\n" {
-		t.Fatalf("aside = %q err=%v", aside, err)
+	if r.git("rev-parse", "--abbrev-ref", "HEAD") != "B" || r.git("stash", "list") != "" {
+		t.Fatalf("head %s stash %q", r.git("rev-parse", "--abbrev-ref", "HEAD"), r.git("stash", "list"))
+	}
+	if refs := r.gitAllow("for-each-ref", "refs/elegant-git/recovery"); refs != "" {
+		t.Fatalf("recovery %s", refs)
 	}
 }

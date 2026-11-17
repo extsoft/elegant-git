@@ -32,12 +32,12 @@ func TestDirtyClassCatalog(t *testing.T) {
 		"work.start":       "prepare",
 		"work.save":        "consume",
 		"work.list":        "tolerate",
-		"work.polish":      "prepare-legacy",
-		"work.sync":        "prepare-legacy",
-		"work.push":        "prepare-legacy",
+		"work.polish":      "prepare",
+		"work.sync":        "prepare",
+		"work.push":        "prepare",
 		"work.switch":      "prepare",
-		"work.accept":      "prepare-legacy",
-		"release.new":      "prepare-legacy",
+		"work.accept":      "prepare",
+		"release.new":      "prepare",
 		"release.notes":    "tolerate",
 	}
 	seen := 0

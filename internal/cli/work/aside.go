@@ -1,9 +1,11 @@
 package work
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/extsoft/elegant-git/internal/git"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/state"
 	"github.com/extsoft/elegant-git/internal/text"
 )
 
@@ -289,6 +292,62 @@ func splitGitPaths(out string) []string {
 		}
 	}
 	return paths
+}
+
+func ignoredOccupant(paths []string) (string, error) {
+	root, err := workRoot()
+	if err != nil {
+		return "", err
+	}
+	for _, p := range paths {
+		if !validRelPath(p) {
+			continue
+		}
+		full := filepath.Join(root, filepath.FromSlash(p))
+		if _, err := os.Lstat(full); err != nil {
+			continue
+		}
+		if _, err := git.Output("-C", root, "check-ignore", "-q", "--", p); err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+				continue
+			}
+			return "", err
+		}
+		return p, nil
+	}
+	return "", nil
+}
+
+func activeRebaseAdds() ([]string, error) {
+	if !state.IsThereActiveRebase() {
+		return nil, nil
+	}
+	todo, err := git.Output("rev-parse", "--git-path", "rebase-merge/git-rebase-todo")
+	todo = strings.TrimSpace(todo)
+	if err != nil || todo == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(todo)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var adds []string
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || (fields[0] != "pick" && fields[0] != "p") {
+			continue
+		}
+		out, err := git.Output("diff-tree", "--no-commit-id", "--name-only", "--diff-filter=A", "-r", "-z", fields[1])
+		if err != nil {
+			return nil, err
+		}
+		adds = append(adds, splitGitPaths(out)...)
+	}
+	return adds, nil
 }
 
 func validRelPath(p string) bool {

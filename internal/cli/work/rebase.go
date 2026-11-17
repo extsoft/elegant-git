@@ -32,7 +32,8 @@ func rebaseTarget(target string, restore bool) error {
 }
 
 func asideAround(upstream, target string, restore bool, run func() error) error {
-	if !state.IsThereActiveRebase() {
+	active := state.IsThereActiveRebase()
+	if !active {
 		if err := restoreUntrackedAside(); err != nil {
 			return err
 		}
@@ -40,6 +41,21 @@ func asideAround(upstream, target string, restore bool, run func() error) error 
 	paths, err := collidingPaths(upstream, target)
 	if err != nil {
 		return err
+	}
+	if active {
+		adds, err := activeRebaseAdds()
+		if err != nil {
+			return err
+		}
+		paths = append(paths, adds...)
+	}
+	if path, err := ignoredOccupant(paths); err != nil {
+		return err
+	} else if path != "" {
+		return workflowText(fmt.Sprintf("%s would be overwritten. It was left in place.", path))
+	}
+	if active {
+		return run()
 	}
 	if err := moveAside(paths); err != nil {
 		return err

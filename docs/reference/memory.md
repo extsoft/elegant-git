@@ -66,10 +66,12 @@ source branch or detached commit, the phase, and the backup id. See
 [Pipes](pipes.md#recovery) for the phases and the manual restore commands.
 
 `<repo>/.git/elegant-git/aside/` holds untracked files a rebase would otherwise refuse to
-overwrite, until that command finishes rebasing and checking out. Restoring an aside file stops
-if any destination already exists, a parent on that path is a symlink, or the path leaves the
-worktree. Nothing is moved, and the error names the aside path. Recovery is required before you
-move that copy yourself.
+overwrite, until that command finishes rebasing and checking out. Ignored files are not moved
+there. If one would be overwritten, the command stops and leaves it in place. An aside copy
+from an older run is still restored when its destination is free, and a new run does not
+delete a copy that is already there. Restoring an aside file stops if any destination already
+exists, a parent on that path is a symlink, or the path leaves the worktree. Nothing is moved,
+and the error names the aside path. Recovery is required before you move that copy yourself.
 
 ## Schema
 

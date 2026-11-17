@@ -32,9 +32,14 @@ and creates a new commit.
 Picking the last commit amends it (`git commit --amend`). That path still runs
 `work-amend-ahead` and `work-amend-after` in addition to the `work-save-*` hooks. Picking an
 older unique commit creates a fixup for that commit and rebases with autosquash so the change
-lands there. Leftover unstaged hunks are autostashed only for that rebase, then restored. If the
-rebase fails, the `fixup!` commit is dropped (`rebase --abort` then `reset --soft` to the pre-fixup
-HEAD).
+lands there. The commit consumes the index you staged. Edits left unstaged or untracked are
+not part of that commit. When those leftovers are already visible, Elegant Git asks the same
+`carry`, `stash`, `discard`, or `cancel` question before creating the fixup. If staging
+changes what is left, it asks again before the rebase. `carry` stashes only those leftovers
+and restores them after the autosquash. Git's own `rebase.autostash` is not used. `cancel`
+before the fixup commit changes nothing. If you refuse after the fixup commit exists, the
+command names that commit and leaves it in place. A failed autosquash does the same: it does
+not abort the rebase or reset the commit away. Conflict resolutions are not stashed.
 
 In non-interactive mode pass the same choice you would pick, so scripts can amend or fix up
 without a prompt:
@@ -49,8 +54,15 @@ eg work save abc1234
 An unknown value is an error.
 
 On a protected branch, Elegant Git does not commit. On a TTY it warns and runs
-[`work start`](08-01-work-start.md) first, then saves on the new branch. In non-interactive mode
-it refuses with the protected-branch exit code.
+[`work start`](08-01-work-start.md) first, then saves on the new branch. `--dirty` is passed
+through to that start and to a later push, so you are not asked twice. `stash` stashes the
+changes, names that stash and `git stash apply --index <oid>`, and stops with workflow error
+43. Save does not commit them, and it does not push. `discard` is refused, because
+that would throw away the changes save was about to commit. In non-interactive mode a
+protected branch is refused with the protected-branch exit code.
+
+`git add --interactive` is unchanged. Non-interactive Elegant Git does not replace that
+staging session or Git's commit editor.
 
 After a successful commit on a feature branch, when the repository has at least one remote,
 interactive mode asks `Push?` in the picker. The default is publishing to the branch name
@@ -59,5 +71,5 @@ can choose that branch, enter a different remote branch name, or skip. A differe
 valid git branch name; invalid input is rejected and asked again. Cancelling leaves the commit
 local. Non-interactive mode skips the question and does not push.
 
-This command does not use the stash pipe. Uncommitted changes you do not stage stay in the work
-tree, except during the autosquash rebase noted above.
+Uncommitted changes you do not stage stay out of the commit. The autosquash above uses the
+stash pipe for those leftovers, and so does the nested protected-branch `work start`.

@@ -287,7 +287,7 @@ func TestSaveCommitPickOlderFixupAutosquash(t *testing.T) {
 	want := []string{
 		"add --interactive",
 		"commit --fixup=bbb",
-		"-c sequence.editor=true rebase --interactive --autosquash --autostash parent",
+		"-c sequence.editor=true rebase --interactive --autosquash parent",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("git %v, want %v", got, want)
@@ -371,7 +371,7 @@ func TestSaveCommitNonInteractiveTargetOlder(t *testing.T) {
 	want := []string{
 		"add --interactive",
 		"commit --fixup=bbb",
-		"-c sequence.editor=true rebase --interactive --autosquash --autostash parent",
+		"-c sequence.editor=true rebase --interactive --autosquash parent",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("git %v, want %v", got, want)
@@ -404,7 +404,7 @@ func TestSaveCommitCLITargetSkipsPicker(t *testing.T) {
 	want := []string{
 		"add --interactive",
 		"commit --fixup=bbb",
-		"-c sequence.editor=true rebase --interactive --autosquash --autostash parent",
+		"-c sequence.editor=true rebase --interactive --autosquash parent",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("git %v, want %v", got, want)
@@ -445,18 +445,16 @@ func TestSaveCommitHEADRevParseFailsDoesNotFixup(t *testing.T) {
 func TestSaveCommitFixupRebaseFailureResets(t *testing.T) {
 	m := setupSave(t)
 	stubUniqueCommits(m, "aaa", "bbb")
-	m.FailOn["-c sequence.editor=true rebase --interactive --autosquash --autostash parent"] = errors.New("conflict")
+	m.FailOn["-c sequence.editor=true rebase --interactive --autosquash parent"] = errors.New("conflict")
 	err := runSaveCommit(prompt.NewNonInteractive(), []string{"bbb"})
-	if err == nil || err.Error() != "conflict" {
+	if err == nil || !strings.Contains(err.Error(), "conflict") || !strings.Contains(err.Error(), "left in place") {
 		t.Fatalf("got %v", err)
 	}
 	got := saveGitActions(m)
 	want := []string{
 		"add --interactive",
 		"commit --fixup=bbb",
-		"-c sequence.editor=true rebase --interactive --autosquash --autostash parent",
-		"rebase --abort",
-		"reset --soft aaa",
+		"-c sequence.editor=true rebase --interactive --autosquash parent",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("git %v, want %v", got, want)
@@ -527,7 +525,7 @@ func choiceDisplays(choices []prompt.Choice) []string {
 func saveGitActions(m *git.MemoryRunner) []string {
 	var out []string
 	for _, c := range m.Calls {
-		if len(c.Args) == 0 {
+		if len(c.Args) == 0 || slices.Contains(c.Args, "status") {
 			continue
 		}
 		switch c.Args[0] {

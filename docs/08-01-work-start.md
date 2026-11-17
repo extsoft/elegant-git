@@ -68,7 +68,7 @@ branch, and coming back later does not apply it either. A finished stash does no
 later commands. If the handoff does not finish, the recovery record stays and the command
 does not claim the stash was handed off.
 
-`discard` removes tracked edits only. Untracked files stay. The command refuses when one
+`discard` reverts modifications and deletions of committed files and leaves staged additions and rename targets as untracked files. Other untracked files stay. The command refuses when one
 of them, or an ignored file, would be overwritten, and it refuses when the only changes
 are untracked. That refusal says nothing untracked is deleted.
 

@@ -119,17 +119,10 @@ func ReadLineAnswer(ctx context.Context, prompt string) (string, error) {
 	return strings.TrimSpace(line), nil
 }
 
-// StdinIsInteractive reports whether stdin is a character device (TTY).
+// StdinIsInteractive reports whether stdin is a terminal.
+// A character device that is not a terminal, such as /dev/null, is not interactive.
 func StdinIsInteractive(ctx context.Context) bool {
-	f, ok := StdinFromContext(ctx).(*os.File)
-	if !ok {
-		return false
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
+	return stdinIsTTY(StdinFromContext(ctx))
 }
 
 func CurrentBranch() string {

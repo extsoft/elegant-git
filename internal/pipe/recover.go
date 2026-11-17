@@ -26,6 +26,9 @@ type pipeOpt struct {
 	includeUntracked bool
 	retain           bool
 	label            string
+	// beforePrepare runs only when a new stash would be created.
+	// It can select retain and the stash label, or refuse before any backup.
+	beforePrepare func() (retain bool, label string, err error)
 }
 
 func runStashPipe(id cmdid.ID, fn func() error, opt pipeOpt) (Retention, error) {
@@ -43,7 +46,7 @@ func runStashPipe(id cmdid.ID, fn func() error, opt pipeOpt) (Retention, error) 
 		return Retention{}, runLegacyPipe(id, fn, opt.restoreOnError)
 	}
 
-	dec, err := begin(id, gitDir, common, opt)
+	dec, err := begin(id, gitDir, common, &opt)
 	if err != nil {
 		return Retention{}, err
 	}
@@ -75,7 +78,7 @@ func runLegacyPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
 	return fn()
 }
 
-func begin(id cmdid.ID, gitDir, common string, opt pipeOpt) (decision, error) {
+func begin(id cmdid.ID, gitDir, common string, opt *pipeOpt) (decision, error) {
 	var dec decision
 	err := recovery.WithLock(common, func() error {
 		f, err := recovery.Load(common)
@@ -121,7 +124,17 @@ func begin(id cmdid.ID, gitDir, common string, opt pipeOpt) (decision, error) {
 		case "merge", "cherry-pick", "revert", "bisect":
 			return fmt.Errorf("a %s is in progress; finish or abort it with Git before this command changes files", state.InProgressOperation())
 		}
-		return prepare(&dec, id, gitDir, common, &f, opt)
+		if opt.beforePrepare != nil {
+			retain, label, err := opt.beforePrepare()
+			if err != nil {
+				return err
+			}
+			opt.retain = retain
+			if label != "" {
+				opt.label = label
+			}
+		}
+		return prepare(&dec, id, gitDir, common, &f, *opt)
 	})
 	return dec, err
 }
@@ -347,6 +360,9 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, opt
 					return combine(bodyErr, err)
 				}
 			}
+			if op.StashOID != "" {
+				kept = Retention{OID: op.StashOID}
+			}
 			return bodyErr
 		}
 		if cur := state.InProgressOperation(); cur != "" {
@@ -414,10 +430,7 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, opt
 		}
 		return combine(bodyErr, cleanup(common, id, op, &f))
 	})
-	if err != nil {
-		return Retention{}, err
-	}
-	return kept, nil
+	return kept, err
 }
 
 // BeforeRetainHandoff runs after a navigation command succeeds and before that
