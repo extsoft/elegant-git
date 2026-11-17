@@ -21,27 +21,34 @@ type decision struct {
 	done    bool
 }
 
-func runStashPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
+type pipeOpt struct {
+	restoreOnError   bool
+	includeUntracked bool
+	retain           bool
+	label            string
+}
+
+func runStashPipe(id cmdid.ID, fn func() error, opt pipeOpt) (Retention, error) {
 	if err := cmdmem.ValidateForCurrent(); err != nil {
-		return err
+		return Retention{}, err
 	}
 	_ = gitQuiet("update-index", "-q", "--really-refresh")
 
 	gitDir, gerr := memrepo.GitDir()
 	if gerr != nil {
-		return fn()
+		return Retention{}, fn()
 	}
 	common, cerr := memrepo.GitCommonDir()
 	if gerr != nil || cerr != nil {
-		return runLegacyPipe(id, fn, restoreOnError)
+		return Retention{}, runLegacyPipe(id, fn, opt.restoreOnError)
 	}
 
-	dec, err := begin(id, gitDir, common)
+	dec, err := begin(id, gitDir, common, opt)
 	if err != nil {
-		return err
+		return Retention{}, err
 	}
 	if dec.done {
-		return nil
+		return Retention{}, nil
 	}
 	var bodyErr error
 	if dec.opID != "" {
@@ -51,7 +58,7 @@ func runStashPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
 	if dec.runBody {
 		bodyErr = fn()
 	}
-	return finish(id, gitDir, common, dec, bodyErr, restoreOnError)
+	return finish(id, gitDir, common, dec, bodyErr, opt)
 }
 
 func runLegacyPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
@@ -68,7 +75,7 @@ func runLegacyPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
 	return fn()
 }
 
-func begin(id cmdid.ID, gitDir, common string) (decision, error) {
+func begin(id cmdid.ID, gitDir, common string, opt pipeOpt) (decision, error) {
 	var dec decision
 	err := recovery.WithLock(common, func() error {
 		f, err := recovery.Load(common)
@@ -91,7 +98,16 @@ func begin(id cmdid.ID, gitDir, common string) (decision, error) {
 			dec.runBody = true
 			return nil
 		}
-		if !HasChanges() {
+		if opt.includeUntracked {
+			snap, err := state.ReadSnapshot()
+			if err != nil {
+				return err
+			}
+			if !snap.Relevant() {
+				dec.runBody = true
+				return nil
+			}
+		} else if !HasChanges() {
 			dec.runBody = true
 			return nil
 		}
@@ -105,7 +121,7 @@ func begin(id cmdid.ID, gitDir, common string) (decision, error) {
 		case "merge", "cherry-pick", "revert", "bisect":
 			return fmt.Errorf("a %s is in progress; finish or abort it with Git before this command changes files", state.InProgressOperation())
 		}
-		return prepare(&dec, id, gitDir, common, &f)
+		return prepare(&dec, id, gitDir, common, &f, opt)
 	})
 	return dec, err
 }
@@ -190,7 +206,7 @@ func stopPreparing(common string, op recovery.Op, f *recovery.File) error {
 	return recovery.NoReplayError(op)
 }
 
-func prepare(dec *decision, id cmdid.ID, gitDir, common string, f *recovery.File) error {
+func prepare(dec *decision, id cmdid.ID, gitDir, common string, f *recovery.File, opt pipeOpt) error {
 	if err := recovery.CheckFloor(); err != nil {
 		return err
 	}
@@ -212,13 +228,18 @@ func prepare(dec *decision, id cmdid.ID, gitDir, common string, f *recovery.File
 		Source:   source,
 		Detached: detached,
 		Phase:    recovery.PhasePreparing,
-		Message:  recovery.Message(id.String(), opID),
+		Message:  stashMessage(id.String(), opID, opt.label),
 	}
 	f.Upsert(op)
 	if err := recovery.Save(common, *f); err != nil {
 		return err
 	}
-	if err := git.Verbose("stash", "push", "--message", op.Message); err != nil {
+	args := []string{"stash", "push"}
+	if opt.includeUntracked {
+		args = append(args, "-u")
+	}
+	args = append(args, "--message", op.Message)
+	if err := git.Verbose(args...); err != nil {
 		return abandonFailedPush(common, f, op, err)
 	}
 	hits, err := listStashes()
@@ -289,17 +310,26 @@ func abandonFailedPush(common string, f *recovery.File, op recovery.Op, pushErr 
 	return pushErr
 }
 
-func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, restoreOnError bool) error {
+func stashMessage(command, id, label string) string {
+	msg := recovery.Message(command, id)
+	if label == "" {
+		return msg
+	}
+	return msg + " " + label
+}
+
+func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, opt pipeOpt) (Retention, error) {
 	if dec.legacy {
-		if bodyErr != nil && !restoreOnError {
-			return bodyErr
+		if bodyErr != nil && !opt.restoreOnError {
+			return Retention{}, bodyErr
 		}
-		return combine(bodyErr, popLegacy(id))
+		return Retention{}, combine(bodyErr, popLegacy(id))
 	}
 	if dec.opID == "" {
-		return bodyErr
+		return Retention{}, bodyErr
 	}
-	return recovery.WithLock(common, func() error {
+	var kept Retention
+	err := recovery.WithLock(common, func() error {
 		f, err := recovery.Load(common)
 		if err != nil {
 			return combine(bodyErr, err)
@@ -308,7 +338,7 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 		if !ok {
 			return bodyErr
 		}
-		if bodyErr != nil && !restoreOnError {
+		if bodyErr != nil && !opt.restoreOnError {
 			if op.Phase == recovery.PhaseRunning {
 				op.Phase = recovery.PhaseSuspended
 				rememberOwnedRebase(&op)
@@ -322,8 +352,14 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 		if cur := state.InProgressOperation(); cur != "" {
 			return combine(bodyErr, fmt.Errorf("recovery backup %s was kept because a %s is still in progress. Inspect it with `eg repo doctor`", op.StashOID, cur))
 		}
+		if opt.retain && bodyErr == nil {
+			got, err := handoffRetain(common, id, op, &f, opt.label)
+			kept = got
+			return err
+		}
 		if !sourceSafe(op) {
-			text.InfoText(sourceKeptMessage(op))
+			msg := sourceKeptMessage(op)
+			text.InfoText(msg)
 			if op.Phase == recovery.PhaseRunning {
 				op.Phase = recovery.PhaseSuspended
 				f.Upsert(op)
@@ -331,7 +367,10 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 					return combine(bodyErr, err)
 				}
 			}
-			return bodyErr
+			if bodyErr != nil {
+				return combine(bodyErr, fmt.Errorf("%s", msg))
+			}
+			return nil
 		}
 		if ok, err := onDestination(op); err != nil {
 			return combine(bodyErr, err)
@@ -358,7 +397,7 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 			return combine(bodyErr, fmt.Errorf("%s It will not be applied again.", destinationKeptMessage(op)))
 		}
 		if err := git.Verbose("stash", "apply", "--index", op.StashOID); err != nil {
-			return combine(bodyErr, fmt.Errorf("recovery apply failed; backup %s was kept: %w", op.StashOID, err))
+			return combine(bodyErr, fmt.Errorf("recovery apply failed; backup %s was kept. The destination may already contain part of that backup: %w", op.StashOID, err))
 		}
 		if afterRestoreApply != nil {
 			afterRestoreApply()
@@ -375,6 +414,46 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 		}
 		return combine(bodyErr, cleanup(common, id, op, &f))
 	})
+	if err != nil {
+		return Retention{}, err
+	}
+	return kept, nil
+}
+
+// BeforeRetainHandoff runs after a navigation command succeeds and before that
+// stash is released as an ordinary stash. Tests use it to break the handoff.
+var BeforeRetainHandoff func()
+
+func handoffRetain(common string, id cmdid.ID, op recovery.Op, f *recovery.File, label string) (Retention, error) {
+	if BeforeRetainHandoff != nil {
+		BeforeRetainHandoff()
+	}
+	hits, err := listStashes()
+	if err != nil {
+		return Retention{}, err
+	}
+	var match []stashHit
+	for _, hit := range hits {
+		if hit.oid == op.StashOID && strings.Contains(hit.subject, op.ID) {
+			match = append(match, hit)
+		}
+	}
+	if len(match) != 1 {
+		return Retention{}, fmt.Errorf("stash handoff for %s did not stay reachable. The backup and recovery record were kept. Inspect it with `eg repo doctor`", op.StashOID)
+	}
+	if err := deleteRecoveryRef(op); err != nil {
+		return Retention{}, err
+	}
+	if err := clearStashField(id, op.Message); err != nil {
+		return Retention{}, err
+	}
+	if !f.Remove(op.ID, op.StashOID) {
+		return Retention{}, fmt.Errorf("recovery %s is not in the journal", op.ID)
+	}
+	if err := recovery.Save(common, *f); err != nil {
+		return Retention{}, err
+	}
+	return Retention{Label: label, OID: op.StashOID, Selector: match[0].ref}, nil
 }
 
 // beforeRecoveryCleanup runs after the stash list is read and before the
@@ -525,10 +604,13 @@ func destinationKeptMessage(op recovery.Op) string {
 	if gitDir, err := memrepo.GitDir(); err != nil || !sameGitPath(op.Worktree, gitDir) {
 		return fmt.Sprintf("Uncommitted changes stay in the stash because this is not the worktree that saved backup %s. Inspect it with `eg repo doctor`. This command will not run again automatically.", op.StashOID)
 	}
-	if op.Detached {
-		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is no longer detached at %s. Inspect it with `eg repo doctor`. This command will not run again automatically.", op.Source)
+	if op.RestoreBranch != "" {
+		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is %s, not %s. Backup %s was kept. Inspect it with `eg repo doctor`. This command will not run again automatically.", headPlace(), approvedPlace(op), op.StashOID)
 	}
-	return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is %s, not %s. Inspect it with `eg repo doctor`. This command will not run again automatically.", headPlace(), approvedPlace(op))
+	if op.Detached {
+		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is no longer detached at %s. Backup %s was kept. Inspect it with `eg repo doctor`. This command will not run again automatically.", op.Source, op.StashOID)
+	}
+	return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is %s, not %s. Backup %s was kept. Inspect it with `eg repo doctor`. This command will not run again automatically.", headPlace(), approvedPlace(op), op.StashOID)
 }
 
 func landedOffDestination(op recovery.Op) error {
@@ -536,11 +618,11 @@ func landedOffDestination(op recovery.Op) error {
 }
 
 func approvedPlace(op recovery.Op) string {
-	if op.Detached {
-		return "detached at " + shortOID(op.Source)
-	}
 	if op.RestoreBranch != "" {
 		return op.RestoreBranch
+	}
+	if op.Detached {
+		return "detached at " + shortOID(op.Source)
 	}
 	if op.Source == "" {
 		return "unknown"
@@ -588,6 +670,13 @@ func onDestination(op recovery.Op) (bool, error) {
 	if !sameGitPath(op.Worktree, gitDir) {
 		return false, nil
 	}
+	if op.RestoreBranch != "" {
+		head, err := headBranch()
+		if err != nil {
+			return false, err
+		}
+		return head == op.RestoreBranch, nil
+	}
 	if op.Detached {
 		return detachedAt(op.Source), nil
 	}
@@ -595,11 +684,7 @@ func onDestination(op recovery.Op) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	want := op.Source
-	if op.RestoreBranch != "" {
-		want = op.RestoreBranch
-	}
-	return head == want, nil
+	return head == op.Source, nil
 }
 
 func headBranch() (string, error) {
@@ -623,6 +708,9 @@ func sameGitPath(a, b string) bool {
 }
 
 func sourceSafe(op recovery.Op) bool {
+	if op.RestoreBranch != "" {
+		return state.LocalBranchExists(op.RestoreBranch)
+	}
 	if op.Detached {
 		ref, err := git.Output("symbolic-ref", "--quiet", "HEAD")
 		if err == nil && strings.TrimSpace(ref) != "" {
@@ -638,10 +726,13 @@ func sourceSafe(op recovery.Op) bool {
 }
 
 func sourceKeptMessage(op recovery.Op) string {
-	if op.Detached {
-		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is no longer detached at %s. Inspect it with `eg repo doctor`.", op.Source)
+	if op.RestoreBranch != "" {
+		return fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists. Backup %s was kept. Inspect it with `eg repo doctor`.", op.RestoreBranch, op.StashOID)
 	}
-	return fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists. Inspect it with `eg repo doctor`.", op.Source)
+	if op.Detached {
+		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is no longer detached at %s. Backup %s was kept. Inspect it with `eg repo doctor`.", op.Source, op.StashOID)
+	}
+	return fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists. Backup %s was kept. Inspect it with `eg repo doctor`.", op.Source, op.StashOID)
 }
 
 func rememberOwnedRebase(op *recovery.Op) {

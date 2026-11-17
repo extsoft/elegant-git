@@ -142,6 +142,7 @@ func writeNamedHook(t *testing.T, repo, name, marker, word string) {
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	ignoreRepoConfig(t, repo)
 }
 
 func actionListed(text, action string) bool {

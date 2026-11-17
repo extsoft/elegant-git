@@ -32,6 +32,19 @@ So, on a terminal the modifiers decide: `--non-interactive` runs without prompts
 not a terminal — a pipe, a heredoc, a CI log — the command is always non-interactive and
 `--interactive` is ignored.
 
+## Uncommitted changes on start and switch
+
+`work start` and `work switch` ask only when the tree has tracked edits or non-ignored
+untracked files. The question and `--dirty` use the same four words: `carry`, `stash`,
+`discard`, and `cancel`. The picker starts on `carry`. `--dirty` answers that question
+and no other one. `cancel` stops before files are stashed or reset. Without a terminal,
+omitting `--dirty` fails while the tree is dirty and does nothing to it. A clean command
+still runs with no flag. `stash` then asks for a one-line name, suggested as
+`WIP on <branch> — <local date and time>`. Enter accepts it. `--stash-name` is that
+suggestion, and without a terminal it is used as the name, or the suggestion is generated
+when the flag is omitted. Other choices do not ask for a name. `--stash-name` without
+`--dirty=stash` is a usage error. `preserve` and `fail` are usage errors too.
+
 ## How arguments are asked
 
 In interactive mode, a missing required argument is asked as a [question](#questions). Optional

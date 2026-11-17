@@ -42,12 +42,46 @@ the start point itself, and is not set to track anything. The start point is rec
 branch source, so later `polish`, `sync`, and `list` can tell your unique commits from the ones
 you inherited.
 
-## Carrying uncommitted changes over
+## Uncommitted changes
 
-When the work tree is dirty, interactive mode asks whether to add the changes to the new branch,
-reset them, or cancel. `add` is the default: the [stash pipe](reference/pipes.md) carries the
-modifications over. `reset` hard-resets first. `cancel` stops the command.
+A clean tree does not ask, and it does not need a flag. When something is uncommitted,
+`carry`, `stash`, `discard`, and `cancel` are the only names, in the picker and in
+`--dirty`. The picker starts on `carry`. Passing `--dirty` skips that picker and nothing
+else: a missing branch name is still asked. `cancel`, end of input, and leaving the picker
+stop before any stash or reset. Tracked edits and non-ignored untracked files are what
+`carry` and `stash` keep, including the staged and unstaged split. Ignored files stay
+where they are. If checkout would overwrite one, the command stops and leaves it, even
+when the rest of the tree is clean.
 
-In non-interactive mode dirty changes are stashed and moved onto the new branch when you
-started on a branch. They are restored there only while that new branch is still checked
-out in this worktree. Starting from a detached HEAD leaves the stash in place.
+`carry` moves that work onto the new branch, including when HEAD is detached. It stops
+before any stash when an untracked or ignored path would be overwritten by a file or
+directory on that branch. `stash` still saves a non-ignored untracked path that the
+branch also has, and checks out a clean branch. An ignored collision still stops it.
+The command suggests `WIP on <branch> — <local date and time>`
+(or `WIP at <short commit>` when HEAD is detached). Enter accepts the suggestion.
+Typing adds to the end of it; erase the suggestion first to replace it,
+and cancelling stops before the stash exists. `--stash-name` sets that suggestion. Without
+a terminal, `--dirty=stash` uses the suggestion when `--stash-name` is omitted. The label
+can repeat; the stash id does not. The command prints the label, the stash selector, the
+object id, and `git stash apply --index <oid>`. It does not apply the stash on the new
+branch, and coming back later does not apply it either. A finished stash does not block
+later commands. If the handoff does not finish, the recovery record stays and the command
+does not claim the stash was handed off.
+
+`discard` removes tracked edits only. Untracked files stay. The command refuses when one
+of them, or an ignored file, would be overwritten, and it refuses when the only changes
+are untracked. That refusal says nothing untracked is deleted.
+
+In non-interactive mode a dirty tree fails until you pass `--dirty`. That failure is
+immediate: there is no window where a dirty `work start` still stashes on its own. This
+is the one place the usual compatibility wait was waived. Command names, hooks, and
+recovery records already on disk are unchanged. `preserve` and `fail` are not accepted.
+
+A repository with no commits yet cannot carry or stash uncommitted changes. A merge,
+cherry-pick, revert, rebase, or bisect stops the command even when the tree is clean, as
+does an unmerged index. If checkout fails, the changes go back to the branch you started
+on when that is still safe. Otherwise the command names the backup and leaves it. If the
+destination changed the same tracked lines, carry does not predict that conflict. Apply
+can stop after part of the backup is already on the branch. The error names that stash
+commit and says the destination may already contain part of it. An ahead
+hook may already have run; cancelling does not undo that hook.

@@ -126,3 +126,9 @@ Notes: `repo sync` re-applies linked workspace settings to one or all tracked re
 ### Work
 
 CLI object for day-to-day branch workflow (start, save, list, polish, sync, push, switch, accept).
+
+### Dirty choice
+
+How `work start` and `work switch` handle uncommitted work: `carry`, `stash`, `discard`, or `cancel`.
+
+Notes: the picker and `--dirty` use those words. `carry` moves tracked and non-ignored untracked files onto the destination and keeps the staged and unstaged split. `stash` leaves an ordinary stash and does not apply it. `discard` removes tracked edits only. `cancel` stops before that preparation. A clean tree does not ask. Without a terminal, a dirty command fails unless `--dirty` is set.

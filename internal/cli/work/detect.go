@@ -10,7 +10,6 @@ import (
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/config"
 	"github.com/extsoft/elegant-git/internal/git"
-	"github.com/extsoft/elegant-git/internal/pipe"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/extsoft/elegant-git/internal/state"
 )
@@ -28,6 +27,7 @@ type snapshot struct {
 	UniqueCommits  bool
 	BehindSource   bool
 	Remotes        bool
+	StatusErr      error
 }
 
 type outcome struct {
@@ -43,8 +43,13 @@ func inspect() snapshot {
 		Branch:    branch,
 		Detached:  detached,
 		Protected: !detached && config.IsBranchProtected(branch),
-		Dirty:     pipe.HasChanges(),
 		Remotes:   state.AreThereRemotes(),
+	}
+	work, err := state.ReadSnapshot()
+	if err != nil {
+		s.StatusErr = err
+	} else {
+		s.Dirty = work.Relevant()
 	}
 	if state.IsThereActiveRebase() {
 		s.Rebasing = true

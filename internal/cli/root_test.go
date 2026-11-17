@@ -17,6 +17,7 @@ import (
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/extsoft/elegant-git/internal/recovery"
+	"github.com/extsoft/elegant-git/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -370,7 +371,7 @@ func TestBareEgListThenPickerSkipsList(t *testing.T) {
 
 func TestBareEgDirtyFeatureListsThenSave(t *testing.T) {
 	m, _ := pickerRepo(t)
-	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	m.Outputs[strings.Join(state.StatusArgs(), " ")] = " M f\x00"
 	p := &rootPrompter{}
 	runRootWithPrompter(t, p)
 	if len(p.choices) != 1 || len(p.choices[0]) == 0 || p.choices[0][0].Value != "work save" {

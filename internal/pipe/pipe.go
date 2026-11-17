@@ -26,12 +26,39 @@ func HasChanges() bool {
 // StashPipe runs fn with optional auto-stash around it for id.
 // A failed fn leaves the stash in place so the command can resume.
 func StashPipe(id cmdid.ID, fn func() error) error {
-	return runStashPipe(id, fn, false)
+	_, err := runStashPipe(id, fn, pipeOpt{})
+	return err
 }
 
 // StashPipeRestoring runs fn like StashPipe and restores the stash when fn fails.
 func StashPipeRestoring(id cmdid.ID, fn func() error) error {
-	return runStashPipe(id, fn, true)
+	_, err := runStashPipe(id, fn, pipeOpt{restoreOnError: true})
+	return err
+}
+
+// Retention is an ordinary stash left behind by a navigation handoff.
+type Retention struct {
+	Label    string
+	OID      string
+	Selector string
+}
+
+// StashPipeNavigation preserves tracked and non-ignored untracked files and the
+// index split. retain leaves the stash in place after fn succeeds instead of
+// applying it. A failed fn is restored onto a safe source, or the backup stays
+// recorded.
+func StashPipeNavigation(id cmdid.ID, retain bool, label string, fn func() error) (Retention, error) {
+	return runStashPipe(id, fn, pipeOpt{
+		restoreOnError:   true,
+		includeUntracked: true,
+		retain:           retain,
+		label:            label,
+	})
+}
+
+// UnsupportedWorktree reports states that cannot be backed up safely.
+func UnsupportedWorktree() error {
+	return refuseUnsupported()
 }
 
 // BranchPipe restores the original branch after fn if checkout changed it and

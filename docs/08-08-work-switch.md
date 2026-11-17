@@ -22,9 +22,9 @@ ref is a remote branch, a tag, or another revision. Passing that argument for a 
 is a usage error.
 
 A ref that starts with `-` is a usage error, and it is never passed to Git as an option. The
-command also stops while a merge, cherry-pick, revert, rebase, or bisect is in progress, and
-the error names that operation and how to finish or abort it. A bare repository is refused
-because it has no working tree.
+command also stops while a merge, cherry-pick, revert, rebase, or bisect is in progress, even
+when the tree is clean, and the error names that operation and how to finish or abort it. A bare
+repository is refused because it has no working tree.
 
 An exact local branch is checked out without fetching. Any other ref fetches first when the
 repository has remotes; a failed fetch is reported and the last known refs are used. Resolution
@@ -38,13 +38,25 @@ and `refs/remotes/origin/x` are remote, and `tags/x` and `refs/tags/x` are a tag
 short name is both a local branch and a tag, the local branch is used and a notice names
 `tags/x`.
 
-Uncommitted changes are carried onto the branch you switch to when you started on a branch,
-and only while that branch is still checked out in this worktree. Starting from a detached
-HEAD leaves the stash in place. In a terminal you can keep them,
-discard them, or cancel. Non-interactive mode keeps them. If the checkout fails, those changes
-are put back. A repository with no commits yet cannot carry uncommitted changes, because
-stashing needs a commit. Switching to the branch you are already on prints a notice and changes
-nothing.
+Uncommitted changes use the same `carry`, `stash`, `discard`, and `cancel` choice as
+[eg work start](08-01-work-start.md), including `--dirty` and `--stash-name`. A clean tree
+does not need the flag. In a terminal the picker starts on `carry`. Without a terminal, a
+dirty tree fails until `--dirty` is set; a dirty `work switch` no longer stashes on its
+own. `carry` moves tracked and non-ignored untracked files onto the branch you switch to
+and keeps the staged and unstaged split. That includes a detached HEAD: the changes land
+on the branch you switch to. An untracked or ignored path that the destination would
+replace, including a file where the branch has a directory, stops the command before
+any stash, even when nothing else is uncommitted. `stash` still saves that untracked
+path and checks out the branch. If the destination changed the same tracked lines, carry
+does not predict the conflict. Apply can stop with part of the backup already on the
+branch, and the error names the stash commit. `stash` leaves an ordinary stash and a
+clean checkout, and does not apply that stash when you come back. `discard` removes
+tracked edits only. `cancel` stops before any of that. Ignored files are not moved or deleted.
+If checkout fails, the changes go back when the branch you left is still a safe place for
+them; otherwise the backup stays and the command names it. A repository with no commits
+yet cannot carry or stash uncommitted changes. Switching to the branch you are already
+on prints a notice and changes nothing, even when the tree is dirty and `--dirty` is set.
+Hidden `work track` does not take `--dirty`; it keeps its own checkout behavior.
 
 A free local name for a remote branch is created with `checkout -b` so it tracks that remote.
 When that local branch already tracks the remote, a terminal asks whether to check it out,

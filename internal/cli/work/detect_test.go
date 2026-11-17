@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/extsoft/elegant-git/internal/cli/catalog"
 	"github.com/extsoft/elegant-git/internal/git"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
+	"github.com/extsoft/elegant-git/internal/state"
 )
 
 func TestDetect(t *testing.T) {
@@ -237,7 +239,7 @@ func TestRelevantActionsDirtySaveFirst(t *testing.T) {
 	m := git.NewMemoryRunner()
 	m.Repo.CurrentBranch = "feat"
 	m.Outputs["rev-parse --git-dir"] = filepath.Join(dir, ".git")
-	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	m.Outputs[strings.Join(state.StatusArgs(), " ")] = " M f\x00"
 	git.Use(m)
 	t.Cleanup(func() { git.Use(git.RealRunner{}) })
 
@@ -256,7 +258,8 @@ func TestRelevantActionsSyncWhenBehind(t *testing.T) {
 	m := git.NewMemoryRunner()
 	m.Outputs["rev-parse --git-dir"] = filepath.Join(dir, ".git")
 	m.Outputs["rev-list --left-right --count HEAD...@{upstream}"] = "0\t3"
-	m.FailOn["diff-index --quiet HEAD"] = fmt.Errorf("dirty")
+	statusKey := strings.Join(state.StatusArgs(), " ")
+	m.Outputs[statusKey] = "?? only\x00"
 	m.Repo.CurrentBranch = "feat"
 	git.Use(m)
 	t.Cleanup(func() { git.Use(git.RealRunner{}) })
@@ -266,7 +269,7 @@ func TestRelevantActionsSyncWhenBehind(t *testing.T) {
 		t.Fatalf("dirty behind: %v", got)
 	}
 
-	m.FailOn["diff-index --quiet HEAD"] = nil
+	delete(m.Outputs, statusKey)
 	m.Outputs["rev-list --left-right --count HEAD...@{upstream}"] = "1\t2"
 	m.Repo.CurrentBranch = "main"
 	got = relevantFrom(inspect())

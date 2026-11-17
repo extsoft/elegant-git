@@ -22,8 +22,14 @@ There are the following pipes:
 - **stash pipe** which preserves and restores uncommitted changes
 
 The stash pipe is used by `work sync`, `work polish`, `work push`, `work accept`, and
-`release new`. It also wraps `work start` when you ask that command to carry your uncommitted
-changes over to the new branch. If the branch the stash was taken from is gone — for example
+`release new`. Those commands still stash tracked changes only. `work start` and
+`work switch` use the same recovery journal when you choose `carry` or `stash`, and they
+also keep non-ignored untracked files and the staged and unstaged split. `carry` restores
+that backup on the branch you land on. `stash` checks that the stash is still there, then
+drops the recovery record and the private ref so the stash is an ordinary one you can
+restore yourself with `git stash apply --index <oid>`. It is not applied on the branch you
+land on, and it does not come back automatically when you return. If that handoff fails,
+the record stays. If the branch the stash was taken from is gone — for example
 because `work accept` deleted it — the changes are not restored onto the current branch. The
 stash entry stays in the list. The branch pipe is used by `work accept` and `release new`, so both of them can
 walk away from your branch and bring you back to it. If the saved branch is gone — for example

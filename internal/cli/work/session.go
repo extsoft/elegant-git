@@ -25,12 +25,18 @@ type Detected struct {
 // RunDetected runs the action detection chooses for this repository.
 func RunDetected(cmd *cobra.Command) (Detected, error) {
 	snap := inspect()
+	if snap.StatusErr != nil {
+		return Detected{}, snap.StatusErr
+	}
 	ask, ran, err := dispatchDetected(cmd, detect(snap))
 	if err != nil || !ask {
 		return Detected{Ask: ask, Ran: ran}, err
 	}
 	if ran != "" {
 		snap = inspect()
+		if snap.StatusErr != nil {
+			return Detected{}, snap.StatusErr
+		}
 	}
 	return Detected{
 		Actions: relevantFrom(snap),
@@ -42,6 +48,9 @@ func RunDetected(cmd *cobra.Command) (Detected, error) {
 
 func runSession(cmd *cobra.Command, inspectFn func() snapshot) error {
 	snap := inspectFn()
+	if snap.StatusErr != nil {
+		return snap.StatusErr
+	}
 	d := detect(snap)
 	if d.Action == "" {
 		printEval(d.Steps)
@@ -52,6 +61,9 @@ func runSession(cmd *cobra.Command, inspectFn func() snapshot) error {
 	}
 	if d.Action != "" {
 		snap = inspectFn()
+		if snap.StatusErr != nil {
+			return snap.StatusErr
+		}
 	}
 	return askOnce(cmd, snap)
 }

@@ -1,8 +1,6 @@
 package work
 
 import (
-	"context"
-	"fmt"
 	"strings"
 
 	"github.com/extsoft/elegant-git/internal/cli/argspec"
@@ -20,14 +18,6 @@ import (
 
 var startID = cmdid.ID{Command: "work", Action: "start"}
 
-var startChangeOptions = []string{"add", "reset", "cancel"}
-
-var startChangeChoices = []prompt.Choice{
-	{Value: "add", Description: "Keep changes and move them onto the new branch."},
-	{Value: "reset", Description: "Discard uncommitted changes."},
-	{Value: "cancel", Description: "Cancel work start."},
-}
-
 func newStartCommand() *cobra.Command {
 	var name, fromRef string
 	spec := startSpec(&name, &fromRef)
@@ -36,13 +26,14 @@ func newStartCommand() *cobra.Command {
 		Short: "Creates a new branch",
 		Long: `Creates a new local branch from the default development branch (or from-ref).
 
-When there are uncommitted changes, you can add them to the new branch or reset them before checkout.`,
+When there are uncommitted changes, choose carry, stash, discard, or cancel. carry moves tracked and non-ignored untracked files onto the new branch and keeps the staged and unstaged split. stash leaves them in the stash instead. discard removes tracked edits only. cancel stops before any of that. A non-interactive run with uncommitted changes fails unless --dirty is set. A clean tree does not need --dirty.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, startID, func() error {
 				return startRun(cmd, args, spec)
 			})
 		},
 	}
+	addDirtyFlags(c)
 	c.SetHelpFunc(cliruntime.CommandHelp)
 	completion.Attach(c, spec)
 	return c
@@ -66,7 +57,7 @@ func startRun(cmd *cobra.Command, args []string, spec argspec.Spec) error {
 	if err := argspec.ResolveCmd(cmd, args, spec); err != nil {
 		return err
 	}
-	return startRunWithRefs(cmd.Context(), name, spec.Inputs[1].Get())
+	return startRunWithRefs(cmd, name, spec.Inputs[1].Get())
 }
 
 func bindStartArgs(args []string, spec argspec.Spec) {
@@ -93,66 +84,47 @@ func ensureStartName(p prompt.Prompter, spec argspec.Spec) (string, error) {
 	return askNewBranchName(p, "Branch name", branches, "", prepareCaseFold())
 }
 
-func startRunWithRefs(ctx context.Context, name, fromRef string) error {
-	target := config.DefaultBranch()
-	if fromRef != "" {
-		target = fromRef
-	}
-	logic := func() error {
+func startRunWithRefs(cmd *cobra.Command, name, fromRef string) error {
+	var source, startPoint string
+	load := func() error {
+		source = config.DefaultBranch()
+		if fromRef != "" {
+			source = fromRef
+		}
 		if state.AreThereRemotes() {
 			cliruntime.FetchOrInform()
 		}
-		startPoint := resolveStartPoint(target)
+		startPoint = resolveStartPoint(source)
+		return nil
+	}
+	checkout := func() error {
+		if startPoint == "" {
+			if err := load(); err != nil {
+				return err
+			}
+		}
 		if err := git.Verbose("checkout", "-b", name, "--no-track", startPoint); err != nil {
 			return err
 		}
 		if err := pipe.RememberRestoreBranch(name); err != nil {
 			return err
 		}
-		return config.SetBranchSourceBranch(name, target)
+		return config.SetBranchSourceBranch(name, source)
 	}
-	mode, err := resolveStartChanges(ctx)
-	if err != nil {
-		return err
-	}
-	switch mode {
-	case "none":
-		return logic()
-	case "stash":
-		return pipe.StashPipe(startID, logic)
-	case "reset":
-		if err := git.Verbose("reset", "--hard", "HEAD"); err != nil {
-			return err
-		}
-		return logic()
-	case "cancel":
-		return fmt.Errorf("work start cancelled")
-	default:
-		return fmt.Errorf("invalid choice %q (use add, reset, or cancel)", mode)
-	}
-}
-
-func resolveStartChanges(ctx context.Context) (string, error) {
-	return resolveWorkChanges(ctx, startChangeChoices)
-}
-
-func resolveWorkChanges(ctx context.Context, choices []prompt.Choice) (string, error) {
-	if !pipe.HasChanges() {
-		return "none", nil
-	}
-	p := prompt.FromContext(ctx)
-	if prompt.NonInteractive(p) {
-		return "stash", nil
-	}
-	ans, err := p.Pick("There are uncommitted changes", choices, "add")
-	if err != nil {
-		return "", err
-	}
-	mode, ok := startChangeMode(ans)
-	if !ok {
-		return "", fmt.Errorf("invalid choice %q (use add, reset, or cancel)", ans)
-	}
-	return mode, nil
+	return applyNavigation(navRequest{
+		cmd:  cmd,
+		ctx:  cmd.Context(),
+		id:   startID,
+		verb: "work start",
+		dest: name,
+		target: func() (string, error) {
+			if err := load(); err != nil {
+				return "", err
+			}
+			return diffTarget(startPoint), nil
+		},
+		body: checkout,
+	})
 }
 
 func resolveStartPoint(target string) string {
@@ -162,25 +134,4 @@ func resolveStartPoint(target string) string {
 		}
 	}
 	return target
-}
-
-func parseStartChangesChoice(answer string) (string, bool) {
-	got, ok := prompt.MatchClosed(answer, startChangeOptions, "add")
-	if !ok {
-		return "", false
-	}
-	return startChangeMode(got)
-}
-
-func startChangeMode(ans string) (string, bool) {
-	switch ans {
-	case "add":
-		return "stash", true
-	case "reset":
-		return "reset", true
-	case "cancel":
-		return "cancel", true
-	default:
-		return "", false
-	}
 }

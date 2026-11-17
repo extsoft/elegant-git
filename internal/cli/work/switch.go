@@ -26,23 +26,21 @@ var switchID = cmdid.ID{Command: "work", Action: "switch"}
 
 const otherRevisionChoice = "other revision"
 
-var switchChangeChoices = []prompt.Choice{
-	{Value: "add", Description: "Keep changes and move them onto the new branch."},
-	{Value: "reset", Description: "Discard uncommitted changes."},
-	{Value: "cancel", Description: "Cancel work switch."},
-}
-
 func newSwitchCommand() *cobra.Command {
 	spec := switchSpec()
 	c := &cobra.Command{
 		Use:   "switch [ref] [local-branch]",
 		Short: "Switches to a branch, or creates one from a remote branch, tag, or revision.",
+		Long: `Switches to a branch, or creates one from a remote branch, tag, or revision.
+
+When there are uncommitted changes, choose carry, stash, discard, or cancel. carry moves tracked and non-ignored untracked files onto the branch you switch to and keeps the staged and unstaged split. stash leaves them in the stash instead. discard removes tracked edits only. cancel stops before any of that. A non-interactive run with uncommitted changes fails unless --dirty is set. Switching to the current branch changes nothing. A clean tree does not need --dirty.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, switchID, func() error {
 				return switchRun(cmd, args)
 			})
 		},
 	}
+	addDirtyFlags(c)
 	c.SetHelpFunc(cliruntime.CommandHelp)
 	completion.Attach(c, spec)
 	return c
@@ -183,9 +181,13 @@ func switchTo(cmd *cobra.Command, p prompt.Prompter, ref, localBranch string, pi
 		}
 	}
 	if resolved.kind == switchTag || resolved.kind == switchRev {
-		return switchNonBranch(cmd.Context(), p, resolved, localBranch)
+		return switchNonBranch(cmd, p, resolved, localBranch)
 	}
-	return withSwitchChanges(cmd.Context(), func() error {
+	diffRef := resolved.name
+	if resolved.kind == switchLocal {
+		diffRef = "refs/heads/" + resolved.name
+	}
+	return withSwitchChanges(cmd, resolved.name, diffRef, func() error {
 		return switchAct(p, resolved, localBranch)
 	})
 }
@@ -212,7 +214,7 @@ func switchAct(p prompt.Prompter, resolved switchResolved, localBranch string) e
 	}
 }
 
-func switchNonBranch(ctx context.Context, p prompt.Prompter, resolved switchResolved, localBranch string) error {
+func switchNonBranch(cmd *cobra.Command, p prompt.Prompter, resolved switchResolved, localBranch string) error {
 	if resolved.commit == "" {
 		return notARef(resolved.input)
 	}
@@ -220,7 +222,7 @@ func switchNonBranch(ctx context.Context, p prompt.Prompter, resolved switchReso
 	if err != nil {
 		return err
 	}
-	return withSwitchChanges(ctx, func() error {
+	return withSwitchChanges(cmd, resolved.commit, resolved.commit, func() error {
 		if err := git.Verbose("checkout", "-b", name, "--no-track", resolved.commit); err != nil {
 			return err
 		}
@@ -314,32 +316,18 @@ func resolveTag(name, input string) (switchResolved, error) {
 	return switchResolved{kind: switchTag, name: name, input: input, commit: commit}, nil
 }
 
-func withSwitchChanges(ctx context.Context, logic func() error) error {
-	if state.HeadUnborn() {
-		if strings.TrimSpace(git.OutputOK("status", "--porcelain")) != "" {
-			return workflowText("Uncommitted changes cannot be stashed because this repository has no commits yet.")
-		}
-		return logic()
-	}
-	mode, err := resolveWorkChanges(ctx, switchChangeChoices)
-	if err != nil {
-		return err
-	}
-	switch mode {
-	case "none":
-		return logic()
-	case "stash":
-		return pipe.StashPipeRestoring(switchID, logic)
-	case "reset":
-		if err := git.Verbose("reset", "--hard", "HEAD"); err != nil {
-			return err
-		}
-		return logic()
-	case "cancel":
-		return fmt.Errorf("work switch cancelled")
-	default:
-		return fmt.Errorf("invalid choice %q (use add, reset, or cancel)", mode)
-	}
+func withSwitchChanges(cmd *cobra.Command, dest, diffRef string, logic func() error) error {
+	return applyNavigation(navRequest{
+		cmd:  cmd,
+		ctx:  cmd.Context(),
+		id:   switchID,
+		verb: "work switch",
+		dest: dest,
+		target: func() (string, error) {
+			return diffRef, nil
+		},
+		body: logic,
+	})
 }
 
 type switchKind int

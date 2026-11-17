@@ -23,3 +23,11 @@
 | DEP-019 | 2026-08-30 | objects: `git *`, `memory *` | `self *`, `workspace list all`, `repo list all` | `eg repo doctor` (hook files) | 2027-06-30 | active |
 | DEP-020 | 2026-09-03 | command: `work amend` | `work save` | use `eg work save` | 2027-03-03 | active |
 | DEP-021 | 2026-11-14 | command: `work track` (`work-track-*` hooks do not run for `work switch`) | `work switch` | use `eg work switch`; copy `work-track-*` hooks to `work-switch-*` | 2027-05-14 | active |
+
+## Waivers
+
+D11 (2026-11-15): `work start` and `work switch` take the new non-interactive default
+immediately. A dirty invocation without `--dirty=carry|stash|discard|cancel` fails before
+preparation. There is no retention window and no fallback that stashes automatically.
+Command names, hooks, aliases, and existing recovery records keep their compatibility
+obligations. `preserve` and `fail` were never shipped and are rejected.

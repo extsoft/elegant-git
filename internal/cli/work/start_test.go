@@ -37,26 +37,34 @@ func TestResolveStartPoint(t *testing.T) {
 	}
 }
 
-func TestParseStartChangesChoice(t *testing.T) {
-	tests := []struct {
-		in   string
-		mode string
-		ok   bool
-	}{
-		{"", "stash", true},
-		{"a", "stash", true},
-		{"add", "stash", true},
-		{"R", "reset", true},
-		{"reset", "reset", true},
-		{"c", "cancel", true},
-		{"cancel", "cancel", true},
-		{"x", "", false},
+func TestReadDirtyFlags(t *testing.T) {
+	cmd := &cobra.Command{}
+	addDirtyFlags(cmd)
+	choice, _, _, err := readDirtyFlags(cmd)
+	if err != nil || choice != "" {
+		t.Fatalf("choice %q err %v", choice, err)
 	}
-	for _, tc := range tests {
-		mode, ok := parseStartChangesChoice(tc.in)
-		if mode != tc.mode || ok != tc.ok {
-			t.Errorf("parseStartChangesChoice(%q) = %q, %v; want %q, %v", tc.in, mode, ok, tc.mode, tc.ok)
-		}
+	if err := cmd.Flags().Set("dirty", "preserve"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := readDirtyFlags(cmd); !cliruntime.IsUsageError(err) {
+		t.Fatalf("preserve err %v", err)
+	}
+	if err := cmd.Flags().Set("dirty", "carry"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("stash-name", "label"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := readDirtyFlags(cmd); !cliruntime.IsUsageError(err) {
+		t.Fatalf("name with carry err %v", err)
+	}
+	if err := cmd.Flags().Set("dirty", "stash"); err != nil {
+		t.Fatal(err)
+	}
+	choice, name, set, err := readDirtyFlags(cmd)
+	if err != nil || choice != "stash" || name != "label" || !set {
+		t.Fatalf("choice %q name %q set %v err %v", choice, name, set, err)
 	}
 }
 
@@ -470,7 +478,7 @@ func TestStartDirtyRestoresOnNewBranch(t *testing.T) {
 	r := newSwRepo(t)
 	r.write("f", "dirty\n")
 	r.enter()
-	if err := runStart(prompt.NewNonInteractive(), "feat"); err != nil {
+	if err := runStartOpt(prompt.NewNonInteractive(), "carry", "", "feat"); err != nil {
 		t.Fatal(err)
 	}
 	if r.headRef() != "refs/heads/feat" || r.read("f") != "dirty\n" || !strings.Contains(r.stashList(), "auto-stash") {
@@ -495,10 +503,25 @@ func setupStart(t *testing.T, branches string) *git.MemoryRunner {
 }
 
 func runStart(p prompt.Prompter, args ...string) error {
+	return runStartOpt(p, "", "", args...)
+}
+
+func runStartOpt(p prompt.Prompter, dirty, stashName string, args ...string) error {
 	var name, fromRef string
 	spec := startSpec(&name, &fromRef)
 	cmd := &cobra.Command{}
+	addDirtyFlags(cmd)
 	cmd.SetContext(prompt.WithPrompter(context.Background(), p))
+	if dirty != "" {
+		if err := cmd.Flags().Set("dirty", dirty); err != nil {
+			return err
+		}
+	}
+	if stashName != "" {
+		if err := cmd.Flags().Set("stash-name", stashName); err != nil {
+			return err
+		}
+	}
 	return startRun(cmd, args, spec)
 }
 

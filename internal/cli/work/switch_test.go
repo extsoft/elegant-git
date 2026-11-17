@@ -181,7 +181,7 @@ func TestSwitchM8Dirty(t *testing.T) {
 	t.Run("add", func(t *testing.T) {
 		r := dirtyPair(t)
 		r.enter()
-		if err := runSwitch(&swPrompter{picks: []string{"add"}}, "feat"); err != nil {
+		if err := runSwitch(&swPrompter{picks: []string{"carry"}}, "feat"); err != nil {
 			t.Fatal(err)
 		}
 		if r.headRef() != "refs/heads/feat" || r.read("f") != "dirty\n" {
@@ -191,7 +191,7 @@ func TestSwitchM8Dirty(t *testing.T) {
 	t.Run("reset", func(t *testing.T) {
 		r := dirtyPair(t)
 		r.enter()
-		if err := runSwitch(&swPrompter{picks: []string{"reset"}}, "feat"); err != nil {
+		if err := runSwitch(&swPrompter{picks: []string{"discard"}}, "feat"); err != nil {
 			t.Fatal(err)
 		}
 		if r.headRef() != "refs/heads/feat" || r.read("f") != "base\n" {
@@ -212,11 +212,14 @@ func TestSwitchM8Dirty(t *testing.T) {
 	t.Run("non-interactive", func(t *testing.T) {
 		r := dirtyPair(t)
 		r.enter()
-		if err := runSwitch(prompt.NewNonInteractive(), "feat"); err != nil {
-			t.Fatal(err)
+		buf := captureText(t)
+		err := runSwitch(prompt.NewNonInteractive(), "feat")
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "--dirty") {
+			t.Fatalf("out=%q", buf.String())
 		}
-		if r.headRef() != "refs/heads/feat" || r.read("f") != "dirty\n" {
-			t.Fatalf("head %s file %q", r.headRef(), r.read("f"))
+		if r.headRef() != "refs/heads/main" || r.read("f") != "dirty\n" || r.stashList() != "" {
+			t.Fatalf("head %s file %q stash %q", r.headRef(), r.read("f"), r.stashList())
 		}
 	})
 }
@@ -228,7 +231,7 @@ func TestSwitchRemoteNewNameRestoresDirty(t *testing.T) {
 	r.git("checkout", "-q", "main")
 	r.write("f", "dirty\n")
 	r.enter()
-	err := runSwitch(&swPrompter{picks: []string{"add", "new name"}, lines: []string{"x", "x2"}}, "origin/x")
+	err := runSwitch(&swPrompter{picks: []string{"carry", "new name"}, lines: []string{"x", "x2"}}, "origin/x")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +282,7 @@ func TestSwitchM18WorktreeRestores(t *testing.T) {
 	r.write("f", "dirty\n")
 	r.enter()
 	err, stderr := withStderr(t, func() error {
-		return runSwitch(prompt.NewNonInteractive(), "feat")
+		return runSwitchOpt(prompt.NewNonInteractive(), "carry", "", "feat")
 	})
 	if err == nil {
 		t.Fatal("expected error")
@@ -1033,8 +1036,22 @@ func clearRepoEnv(t *testing.T) {
 }
 
 func runSwitch(p prompt.Prompter, args ...string) error {
+	return runSwitchOpt(p, "", "", args...)
+}
+
+func runSwitchOpt(p prompt.Prompter, dirty, stashName string, args ...string) error {
 	cmd := newSwitchCommand()
 	cmd.SetContext(prompt.WithPrompter(context.Background(), p))
+	if dirty != "" {
+		if err := cmd.Flags().Set("dirty", dirty); err != nil {
+			return err
+		}
+	}
+	if stashName != "" {
+		if err := cmd.Flags().Set("stash-name", stashName); err != nil {
+			return err
+		}
+	}
 	return switchRun(cmd, args)
 }
 
@@ -1075,6 +1092,23 @@ func writeSwitchHook(t *testing.T, repo, kind, marker, word string) {
 	if err := os.WriteFile(filepath.Join(dir, "work-switch-"+kind), []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	ignoreRepoConfig(t, repo)
+}
+
+func ignoreRepoConfig(t *testing.T, repo string) {
+	t.Helper()
+	path := filepath.Join(repo, ".git", "info", "exclude")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if _, err := fmt.Fprintln(f, ".config/"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func readMarker(t *testing.T, path string) string {
@@ -1094,9 +1128,14 @@ type swPrompter struct {
 	lines      []string
 	lineN      int
 	stringDefs []string
+	stringErr  error
+	pickErr    error
 }
 
 func (p *swPrompter) String(_, def string) (string, error) {
+	if p.stringErr != nil {
+		return "", p.stringErr
+	}
 	p.stringDefs = append(p.stringDefs, def)
 	if p.lineN < len(p.lines) {
 		v := p.lines[p.lineN]
@@ -1130,6 +1169,9 @@ func (p *swPrompter) BatchChoice(string, string) (prompt.BatchDecision, error) {
 func (p *swPrompter) Pick(_ string, choices []prompt.Choice, def string) (string, error) {
 	p.choices = append(p.choices, choices)
 	p.pickDefs = append(p.pickDefs, def)
+	if p.pickErr != nil {
+		return "", p.pickErr
+	}
 	if p.pickN >= len(p.picks) {
 		return "", fmt.Errorf("unexpected pick")
 	}
