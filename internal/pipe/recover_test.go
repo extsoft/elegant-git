@@ -256,7 +256,7 @@ func TestLegacyFieldDoesNotReplayBody(t *testing.T) {
 	}
 }
 
-func TestAppliedCleanupClearsFieldBeforeDrop(t *testing.T) {
+func TestAppliedCleanupClearsFieldBeforeRefDelete(t *testing.T) {
 	m := setupRecoveryRepo(t)
 	gitDir := m.Outputs["rev-parse --git-dir"]
 	common := m.Outputs["rev-parse --git-common-dir"]
@@ -275,7 +275,7 @@ func TestAppliedCleanupClearsFieldBeforeDrop(t *testing.T) {
 	}
 	listKey := strings.Join([]string{"stash", "list", "--format=%H%x00%gd%x00%s"}, " ")
 	m.Outputs[listKey] = strings.Join([]string{"deadbeef", "stash@{0}", "On main: " + msg}, "\x00")
-	m.FailOn["stash drop stash@{0}"] = fmt.Errorf("busy")
+	m.FailOn["update-ref -d "+recovery.RefName("abc")+" deadbeef"] = fmt.Errorf("busy")
 	calls := 0
 	err := StashPipe(id, func() error {
 		calls++

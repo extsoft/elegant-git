@@ -29,7 +29,7 @@ func StashPipe(id cmdid.ID, fn func() error) error {
 	return runStashPipe(id, fn, false)
 }
 
-// StashPipeRestoring runs fn like StashPipe and pops the stash when fn fails.
+// StashPipeRestoring runs fn like StashPipe and restores the stash when fn fails.
 func StashPipeRestoring(id cmdid.ID, fn func() error) error {
 	return runStashPipe(id, fn, true)
 }

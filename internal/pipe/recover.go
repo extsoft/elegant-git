@@ -351,6 +351,10 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 	})
 }
 
+// beforeRecoveryCleanup runs after the stash list is read and before the
+// private ref is removed. Tests change the list in that window.
+var beforeRecoveryCleanup func()
+
 func cleanup(common string, id cmdid.ID, op recovery.Op, f *recovery.File) error {
 	if err := clearStashField(id, op.Message); err != nil {
 		return err
@@ -359,20 +363,17 @@ func cleanup(common string, id cmdid.ID, op recovery.Op, f *recovery.File) error
 	if err != nil {
 		return err
 	}
-	ref := ""
+	matches := 0
 	for _, hit := range hits {
-		if hit.oid != op.StashOID {
-			continue
+		if hit.oid == op.StashOID {
+			matches++
 		}
-		if ref != "" {
-			return fmt.Errorf("recovery stash %s is ambiguous; other stashes were not changed", op.StashOID)
-		}
-		ref = hit.ref
 	}
-	if ref != "" {
-		if err := git.Verbose("stash", "drop", ref); err != nil {
-			return err
-		}
+	if matches > 1 {
+		return fmt.Errorf("recovery stash %s is ambiguous; other stashes were not changed", op.StashOID)
+	}
+	if beforeRecoveryCleanup != nil {
+		beforeRecoveryCleanup()
 	}
 	if err := deleteRecoveryRef(op); err != nil {
 		return err
@@ -380,7 +381,13 @@ func cleanup(common string, id cmdid.ID, op recovery.Op, f *recovery.File) error
 	if !f.Remove(op.ID, op.StashOID) {
 		return fmt.Errorf("recovery %s is not in the journal", op.ID)
 	}
-	return recovery.Save(common, *f)
+	if err := recovery.Save(common, *f); err != nil {
+		return err
+	}
+	if matches == 1 {
+		text.InfoText(fmt.Sprintf("Recovery backup %s is still in the stash list. Elegant Git did not drop it, because Git cannot remove that one entry without possibly removing a different stash. These changes will not be applied again.", op.StashOID))
+	}
+	return nil
 }
 
 func legacyReplayError(command, message string) error {
@@ -617,10 +624,10 @@ func popLegacy(id cmdid.ID) error {
 		text.InfoText(fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists. Inspect it with `eg repo doctor`.", source))
 		return nil
 	}
-	if err := git.Verbose("stash", "pop", refs[0]); err != nil {
-		return err
+	if beforeRecoveryCleanup != nil {
+		beforeRecoveryCleanup()
 	}
-	return cmdmem.Unset(id, cmdmem.FieldStash)
+	return fmt.Errorf("recovery stash for %s is still recorded. Elegant Git will not pop it, because Git cannot remove that one entry without possibly removing a different stash. Inspect it with `eg repo doctor`. This command will not run again automatically", id.String())
 }
 
 func legacyRefs(message string) ([]string, error) {

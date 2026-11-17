@@ -272,7 +272,7 @@ func TestSwitchM18WorktreeRestores(t *testing.T) {
 	if !strings.Contains(stderr, "feat") {
 		t.Fatalf("stderr %q err %v", stderr, err)
 	}
-	if r.headRef() != "refs/heads/main" || r.read("f") != "dirty\n" || r.stashList() != "" {
+	if r.headRef() != "refs/heads/main" || r.read("f") != "dirty\n" || !strings.Contains(r.stashList(), "auto-stash") {
 		t.Fatalf("head %s file %q stash %q", r.headRef(), r.read("f"), r.stashList())
 	}
 }

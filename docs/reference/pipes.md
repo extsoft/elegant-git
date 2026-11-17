@@ -24,8 +24,8 @@ There are the following pipes:
 The stash pipe is used by `work sync`, `work polish`, `work push`, `work accept`, and
 `release new`. It also wraps `work start` when you ask that command to carry your uncommitted
 changes over to the new branch. If the branch the stash was taken from is gone — for example
-because `work accept` deleted it — the stash is left in place instead of being popped onto the
-current branch. The branch pipe is used by `work accept` and `release new`, so both of them can
+because `work accept` deleted it — the changes are not restored onto the current branch. The
+stash entry stays in the list. The branch pipe is used by `work accept` and `release new`, so both of them can
 walk away from your branch and bring you back to it. If the saved branch is gone — for example
 because `work accept` deleted the local branch you were on — the pipe leaves you on whatever
 branch the command checked out.
@@ -64,7 +64,10 @@ Finishing or aborting the rebase outside Elegant Git leaves the backup
 recorded and does not run the command again.
 Merge, cherry-pick, revert, and bisect are refused only when there are
 changes to stash. A clean tree still runs the command. `applied` only finishes cleanup and does
-not run the command again. If creating the stash fails, or Git saves nothing, the preparing record is removed and the
+not run the command again. Cleanup removes the private ref and the journal after the
+changes are restored. It leaves the stash entry. Git cannot remove that one entry
+without possibly removing a different stash, so the command names the backup and
+does not apply it again. If creating the stash fails, or Git saves nothing, the preparing record is removed and the
 command runs without a backup.
 
 If the source branch is gone, or a detached HEAD has moved or is no longer detached, the
