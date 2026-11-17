@@ -555,82 +555,55 @@ func deleteRemote(refs []string) error {
 }
 
 func deleteStashes(refs []string, listed map[string]string) error {
-	var oids []string
-	seen := map[string]bool{}
+	selected := map[string]bool{}
 	for _, ref := range refs {
 		oid := listed[ref]
 		if !stashOID(oid) {
 			return fmt.Errorf("stash %s has no recorded identity; nothing was dropped", ref)
 		}
-		if seen[oid] {
-			continue
-		}
-		seen[oid] = true
-		oids = append(oids, oid)
+		selected[oid] = true
 	}
 	common, err := repo.GitCommonDir()
 	if err != nil {
 		return err
 	}
-	dropped := 0
-	for len(oids) > 0 {
-		entries, err := readStashes()
+	entries, err := readStashes()
+	if err != nil {
+		return withDropProgress(err, 0)
+	}
+	counts := map[string]int{}
+	var tip string
+	for _, entry := range entries {
+		counts[entry.oid]++
+		if entry.ref == "stash@{0}" {
+			tip = entry.oid
+		}
+	}
+	for oid := range selected {
+		switch counts[oid] {
+		case 0:
+			return fmt.Errorf("stash %s is no longer in the list; nothing was dropped", oid)
+		case 1:
+		default:
+			return fmt.Errorf("stash %s matches more than one entry; nothing was dropped", oid)
+		}
+	}
+	for _, entry := range entries {
+		if !selected[entry.oid] {
+			return fmt.Errorf("refusing to drop the selected stash while %s is still in the list; nothing was dropped", entry.oid)
+		}
+		protected, err := recovery.Protects(common, entry.oid, entry.subject)
 		if err != nil {
-			return withDropProgress(err, dropped)
-		}
-		type hit struct {
-			index int
-			entry stashEntry
-		}
-		best := -1
-		var chosen hit
-		var chosenOID string
-		for _, oid := range oids {
-			var matches []stashEntry
-			for _, entry := range entries {
-				if entry.oid == oid {
-					matches = append(matches, entry)
-				}
-			}
-			if len(matches) == 0 {
-				return withDropProgress(fmt.Errorf("stash %s is no longer in the list", oid), dropped)
-			}
-			if len(matches) > 1 {
-				return withDropProgress(fmt.Errorf("stash %s matches more than one entry", oid), dropped)
-			}
-			index := stashIndex(matches[0].ref)
-			if index < 0 {
-				return withDropProgress(fmt.Errorf("stash %s is not addressable", oid), dropped)
-			}
-			if best < 0 || index > best {
-				best = index
-				chosen = hit{index: index, entry: matches[0]}
-				chosenOID = oid
-			}
-		}
-		if chosenOID == "" {
-			return withDropProgress(fmt.Errorf("no selected stash remains"), dropped)
-		}
-		protected, err := recovery.Protects(common, chosen.entry.oid, chosen.entry.subject)
-		if err != nil {
-			return withDropProgress(err, dropped)
+			return withDropProgress(err, 0)
 		}
 		if protected {
-			return withDropProgress(fmt.Errorf("refusing to drop %s; it is a recovery backup", chosen.entry.ref), dropped)
+			return fmt.Errorf("refusing to drop %s; it is a recovery backup; nothing was dropped", entry.ref)
 		}
-		if err := git.Verbose("stash", "drop", chosen.entry.ref); err != nil {
-			return withDropProgress(err, dropped)
-		}
-		dropped++
-		next := oids[:0]
-		for _, oid := range oids {
-			if oid != chosenOID {
-				next = append(next, oid)
-			}
-		}
-		oids = next
 	}
-	return nil
+	if !selected[tip] {
+		return fmt.Errorf("the stash tip cannot be matched to the selection; nothing was dropped")
+	}
+	return fmt.Errorf("refusing to drop the stash list; Git can confirm the tip commit but not the other entries; nothing was dropped")
 }
 
 func withDropProgress(err error, dropped int) error {
@@ -665,19 +638,6 @@ func readStashes() ([]stashEntry, error) {
 		entries = append(entries, stashEntry{ref: ref, unix: unix, short: short, subject: subject, oid: oid})
 	}
 	return entries, nil
-}
-
-func stashIndex(ref string) int {
-	start := strings.LastIndex(ref, "{")
-	end := strings.LastIndex(ref, "}")
-	if start < 0 || end <= start+1 {
-		return -1
-	}
-	n, err := strconv.Atoi(ref[start+1 : end])
-	if err != nil {
-		return -1
-	}
-	return n
 }
 
 func deleteWorktrees(choices []prompt.Choice, selected []string) error {

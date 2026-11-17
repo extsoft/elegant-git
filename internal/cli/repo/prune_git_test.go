@@ -11,95 +11,108 @@ import (
 	"github.com/extsoft/elegant-git/internal/recovery"
 )
 
-func TestRealGitPruneDropsSelectedStashAfterInsertion(t *testing.T) {
+func TestRealGitPruneLeavesTheOnlySelectedStash(t *testing.T) {
 	r := newPruneRepo(t)
-	owned := r.stash("owned", "owned-body\n")
-	journal := r.saveRecovery(t, owned)
 	selected := r.stash("selected-ordinary", "selected-body\n")
-	var inserted string
 	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
-	p.beforeDrop = func() {
-		inserted = r.stash("unrelated-external", "external-body\n")
+	err := runPrune(p, "stashes")
+	if err == nil || !strings.Contains(err.Error(), "not the other entries") || !strings.Contains(err.Error(), "nothing was dropped") {
+		t.Fatalf("err=%v", err)
 	}
-	if err := runPrune(p, "stashes"); err != nil {
-		t.Fatal(err)
-	}
-	if r.hasStash(selected) || !r.hasStash(inserted) || !r.hasStash(owned) {
-		t.Fatalf("selected %v inserted %v owned %v\n%s", r.hasStash(selected), r.hasStash(inserted), r.hasStash(owned), r.stashList())
-	}
-	if !strings.Contains(r.patch(inserted), "external-body") || !strings.Contains(r.patch(owned), "owned-body") {
-		t.Fatalf("patches changed\n%s", r.stashList())
-	}
-	if got := r.journal(t); got != journal {
-		t.Fatalf("journal changed\n%s", got)
+	if !r.hasStash(selected) || !strings.Contains(r.patch(selected), "selected-body") {
+		t.Fatalf("stashes\n%s", r.stashList())
 	}
 }
 
-func TestRealGitPruneRefusesWhenSelectedStashDisappears(t *testing.T) {
+func TestRealGitPruneRefusesWhenAnotherStashIsPresent(t *testing.T) {
 	r := newPruneRepo(t)
 	keeper := r.stash("keeper", "keeper-body\n")
 	selected := r.stash("selected-ordinary", "selected-body\n")
 	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
-	p.beforeDrop = func() {
-		r.git("stash", "drop", "stash@{0}")
-	}
 	err := runPrune(p, "stashes")
-	if err == nil || !strings.Contains(err.Error(), selected) || !strings.Contains(err.Error(), "nothing was dropped") {
+	if err == nil || !strings.Contains(err.Error(), keeper) || !strings.Contains(err.Error(), "nothing was dropped") {
 		t.Fatalf("err=%v", err)
 	}
-	if r.hasStash(selected) || !r.hasStash(keeper) || !strings.Contains(r.patch(keeper), "keeper-body") {
+	if !r.hasStash(selected) || !r.hasStash(keeper) || !strings.Contains(r.patch(keeper), "keeper-body") || !strings.Contains(r.patch(selected), "selected-body") {
 		t.Fatalf("stashes\n%s", r.stashList())
 	}
 }
 
-func TestRealGitPruneRefusesWhenSelectedStashIsReplaced(t *testing.T) {
+func TestRealGitPruneABAListDeletesNothing(t *testing.T) {
 	r := newPruneRepo(t)
 	selected := r.stash("selected-ordinary", "selected-body\n")
-	var replaced string
+	r.git("stash", "drop", "stash@{0}")
+	inserted := r.stash("unrelated-external", "external-body\n")
+	r.git("stash", "store", "-m", "restored", selected)
 	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
-	p.beforeDrop = func() {
-		r.git("stash", "drop", "stash@{0}")
-		replaced = r.stash("replaced", "replaced-body\n")
-	}
 	err := runPrune(p, "stashes")
-	if err == nil || !strings.Contains(err.Error(), selected) || !strings.Contains(err.Error(), "nothing was dropped") {
+	if err == nil || !strings.Contains(err.Error(), inserted) || !strings.Contains(err.Error(), "nothing was dropped") {
 		t.Fatalf("err=%v", err)
 	}
-	if r.hasStash(selected) || !r.hasStash(replaced) || !strings.Contains(r.patch(replaced), "replaced-body") {
+	if !r.hasStash(selected) || !r.hasStash(inserted) {
 		t.Fatalf("stashes\n%s", r.stashList())
 	}
-}
-
-func TestRealGitPruneDropsShiftedSelections(t *testing.T) {
-	r := newPruneRepo(t)
-	oldest := r.stash("oldest", "oldest-body\n")
-	keeper := r.stash("keeper", "keeper-body\n")
-	newest := r.stash("newest", "newest-body\n")
-	var inserted string
-	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}", "stash@{2}"}})
-	p.beforeDrop = func() {
-		inserted = r.stash("inserted", "inserted-body\n")
-	}
-	if err := runPrune(p, "stashes"); err != nil {
-		t.Fatal(err)
-	}
-	if r.hasStash(newest) || r.hasStash(oldest) || !r.hasStash(keeper) || !r.hasStash(inserted) {
-		t.Fatalf("stashes\n%s", r.stashList())
-	}
-	if !strings.Contains(r.patch(keeper), "keeper-body") || !strings.Contains(r.patch(inserted), "inserted-body") {
+	if !strings.Contains(r.patch(selected), "selected-body") || !strings.Contains(r.patch(inserted), "external-body") {
 		t.Fatalf("patches\n%s", r.stashList())
 	}
 }
 
-func TestRealGitPruneDropsStashWhoseSubjectContainsATab(t *testing.T) {
+func TestRealGitPruneRefusesWhenSelectionIsTheWholeList(t *testing.T) {
 	r := newPruneRepo(t)
-	plain := r.stash("plain", "plain-body\n")
+	older := r.stash("older", "older-body\n")
+	newer := r.stash("newer", "newer-body\n")
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}", "stash@{1}"}})
+	err := runPrune(p, "stashes")
+	if err == nil || !strings.Contains(err.Error(), "not the other entries") || !strings.Contains(err.Error(), "nothing was dropped") {
+		t.Fatalf("err=%v", err)
+	}
+	if !r.hasStash(older) || !r.hasStash(newer) || !strings.Contains(r.patch(older), "older-body") || !strings.Contains(r.patch(newer), "newer-body") {
+		t.Fatalf("stashes\n%s", r.stashList())
+	}
+}
+
+func TestRealGitPruneRefusesAPartialSelection(t *testing.T) {
+	r := newPruneRepo(t)
+	oldest := r.stash("oldest", "oldest-body\n")
+	keeper := r.stash("keeper", "keeper-body\n")
+	newest := r.stash("newest", "newest-body\n")
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}", "stash@{2}"}})
+	err := runPrune(p, "stashes")
+	if err == nil || !strings.Contains(err.Error(), keeper) || !strings.Contains(err.Error(), "nothing was dropped") {
+		t.Fatalf("err=%v", err)
+	}
+	if !r.hasStash(newest) || !r.hasStash(keeper) || !r.hasStash(oldest) {
+		t.Fatalf("stashes\n%s", r.stashList())
+	}
+	if !strings.Contains(r.patch(keeper), "keeper-body") || !strings.Contains(r.patch(newest), "newest-body") || !strings.Contains(r.patch(oldest), "oldest-body") {
+		t.Fatalf("patches\n%s", r.stashList())
+	}
+}
+
+func TestRealGitPruneRefusesDuplicateStashIdentity(t *testing.T) {
+	r := newPruneRepo(t)
+	oid := r.stash("original", "original-body\n")
+	r.stash("other", "other-body\n")
+	r.git("stash", "store", "-m", "duplicate", oid)
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
+	err := runPrune(p, "stashes")
+	if err == nil || !strings.Contains(err.Error(), oid) || !strings.Contains(err.Error(), "more than one") {
+		t.Fatalf("err=%v", err)
+	}
+	if !r.hasStash(oid) || !strings.Contains(r.patch(oid), "original-body") {
+		t.Fatalf("stashes\n%s", r.stashList())
+	}
+}
+
+func TestRealGitPruneKeepsStashWhoseSubjectContainsATab(t *testing.T) {
+	r := newPruneRepo(t)
 	tabbed := r.stash("weird\tname \"quoted\"", "tab-body\n")
 	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
-	if err := runPrune(p, "stashes"); err != nil {
-		t.Fatal(err)
+	err := runPrune(p, "stashes")
+	if err == nil || !strings.Contains(err.Error(), "not the other entries") || !strings.Contains(err.Error(), "nothing was dropped") {
+		t.Fatalf("err=%v", err)
 	}
-	if r.hasStash(tabbed) || !r.hasStash(plain) || !strings.Contains(r.patch(plain), "plain-body") {
+	if !r.hasStash(tabbed) || !strings.Contains(r.patch(tabbed), "tab-body") {
 		t.Fatalf("stashes\n%s", r.stashList())
 	}
 }
@@ -110,14 +123,11 @@ func TestRealGitPruneKeepsRecoveryStashWhenItsNumberChanges(t *testing.T) {
 	journal := r.saveRecovery(t, owned)
 	selected := r.stash("selected-ordinary", "selected-body\n")
 	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
-	p.beforeDrop = func() {
-		r.git("stash", "drop", "stash@{0}")
-	}
 	err := runPrune(p, "stashes")
 	if err == nil || !strings.Contains(err.Error(), "nothing was dropped") {
 		t.Fatalf("err=%v", err)
 	}
-	if !r.hasStash(owned) || r.hasStash(selected) || !strings.Contains(r.patch(owned), "owned-body") {
+	if !r.hasStash(owned) || !r.hasStash(selected) || !strings.Contains(r.patch(owned), "owned-body") || !strings.Contains(r.patch(selected), "selected-body") {
 		t.Fatalf("stashes\n%s", r.stashList())
 	}
 	if got := r.journal(t); got != journal {

@@ -89,10 +89,12 @@ upstream is gone, and the row says so.
 - `remote` never removes the remote's `HEAD`, the default development branch, or a protected
   branch. The branches you select are deleted on the default upstream remote with one push. This
   phase does nothing when the repository has no remotes.
-- `stashes` lists every stash, with the subject after it, and drops the ones you select.
-  The drop follows the commit that was selected, not a stash number that may have moved.
-  If that commit is gone or matches more than one entry, prune stops and does not drop a
-  different stash. A recovery backup is left in place.
+- `stashes` lists every stash, with the subject after it. It does not drop the ones you
+  select. Git can delete the stash list only by checking the tip commit and removing the
+  whole list, and that check does not see the other entries. Another command can remove
+  the list, add a different stash, and put the old tip back; the delete would then remove
+  that different stash too. Prune refuses instead, and nothing is dropped. A recovery
+  backup stays in the list.
 - `worktrees` removes worktrees whose directory is gone and that are not locked. Unselected stale
   worktrees are locked for the duration of the prune, then unlocked, so only the ones you picked
   are removed.
