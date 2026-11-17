@@ -1,8 +1,15 @@
 package repo
 
 import (
+	"context"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/extsoft/elegant-git/internal/git"
+	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/spf13/cobra"
 )
 
 func TestDefaultCloneDir(t *testing.T) {
@@ -39,5 +46,21 @@ func TestResolveUnderGitPrefix(t *testing.T) {
 	abs := filepath.Join(t.TempDir(), "out")
 	if got := resolveUnderGitPrefix(abs); got != abs {
 		t.Fatalf("abs: %q", got)
+	}
+}
+
+func TestCloneDoesNotPrepareCallerState(t *testing.T) {
+	m := git.NewMemoryRunner()
+	m.FailOn["clone https://example.com/acme/app.git app"] = fmt.Errorf("clone failed")
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+	cmd := &cobra.Command{}
+	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	err := cloneRun(cmd, "https://example.com/acme/app.git", "", "")
+	if err == nil || !strings.Contains(err.Error(), "clone failed") {
+		t.Fatalf("err=%v", err)
+	}
+	if len(m.Calls) != 1 || strings.Join(m.Calls[0].Args, " ") != "clone https://example.com/acme/app.git app" {
+		t.Fatalf("calls=%+v", m.Calls)
 	}
 }
