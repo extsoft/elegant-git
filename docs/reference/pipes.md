@@ -34,7 +34,10 @@ If a "piped" command is used, each pipe stores the state in per-repo command mem
 (`.git/elegant-git/commands.json`), runs the original command, and restores saved state if the
 command is successful. A failed command keeps the backup. Re-running it does not repeat the
 command when recovery is already in progress; inspect that backup as described below. An older
-record that only has the stash message still restores that same stash when the command succeeds.
+record that only has the stash message does not run the command again. If that stash
+is not in the list, the command says it was not found and other stashes were not
+changed. Inspect it with `eg repo doctor`. Confirming it clears the record and does
+not apply or drop the stash.
 
 The file itself is described with the rest of [per-repo memory](memory.md#per-repo-memory).
 
@@ -53,14 +56,17 @@ A path outside it, a symlink that leaves it, or another worktree's file is refus
 The journal phases are `preparing`, `preserved`, `running`, `suspended`, `applying`, and
 `applied`. A crash while `applying` is never applied a second time. Re-running the command does
 not repeat the body when the outcome is unknown (`running`). A `suspended` backup, where the
-command already returned an error and the source is still there, runs the command again and then
-restores. An active rebase is the continuation path: it is not stashed, and the backup stays until
-that rebase is finished. Merge, cherry-pick, revert, and bisect are refused only when there are
+command already returned an error, does not run that command again just to restore the stash.
+The backup stays until you inspect it. An active rebase is the only continuation that runs:
+it is not stashed, and the backup stays until that rebase is finished. Finishing or aborting
+the rebase outside Elegant Git leaves the backup recorded and does not run the command again.
+Merge, cherry-pick, revert, and bisect are refused only when there are
 changes to stash. A clean tree still runs the command. `applied` only finishes cleanup and does
 not run the command again. If creating the stash fails, or Git saves nothing, the preparing record is removed and the
 command runs without a backup.
 
-If the source branch is gone, or a detached HEAD has moved, the stash stays in place. The command
+If the source branch is gone, or a detached HEAD has moved or is no longer detached, the
+stash stays in place. The command
 tells you to inspect it. Another command that has its own changes will not start while that
 backup is pending. A clean command still runs. A command started from inside a running Elegant
 Git process is not blocked by that guard.

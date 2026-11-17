@@ -9,6 +9,7 @@ import (
 
 	"github.com/extsoft/elegant-git/internal/cmdid"
 	"github.com/extsoft/elegant-git/internal/git"
+	cmdmem "github.com/extsoft/elegant-git/internal/memory/cmd"
 	"github.com/extsoft/elegant-git/internal/recovery"
 )
 
@@ -232,7 +233,70 @@ func TestDirtyCommandRefusesWhileAnotherRecoveryIsPending(t *testing.T) {
 	}
 }
 
-func TestSuspendedPhaseRerunsBody(t *testing.T) {
+func TestLegacyFieldDoesNotReplayBody(t *testing.T) {
+	m := setupRecoveryRepo(t)
+	id := cmdid.ID{Command: "work", Action: "accept"}
+	msg := "eg work.accept auto-stash: WIP in 'feat' branch on 2020-01-01T00:00:00"
+	if err := cmdmem.Set(id, cmdmem.FieldStash, msg); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "will not run again") || !strings.Contains(err.Error(), "eg repo doctor") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || hasApply(m) {
+		t.Fatalf("calls=%d git=%v", calls, m.Calls)
+	}
+	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != msg {
+		t.Fatalf("field %q err=%v", got, gerr)
+	}
+}
+
+func TestAppliedCleanupClearsFieldBeforeDrop(t *testing.T) {
+	m := setupRecoveryRepo(t)
+	gitDir := m.Outputs["rev-parse --git-dir"]
+	common := m.Outputs["rev-parse --git-common-dir"]
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	msg := "eg work.sync auto-stash: token"
+	op := recovery.Op{
+		ID: "abc", Command: id.String(), Worktree: gitDir, Source: "main",
+		Phase: recovery.PhaseApplied, StashOID: "deadbeef", Ref: recovery.RefName("abc"),
+		Message: msg,
+	}
+	if err := recovery.Save(common, recovery.File{Ops: []recovery.Op{op}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdmem.Set(id, cmdmem.FieldStash, msg); err != nil {
+		t.Fatal(err)
+	}
+	listKey := strings.Join([]string{"stash", "list", "--format=%H%x00%gd%x00%s"}, " ")
+	m.Outputs[listKey] = strings.Join([]string{"deadbeef", "stash@{0}", "On main: " + msg}, "\x00")
+	m.FailOn["stash drop stash@{0}"] = fmt.Errorf("busy")
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "busy") {
+		t.Fatalf("err=%v calls=%#v", err, m.Calls)
+	}
+	if calls != 0 {
+		t.Fatalf("body ran %d times", calls)
+	}
+	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != "" {
+		t.Fatalf("field %q err=%v", got, gerr)
+	}
+	f, loadErr := recovery.Load(common)
+	if loadErr != nil || len(f.Ops) != 1 || f.Ops[0].Phase != recovery.PhaseApplied {
+		t.Fatalf("journal %+v err=%v", f.Ops, loadErr)
+	}
+}
+
+func TestSuspendedPhaseDoesNotReplayBody(t *testing.T) {
 	m := setupRecoveryRepo(t)
 	gitDir := m.Outputs["rev-parse --git-dir"]
 	common := m.Outputs["rev-parse --git-common-dir"]
@@ -245,14 +309,15 @@ func TestSuspendedPhaseRerunsBody(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := 0
-	if err := StashPipe(id, func() error {
+	err := StashPipe(id, func() error {
 		calls++
 		return nil
-	}); err != nil {
-		t.Fatal(err)
+	})
+	if err == nil || !strings.Contains(err.Error(), "will not run again") {
+		t.Fatalf("err=%v", err)
 	}
-	if calls != 1 {
-		t.Fatalf("body ran %d times", calls)
+	if calls != 0 || hasApply(m) {
+		t.Fatalf("calls=%d git=%v", calls, m.Calls)
 	}
 }
 

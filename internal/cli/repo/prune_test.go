@@ -13,6 +13,7 @@ import (
 	"github.com/extsoft/elegant-git/internal/git"
 	memrepo "github.com/extsoft/elegant-git/internal/memory/repo"
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/recovery"
 	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
 )
@@ -290,6 +291,32 @@ func TestPruneHidesRecoveryStash(t *testing.T) {
 	}
 	if callIndex(gitCalls(m), "stash drop stash@{0}") >= 0 {
 		t.Fatalf("dropped recovery stash: %v", gitCalls(m))
+	}
+}
+
+func TestPruneHidesRecoveryStashAfterRenumber(t *testing.T) {
+	m := setupPrune(t)
+	common := m.Outputs["rev-parse --git-common-dir"]
+	const oid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	if err := recovery.Save(common, recovery.File{Ops: []recovery.Op{{
+		ID: "abc", Command: "work.sync", Phase: recovery.PhaseSuspended, StashOID: oid,
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	ordinary := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	m.Outputs["stash list --format="+pruneStashFormat] = strings.Join([]string{
+		pruneRow("stash@{0}", day, "2025-10-08", "ordinary") + "\t" + ordinary,
+		pruneRow("stash@{1}", 2*week, "2025-09-25", "renamed-subject") + "\t" + oid,
+	}, "\n")
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
+	if err := runPrune(p, "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if len(p.calls) != 1 || len(p.calls[0].choices) != 1 || p.calls[0].choices[0].Value != "stash@{0}" {
+		t.Fatalf("choices: %+v", p.calls)
+	}
+	if callIndex(gitCalls(m), "stash drop stash@{1}") >= 0 {
+		t.Fatalf("dropped renumbered recovery stash: %v", gitCalls(m))
 	}
 }
 

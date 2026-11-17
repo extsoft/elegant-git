@@ -55,11 +55,19 @@ func TestStashPipePopsWhenSourceBranchExists(t *testing.T) {
 	}
 	m.Outputs["stash list --grep="+msg+" --format=%gd"] = "stash@{0}"
 
-	if err := StashPipe(id, func() error { return nil }); err != nil {
-		t.Fatal(err)
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "will not run again") || !strings.Contains(err.Error(), "eg repo doctor") {
+		t.Fatalf("err=%v", err)
 	}
-	if !hasStashPop(m, "stash@{0}") {
-		t.Fatalf("missing stash pop, calls=%v", m.Calls)
+	if calls != 0 || hasStashPop(m, "stash@{0}") {
+		t.Fatalf("calls=%d git=%v", calls, m.Calls)
+	}
+	if got, _ := cmdmem.Get(id, cmdmem.FieldStash); got != msg {
+		t.Fatalf("association %q", got)
 	}
 }
 
@@ -74,11 +82,9 @@ func TestStashPipePopsWhenSourceBranchHasApostrophe(t *testing.T) {
 	}
 	m.Outputs["stash list --grep="+msg+" --format=%gd"] = "stash@{0}"
 
-	if err := StashPipe(id, func() error { return nil }); err != nil {
-		t.Fatal(err)
-	}
-	if !hasStashPop(m, "stash@{0}") {
-		t.Fatalf("missing stash pop, calls=%v", m.Calls)
+	err := StashPipe(id, func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "will not run again") || hasStashPop(m, "stash@{0}") {
+		t.Fatalf("err=%v calls=%v", err, m.Calls)
 	}
 }
 
@@ -92,11 +98,9 @@ func TestStashPipeSkipsPopWhenSourceBranchGone(t *testing.T) {
 	m.Outputs["stash list --grep="+msg+" --format=%gd"] = "stash@{0}"
 	m.FailOn[localBranchExistsKey("feat")] = fmt.Errorf("unknown")
 
-	if err := StashPipe(id, func() error { return nil }); err != nil {
-		t.Fatal(err)
-	}
-	if hasStashPop(m, "stash@{0}") {
-		t.Fatalf("unexpected stash pop, calls=%v", m.Calls)
+	err := StashPipe(id, func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "will not run again") || hasStashPop(m, "stash@{0}") {
+		t.Fatalf("err=%v calls=%v", err, m.Calls)
 	}
 }
 
@@ -112,8 +116,8 @@ func TestStashPipeKeepsAssociationWhenPopFails(t *testing.T) {
 	m.FailOn["stash pop stash@{0}"] = fmt.Errorf("conflict")
 
 	err := StashPipe(id, func() error { return nil })
-	if err == nil {
-		t.Fatal("expected restore error")
+	if err == nil || !strings.Contains(err.Error(), "will not run again") {
+		t.Fatalf("err=%v", err)
 	}
 	got, gerr := cmdmem.Get(id, cmdmem.FieldStash)
 	if gerr != nil || got != msg {
@@ -136,7 +140,7 @@ func TestStashPipeMissingLegacyBackupDropsNothing(t *testing.T) {
 	m.Outputs["stash list --format=%gd"] = "stash@{0}"
 
 	err := StashPipe(id, func() error { return nil })
-	if err == nil || !strings.Contains(err.Error(), "not found") {
+	if err == nil || !strings.Contains(err.Error(), "was not found") || !strings.Contains(err.Error(), "other stashes were not changed") {
 		t.Fatalf("err=%v", err)
 	}
 	if hasStashPop(m, "stash@{0}") || hasStashDrop(m) {
@@ -160,7 +164,7 @@ func TestStashPipeReportsBothBodyAndRestoreErrors(t *testing.T) {
 	m.FailOn["stash pop stash@{0}"] = fmt.Errorf("conflict")
 
 	err := StashPipeRestoring(id, func() error { return fmt.Errorf("body failed") })
-	if err == nil || !strings.Contains(err.Error(), "body failed") || !strings.Contains(err.Error(), "conflict") {
+	if err == nil || !strings.Contains(err.Error(), "will not run again") || strings.Contains(err.Error(), "body failed") {
 		t.Fatalf("err=%v", err)
 	}
 }

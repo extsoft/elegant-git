@@ -54,17 +54,13 @@ func runLegacyPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
 	if err != nil {
 		return err
 	}
-	if saved == "" && HasChanges() {
+	if saved != "" {
+		return legacyReplayError(id.String(), saved)
+	}
+	if HasChanges() {
 		return fmt.Errorf("backup preparation cannot record a recovery journal for this repository")
 	}
-	bodyErr := fn()
-	if bodyErr != nil && !restoreOnError {
-		return bodyErr
-	}
-	if saved == "" {
-		return bodyErr
-	}
-	return combine(bodyErr, popLegacy(id))
+	return fn()
 }
 
 func begin(id cmdid.ID, gitDir, common string) (decision, error) {
@@ -84,9 +80,7 @@ func begin(id cmdid.ID, gitDir, common string) (decision, error) {
 			return err
 		}
 		if msg != "" {
-			dec.legacy = true
-			dec.runBody = true
-			return nil
+			return legacyReplayError(id.String(), msg)
 		}
 		if state.InProgressOperation() == "rebase" {
 			dec.runBody = true
@@ -123,12 +117,18 @@ func decideOwn(dec *decision, common string, id cmdid.ID, f *recovery.File, op r
 		}
 		return recovery.NoReplayError(op)
 	case recovery.PhaseSuspended:
+		if state.InProgressOperation() == "rebase" {
+			dec.runBody = true
+			dec.opID = op.ID
+			return nil
+		}
+		if cur := state.InProgressOperation(); cur != "" {
+			return fmt.Errorf("recovery backup %s was kept because a %s is still in progress. Inspect it with `eg repo doctor`", op.StashOID, cur)
+		}
 		if !sourceSafe(op) {
 			return fmt.Errorf("%s", sourceKeptMessage(op))
 		}
-		dec.runBody = true
-		dec.opID = op.ID
-		return nil
+		return recovery.NoReplayError(op)
 	case recovery.PhaseApplied:
 		if err := cleanup(common, id, op, f); err != nil {
 			return err
@@ -345,6 +345,9 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 }
 
 func cleanup(common string, id cmdid.ID, op recovery.Op, f *recovery.File) error {
+	if err := clearStashField(id, op.Message); err != nil {
+		return err
+	}
 	hits, err := listStashes()
 	if err != nil {
 		return err
@@ -370,10 +373,21 @@ func cleanup(common string, id cmdid.ID, op recovery.Op, f *recovery.File) error
 	if !f.Remove(op.ID, op.StashOID) {
 		return fmt.Errorf("recovery %s is not in the journal", op.ID)
 	}
-	if err := recovery.Save(common, *f); err != nil {
+	return recovery.Save(common, *f)
+}
+
+func legacyReplayError(command, message string) error {
+	refs, err := legacyRefs(message)
+	if err != nil {
 		return err
 	}
-	return clearStashField(id, op.Message)
+	if len(refs) == 0 {
+		return fmt.Errorf("recovery stash for %s was not found; other stashes were not changed. Inspect it with `eg repo doctor`. This command will not run again automatically", command)
+	}
+	if len(refs) > 1 {
+		return fmt.Errorf("recovery stash for %s is ambiguous; other stashes were not changed. Inspect it with `eg repo doctor`. This command will not run again automatically", command)
+	}
+	return fmt.Errorf("pending recovery stash for %s is still recorded. Inspect it with `eg repo doctor`. This command will not run again automatically", command)
 }
 
 func deleteRecoveryRef(op recovery.Op) error {
@@ -413,6 +427,10 @@ func pendingLegacy(gitDir, command string) error {
 
 func sourceSafe(op recovery.Op) bool {
 	if op.Detached {
+		ref, err := git.Output("symbolic-ref", "--quiet", "HEAD")
+		if err == nil && strings.TrimSpace(ref) != "" {
+			return false
+		}
 		oid, err := git.Output("rev-parse", "--verify", "HEAD")
 		return err == nil && strings.TrimSpace(oid) == op.Source
 	}
@@ -424,7 +442,7 @@ func sourceSafe(op recovery.Op) bool {
 
 func sourceKeptMessage(op recovery.Op) string {
 	if op.Detached {
-		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is no longer %s. Inspect it with `eg repo doctor`.", op.Source)
+		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is no longer detached at %s. Inspect it with `eg repo doctor`.", op.Source)
 	}
 	return fmt.Sprintf("Uncommitted changes stay in the stash because the '%s' branch no longer exists. Inspect it with `eg repo doctor`.", op.Source)
 }

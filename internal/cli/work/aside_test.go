@@ -84,6 +84,47 @@ func TestMoveAsideRollsBackWhenALaterRenameFails(t *testing.T) {
 	}
 }
 
+func TestMoveAsideRefusesExistingAsideCopy(t *testing.T) {
+	root := t.TempDir()
+	gitDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("live-a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "b.txt"), []byte("live-b"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	aside := filepath.Join(gitDir, "elegant-git", "aside")
+	if err := os.MkdirAll(aside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(aside, "b.txt"), []byte("kept"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --show-toplevel"] = root
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	err := moveAside([]string{"a.txt", "b.txt"})
+	if err == nil || !strings.Contains(err.Error(), "already exists") || !strings.Contains(err.Error(), "Recovery is required") {
+		t.Fatalf("err=%v", err)
+	}
+	if got, readErr := os.ReadFile(filepath.Join(root, "a.txt")); readErr != nil || string(got) != "live-a" {
+		t.Fatalf("a.txt %q err=%v", got, readErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(aside, "a.txt")); !os.IsNotExist(statErr) {
+		t.Fatalf("a.txt was left aside: %v", statErr)
+	}
+	if got, readErr := os.ReadFile(filepath.Join(aside, "b.txt")); readErr != nil || string(got) != "kept" {
+		t.Fatalf("aside b.txt %q err=%v", got, readErr)
+	}
+	if got, readErr := os.ReadFile(filepath.Join(root, "b.txt")); readErr != nil || string(got) != "live-b" {
+		t.Fatalf("worktree b.txt %q err=%v", got, readErr)
+	}
+}
+
 func TestRestoreAsideKeepsOccupiedDestination(t *testing.T) {
 	root := t.TempDir()
 	gitDir := t.TempDir()
@@ -232,5 +273,53 @@ func TestRestoreAsideRestoresIntoRealDirectory(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(asideDir, "payload")); !os.IsNotExist(err) {
 		t.Fatalf("aside copy remained: %v", err)
+	}
+}
+
+func TestRestoreAsideRollsBackWhenADirectoryIsNotWritable(t *testing.T) {
+	root := t.TempDir()
+	gitDir := t.TempDir()
+	blocked := filepath.Join(root, "blocked")
+	if err := os.MkdirAll(blocked, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	asideA := filepath.Join(gitDir, "elegant-git", "aside", "a")
+	asideB := filepath.Join(gitDir, "elegant-git", "aside", "blocked")
+	if err := os.MkdirAll(asideA, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(asideB, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(asideA, "payload"), []byte("a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(asideB, "payload"), []byte("b\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(blocked, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(blocked, 0o755) })
+
+	m := git.NewMemoryRunner()
+	m.Outputs["rev-parse --show-toplevel"] = root
+	m.Outputs["rev-parse --git-dir"] = gitDir
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	if err := restoreAside(); err == nil {
+		t.Fatal("expected restore to stop")
+	}
+	if _, err := os.Stat(filepath.Join(root, "a", "payload")); !os.IsNotExist(err) {
+		t.Fatalf("partial restore left a/payload: %v", err)
+	}
+	keptA, err := os.ReadFile(filepath.Join(asideA, "payload"))
+	if err != nil || string(keptA) != "a\n" {
+		t.Fatalf("a aside %q err=%v", keptA, err)
+	}
+	keptB, err := os.ReadFile(filepath.Join(asideB, "payload"))
+	if err != nil || string(keptB) != "b\n" {
+		t.Fatalf("b aside %q err=%v", keptB, err)
 	}
 }

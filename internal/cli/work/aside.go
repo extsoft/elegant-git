@@ -84,6 +84,11 @@ func moveAside(paths []string) error {
 			err = rollbackAside(root, aside, moved, err)
 			return err
 		}
+		if _, err := os.Lstat(dst); err == nil {
+			return rollbackAside(root, aside, moved, fmt.Errorf("refusing to move %s aside because %s already exists. Recovery is required", filepath.ToSlash(p), aside))
+		} else if err != nil && !os.IsNotExist(err) {
+			return rollbackAside(root, aside, moved, err)
+		}
 		if err := os.Rename(filepath.Join(root, filepath.FromSlash(p)), dst); err != nil {
 			return rollbackAside(root, aside, moved, err)
 		}
@@ -156,14 +161,16 @@ func restoreAsideFiles(skipTracked bool) error {
 		}
 		pending = append(pending, rel)
 	}
+	var moved []string
 	for _, rel := range pending {
 		dst := filepath.Join(root, rel)
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return err
+			return undoAsideRestore(root, aside, moved, err)
 		}
 		if err := os.Rename(filepath.Join(aside, rel), dst); err != nil {
-			return err
+			return undoAsideRestore(root, aside, moved, err)
 		}
+		moved = append(moved, rel)
 		restored++
 	}
 	if kept == 0 {
@@ -214,6 +221,26 @@ func checkAsideDestination(root, aside, rel string) error {
 
 func escapesWorktree(cleaned string) bool {
 	return cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(os.PathSeparator))
+}
+
+func undoAsideRestore(root, aside string, moved []string, cause error) error {
+	var failed []string
+	for i := len(moved) - 1; i >= 0; i-- {
+		rel := moved[i]
+		src := filepath.Join(root, rel)
+		dst := filepath.Join(aside, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			failed = append(failed, rel)
+			continue
+		}
+		if err := os.Rename(src, dst); err != nil {
+			failed = append(failed, rel)
+		}
+	}
+	if len(failed) > 0 {
+		return fmt.Errorf("%w; could not return %s to the aside. Recovery is required", cause, strings.Join(failed, ", "))
+	}
+	return cause
 }
 
 func rollbackAside(root, aside string, moved []string, cause error) error {

@@ -69,8 +69,12 @@ func diagnoseRecovery() ([]Finding, error) {
 		}
 		message := entry.Stash
 		command := id
+		found, err := legacyStashPresent(message)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, Finding{
-			Problem: legacyProblem(command, message),
+			Problem: legacyProblem(command, message, found),
 			Repair:  "Clear this recorded backup message. Elegant Git will not drop any stash.",
 			Apply: func() error {
 				return acknowledgeLegacy(common, gitDir, command, message)
@@ -100,8 +104,24 @@ func recoveryProblem(op recovery.Op) string {
 		op.Command, op.Phase, source, backup, ref, manual)
 }
 
-func legacyProblem(command, message string) string {
-	return fmt.Sprintf("Recorded backup for %s is %q. If that stash is missing, other stashes are left untouched. If it is still in the list, acknowledge it here before prune can offer it.", command, message)
+func legacyStashPresent(message string) (bool, error) {
+	hits, err := stashSubjects()
+	if err != nil {
+		return false, err
+	}
+	for _, hit := range hits {
+		if recovery.StashMessage(hit.subject) == message {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func legacyProblem(command, message string, found bool) string {
+	if !found {
+		return fmt.Sprintf("Recorded backup for %s is %q. That stash was not found; other stashes were not changed.", command, message)
+	}
+	return fmt.Sprintf("Recorded backup for %s is %q. It is still in the stash list. Acknowledge it here before prune can offer it. Elegant Git will not drop it.", command, message)
 }
 
 func acknowledgeOp(common string, op recovery.Op) error {

@@ -50,7 +50,7 @@ func TestRealGitRestoresTrackedIndexSplit(t *testing.T) {
 	}
 }
 
-func TestRealGitSuspendedFailureRerunsAndRestores(t *testing.T) {
+func TestRealGitSuspendedFailureDoesNotRerunOrRestore(t *testing.T) {
 	r := newPipeRepo(t)
 	r.write("f", "dirty\n")
 	id := cmdid.ID{Command: "work", Action: "accept"}
@@ -65,21 +65,235 @@ func TestRealGitSuspendedFailureRerunsAndRestores(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("calls=%d", calls)
 	}
-	if !strings.Contains(r.git("stash", "list"), "auto-stash") {
-		t.Fatalf("stash %q", r.git("stash", "list"))
+	stash := r.git("stash", "list")
+	if !strings.Contains(stash, "auto-stash") {
+		t.Fatalf("stash %q", stash)
 	}
 	err = StashPipe(id, func() error {
 		calls++
 		return nil
 	})
-	if err != nil {
-		t.Fatalf("suspended rerun %v", err)
+	if err == nil || !strings.Contains(err.Error(), "will not run again") {
+		t.Fatalf("suspended retry %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("calls=%d", calls)
+	}
+	if r.git("stash", "list") != stash {
+		t.Fatalf("stash changed %q", r.git("stash", "list"))
+	}
+	if r.read("f") == "dirty\n" {
+		t.Fatal("backup was applied")
+	}
+}
+
+func TestRealGitSuspendedRebaseContinuationRunsBody(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "main\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "main2")
+	r.git("checkout", "-q", "-b", "feat", "HEAD~1")
+	r.write("f", "feat\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "feat")
+	r.write("f", "dirty\n")
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	calls := 0
+	if err := StashPipe(id, func() error {
+		calls++
+		return r.gitErr("rebase", "main")
+	}); err == nil {
+		t.Fatal("expected rebase conflict")
+	}
+	if calls != 1 || r.git("stash", "list") == "" {
+		t.Fatalf("calls=%d stash=%q", calls, r.git("stash", "list"))
+	}
+	stash := r.git("stash", "list")
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "rebase") {
+		t.Fatalf("continuation %v", err)
 	}
 	if calls != 2 {
 		t.Fatalf("calls=%d", calls)
 	}
-	if r.read("f") != "dirty\n" {
-		t.Fatalf("restored %q", r.read("f"))
+	if r.git("stash", "list") != stash {
+		t.Fatalf("stash changed %q", r.git("stash", "list"))
+	}
+	if r.read("f") == "dirty\n" {
+		t.Fatal("backup applied during rebase")
+	}
+}
+
+func TestRealGitExternalRebaseAbortDoesNotReplay(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "main\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "main2")
+	r.git("checkout", "-q", "-b", "feat", "HEAD~1")
+	r.write("f", "feat\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "feat")
+	r.write("f", "dirty\n")
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	if err := StashPipe(id, func() error { return r.gitErr("rebase", "main") }); err == nil {
+		t.Fatal("expected rebase conflict")
+	}
+	stash := r.git("stash", "list")
+	r.git("rebase", "--abort")
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "will not run again") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || r.git("stash", "list") != stash || r.read("f") == "dirty\n" {
+		t.Fatalf("calls=%d stash=%q file=%q", calls, r.git("stash", "list"), r.read("f"))
+	}
+}
+
+func TestRealGitExternalRebaseContinueDoesNotReplay(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "main\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "main2")
+	r.git("checkout", "-q", "-b", "feat", "HEAD~1")
+	r.write("f", "feat\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "feat")
+	r.write("f", "dirty\n")
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	if err := StashPipe(id, func() error { return r.gitErr("rebase", "main") }); err == nil {
+		t.Fatal("expected rebase conflict")
+	}
+	stash := r.git("stash", "list")
+	r.write("f", "resolved\n")
+	r.git("add", "f")
+	if err := r.gitErr("-c", "core.editor=true", "rebase", "--continue"); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "will not run again") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || r.git("stash", "list") != stash || r.read("f") == "dirty\n" {
+		t.Fatalf("calls=%d stash=%q file=%q", calls, r.git("stash", "list"), r.read("f"))
+	}
+}
+
+func TestRealGitDetachedHeadMoveKeepsBackup(t *testing.T) {
+	r := newPipeRepo(t)
+	r.git("checkout", "-q", "--detach")
+	before := r.git("rev-parse", "HEAD")
+	r.write("f", "dirty\n")
+	id := cmdid.ID{Command: "work", Action: "accept"}
+	if err := StashPipe(id, func() error {
+		r.git("commit", "--allow-empty", "-q", "-m", "move")
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if r.git("rev-parse", "HEAD") == before {
+		t.Fatal("HEAD did not move")
+	}
+	if r.read("f") == "dirty\n" || r.git("stash", "list") == "" {
+		t.Fatalf("file %q stash %q", r.read("f"), r.git("stash", "list"))
+	}
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "no longer detached") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || r.read("f") == "dirty\n" {
+		t.Fatalf("calls=%d file %q", calls, r.read("f"))
+	}
+}
+
+func TestRealGitDetachedCheckoutToBranchKeepsBackup(t *testing.T) {
+	r := newPipeRepo(t)
+	r.git("checkout", "-q", "--detach")
+	r.write("f", "dirty\n")
+	id := cmdid.ID{Command: "work", Action: "accept"}
+	if err := StashPipe(id, func() error {
+		r.git("checkout", "-q", "main")
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if r.git("rev-parse", "--abbrev-ref", "HEAD") != "main" {
+		t.Fatal(r.git("rev-parse", "--abbrev-ref", "HEAD"))
+	}
+	if r.read("f") == "dirty\n" || r.git("stash", "list") == "" {
+		t.Fatalf("file %q stash %q", r.read("f"), r.git("stash", "list"))
+	}
+}
+
+func TestRealGitNestedRepoIsLeftUntouched(t *testing.T) {
+	r := newPipeRepo(t)
+	nested := filepath.Join(r.dir, "nested")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sub := &pipeRepo{t: t, dir: nested}
+	sub.git("init", "-q", "-b", "main")
+	sub.git("config", "user.email", "t@example.com")
+	sub.git("config", "user.name", "Test")
+	sub.commit("base", "keep", "nested\n")
+	sub.write("keep", "dirty-nested\n")
+	head, err := os.ReadFile(filepath.Join(nested, ".git", "HEAD"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.write("f", "parent-dirty\n")
+	if err := StashPipe(cmdid.ID{Command: "work", Action: "sync"}, func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if sub.read("keep") != "dirty-nested\n" {
+		t.Fatalf("nested %q", sub.read("keep"))
+	}
+	got, err := os.ReadFile(filepath.Join(nested, ".git", "HEAD"))
+	if err != nil || string(got) != string(head) {
+		t.Fatalf("HEAD %q err=%v", got, err)
+	}
+	if r.read("f") != "parent-dirty\n" {
+		t.Fatalf("parent %q", r.read("f"))
+	}
+}
+
+func TestRealGitRebaseKeepsStagedResolution(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "main\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "main2")
+	r.git("checkout", "-q", "-b", "feat", "HEAD~1")
+	r.write("f", "feat\n")
+	r.git("add", "f")
+	r.git("commit", "-q", "-m", "feat")
+	if err := r.gitErr("rebase", "main"); err == nil {
+		t.Fatal("expected rebase conflict")
+	}
+	r.write("f", "resolved\n")
+	r.git("add", "f")
+	cached := r.git("diff", "--cached", "--", "f")
+	if err := StashPipe(cmdid.ID{Command: "work", Action: "sync"}, func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if r.git("stash", "list") != "" {
+		t.Fatalf("stashed resolution %s", r.git("stash", "list"))
+	}
+	if r.read("f") != "resolved\n" || r.git("diff", "--cached", "--", "f") != cached {
+		t.Fatalf("file %q cached %q", r.read("f"), r.git("diff", "--cached", "--", "f"))
 	}
 }
 
