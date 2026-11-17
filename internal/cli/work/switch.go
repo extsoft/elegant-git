@@ -193,13 +193,20 @@ func switchTo(cmd *cobra.Command, p prompt.Prompter, ref, localBranch string, pi
 func switchAct(p prompt.Prompter, resolved switchResolved, localBranch string) error {
 	switch resolved.kind {
 	case switchLocal:
-		return git.Verbose("checkout", resolved.name, "--")
+		if err := git.Verbose("checkout", resolved.name, "--"); err != nil {
+			return err
+		}
+		return pipe.RememberRestoreBranch(resolved.name)
 	case switchRemote:
 		local, fold, err := resolveLocalBranch(p, resolved.name, localBranch)
 		if err != nil {
 			return err
 		}
-		return checkoutTrackedLocal(p, local, resolved.name, fold, trackDivergenceStay)
+		checkedOut, err := checkoutTrackedLocal(p, local, resolved.name, fold, trackDivergenceStay)
+		if err != nil {
+			return err
+		}
+		return pipe.RememberRestoreBranch(checkedOut)
 	default:
 		return notARef(resolved.input)
 	}
@@ -215,6 +222,9 @@ func switchNonBranch(ctx context.Context, p prompt.Prompter, resolved switchReso
 	}
 	return withSwitchChanges(ctx, func() error {
 		if err := git.Verbose("checkout", "-b", name, "--no-track", resolved.commit); err != nil {
+			return err
+		}
+		if err := pipe.RememberRestoreBranch(name); err != nil {
 			return err
 		}
 		return config.SetBranchSourceBranch(name, resolved.input)

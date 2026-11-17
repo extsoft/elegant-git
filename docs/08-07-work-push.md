@@ -20,7 +20,9 @@ branch when one is set, otherwise the local name.
 On a protected branch it refuses — delivering there is `accept`, or a plain `git push` if you
 really mean it.
 
-The [stash pipe](reference/pipes.md) wraps the rest. If a rebase is already in progress, it
+The [stash pipe](reference/pipes.md) wraps the rest and restores uncommitted changes on this
+branch in this worktree. Another branch, including one at the same commit, does not receive
+them. If a rebase is already in progress, it
 continues that rebase; otherwise it fetches and rebases onto the freshest source. Commits whose
 changes are already in that source are left out. A delivered source, including one whose upstream
 is gone, is treated as the default development branch. Then it force-pushes with `--set-upstream`

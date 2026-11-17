@@ -91,7 +91,9 @@ func recoveryProblem(op recovery.Op) string {
 	}
 	backup := op.StashOID
 	manual := "The backup has not been identified yet."
-	if backup != "" {
+	if backup != "" && op.Phase == recovery.PhaseApplying {
+		manual = "Backup " + backup + " remains in the stash and will not be applied again automatically. It may already be in the worktree."
+	} else if backup != "" {
 		manual = "To restore it yourself: git stash apply --index " + backup + "."
 	} else {
 		backup = "not identified yet"

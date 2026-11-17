@@ -106,6 +106,9 @@ func startRunWithRefs(ctx context.Context, name, fromRef string) error {
 		if err := git.Verbose("checkout", "-b", name, "--no-track", startPoint); err != nil {
 			return err
 		}
+		if err := pipe.RememberRestoreBranch(name); err != nil {
+			return err
+		}
 		return config.SetBranchSourceBranch(name, target)
 	}
 	mode, err := resolveStartChanges(ctx)

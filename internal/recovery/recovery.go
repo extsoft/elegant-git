@@ -31,18 +31,19 @@ const (
 
 // Op is one backup owned by a command in one worktree.
 type Op struct {
-	ID         string `json:"id"`
-	Command    string `json:"command"`
-	Worktree   string `json:"worktree"`
-	Source     string `json:"source"`
-	Detached   bool   `json:"detached,omitempty"`
-	RebaseHead string `json:"rebaseHead,omitempty"`
-	RebaseOnto string `json:"rebaseOnto,omitempty"`
-	RebaseOrig string `json:"rebaseOrig,omitempty"`
-	Phase      Phase  `json:"phase"`
-	StashOID   string `json:"stashOid,omitempty"`
-	Ref        string `json:"ref,omitempty"`
-	Message    string `json:"message,omitempty"`
+	ID            string `json:"id"`
+	Command       string `json:"command"`
+	Worktree      string `json:"worktree"`
+	Source        string `json:"source"`
+	Detached      bool   `json:"detached,omitempty"`
+	RestoreBranch string `json:"restoreBranch,omitempty"`
+	RebaseHead    string `json:"rebaseHead,omitempty"`
+	RebaseOnto    string `json:"rebaseOnto,omitempty"`
+	RebaseOrig    string `json:"rebaseOrig,omitempty"`
+	Phase         Phase  `json:"phase"`
+	StashOID      string `json:"stashOid,omitempty"`
+	Ref           string `json:"ref,omitempty"`
+	Message       string `json:"message,omitempty"`
 }
 
 // File is the common-repo recovery journal.

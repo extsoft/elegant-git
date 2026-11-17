@@ -221,6 +221,25 @@ func TestSwitchM8Dirty(t *testing.T) {
 	})
 }
 
+func TestSwitchRemoteNewNameRestoresDirty(t *testing.T) {
+	r := newSwRepo(t)
+	r.git("checkout", "-q", "-b", "x")
+	r.addRemote("origin", "x")
+	r.git("checkout", "-q", "main")
+	r.write("f", "dirty\n")
+	r.enter()
+	err := runSwitch(&swPrompter{picks: []string{"add", "new name"}, lines: []string{"x", "x2"}}, "origin/x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.headRef() != "refs/heads/x2" || r.read("f") != "dirty\n" || r.upstream("x2") != "origin/x" {
+		t.Fatalf("head %s file %q upstream %s", r.headRef(), r.read("f"), r.upstream("x2"))
+	}
+	if !strings.Contains(r.stashList(), "auto-stash") {
+		t.Fatal(r.stashList())
+	}
+}
+
 func TestSwitchM16NoRef(t *testing.T) {
 	r := newSwRepo(t)
 	r.git("checkout", "-q", "-b", "feat")

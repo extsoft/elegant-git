@@ -466,6 +466,18 @@ func TestStartLooseCaseOnlyRealRepo(t *testing.T) {
 	}
 }
 
+func TestStartDirtyRestoresOnNewBranch(t *testing.T) {
+	r := newSwRepo(t)
+	r.write("f", "dirty\n")
+	r.enter()
+	if err := runStart(prompt.NewNonInteractive(), "feat"); err != nil {
+		t.Fatal(err)
+	}
+	if r.headRef() != "refs/heads/feat" || r.read("f") != "dirty\n" || !strings.Contains(r.stashList(), "auto-stash") {
+		t.Fatalf("head %s file %q stash %q", r.headRef(), r.read("f"), r.stashList())
+	}
+}
+
 func setupStart(t *testing.T, branches string) *git.MemoryRunner {
 	t.Helper()
 	dir := t.TempDir()

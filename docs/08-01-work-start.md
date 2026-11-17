@@ -48,4 +48,6 @@ When the work tree is dirty, interactive mode asks whether to add the changes to
 reset them, or cancel. `add` is the default: the [stash pipe](reference/pipes.md) carries the
 modifications over. `reset` hard-resets first. `cancel` stops the command.
 
-In non-interactive mode dirty changes are stashed and moved onto the new branch.
+In non-interactive mode dirty changes are stashed and moved onto the new branch when you
+started on a branch. They are restored there only while that new branch is still checked
+out in this worktree. Starting from a detached HEAD leaves the stash in place.

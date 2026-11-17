@@ -2,6 +2,7 @@ package pipe
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/extsoft/elegant-git/internal/cmdid"
@@ -43,6 +44,10 @@ func runStashPipe(id cmdid.ID, fn func() error, restoreOnError bool) error {
 		return nil
 	}
 	var bodyErr error
+	if dec.opID != "" {
+		setCurrentRestore(common, dec.opID)
+		defer clearCurrentRestore()
+	}
 	if dec.runBody {
 		bodyErr = fn()
 	}
@@ -328,6 +333,11 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 			}
 			return bodyErr
 		}
+		if ok, err := onDestination(op); err != nil {
+			return combine(bodyErr, err)
+		} else if !ok {
+			return keepOffDestination(common, bodyErr, &op, &f)
+		}
 		if op.Phase == recovery.PhaseApplying {
 			return combine(bodyErr, recovery.NoSecondApplyError(op))
 		}
@@ -339,8 +349,24 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, res
 		if err := recovery.Save(common, f); err != nil {
 			return combine(bodyErr, err)
 		}
+		if beforeRestoreApply != nil {
+			beforeRestoreApply()
+		}
+		if ok, err := onDestination(op); err != nil {
+			return combine(bodyErr, err)
+		} else if !ok {
+			return combine(bodyErr, fmt.Errorf("%s It will not be applied again.", destinationKeptMessage(op)))
+		}
 		if err := git.Verbose("stash", "apply", "--index", op.StashOID); err != nil {
 			return combine(bodyErr, fmt.Errorf("recovery apply failed; backup %s was kept: %w", op.StashOID, err))
+		}
+		if afterRestoreApply != nil {
+			afterRestoreApply()
+		}
+		if ok, err := onDestination(op); err != nil {
+			return combine(bodyErr, err)
+		} else if !ok {
+			return combine(bodyErr, landedOffDestination(op))
 		}
 		op.Phase = recovery.PhaseApplied
 		f.Upsert(op)
@@ -437,6 +463,163 @@ func pendingLegacy(gitDir, command string) error {
 		return fmt.Errorf("pending recovery stash for %s is still recorded. Inspect it with `eg repo doctor`. This command will not change that backup", key)
 	}
 	return nil
+}
+
+// beforeRestoreApply runs after the applying phase is saved and before the
+// last destination check. Tests move HEAD in that window.
+var beforeRestoreApply func()
+
+// afterRestoreApply runs after git stash apply returns and before HEAD is
+// read again. Tests move HEAD in that window.
+var afterRestoreApply func()
+
+type restoreOwner struct {
+	common string
+	id     string
+}
+
+var currentRestore restoreOwner
+
+func setCurrentRestore(common, id string) {
+	currentRestore = restoreOwner{common: common, id: id}
+}
+
+func clearCurrentRestore() {
+	currentRestore = restoreOwner{}
+}
+
+// RememberRestoreBranch records the branch a navigation command checked out.
+// Restore then requires that branch, not merely that the original branch exists.
+func RememberRestoreBranch(branch string) error {
+	if currentRestore.id == "" || strings.TrimSpace(branch) == "" {
+		return nil
+	}
+	return recovery.WithLock(currentRestore.common, func() error {
+		f, err := recovery.Load(currentRestore.common)
+		if err != nil {
+			return err
+		}
+		op, ok := f.ByID(currentRestore.id)
+		if !ok {
+			return fmt.Errorf("recovery %s is not in the journal", currentRestore.id)
+		}
+		op.RestoreBranch = branch
+		f.Upsert(op)
+		return recovery.Save(currentRestore.common, f)
+	})
+}
+
+func keepOffDestination(common string, bodyErr error, op *recovery.Op, f *recovery.File) error {
+	msg := destinationKeptMessage(*op)
+	if op.Phase == recovery.PhaseRunning {
+		op.Phase = recovery.PhaseSuspended
+		f.Upsert(*op)
+		if err := recovery.Save(common, *f); err != nil {
+			return combine(bodyErr, err)
+		}
+	}
+	return combine(bodyErr, fmt.Errorf("%s", msg))
+}
+
+func destinationKeptMessage(op recovery.Op) string {
+	if gitDir, err := memrepo.GitDir(); err != nil || !sameGitPath(op.Worktree, gitDir) {
+		return fmt.Sprintf("Uncommitted changes stay in the stash because this is not the worktree that saved backup %s. Inspect it with `eg repo doctor`. This command will not run again automatically.", op.StashOID)
+	}
+	if op.Detached {
+		return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is no longer detached at %s. Inspect it with `eg repo doctor`. This command will not run again automatically.", op.Source)
+	}
+	return fmt.Sprintf("Uncommitted changes stay in the stash because HEAD is %s, not %s. Inspect it with `eg repo doctor`. This command will not run again automatically.", headPlace(), approvedPlace(op))
+}
+
+func landedOffDestination(op recovery.Op) error {
+	return fmt.Errorf("Changes from backup %s landed on %s, not %s. The stash entry remains. The journal and private ref were kept. Inspect it with `eg repo doctor`. This command will not apply it again.", op.StashOID, headPlace(), approvedPlace(op))
+}
+
+func approvedPlace(op recovery.Op) string {
+	if op.Detached {
+		return "detached at " + shortOID(op.Source)
+	}
+	if op.RestoreBranch != "" {
+		return op.RestoreBranch
+	}
+	if op.Source == "" {
+		return "unknown"
+	}
+	return op.Source
+}
+
+func headPlace() string {
+	head, err := headBranch()
+	if err != nil || head == "" {
+		return "unknown"
+	}
+	if head != "HEAD" {
+		return head
+	}
+	oid, err := git.Output("rev-parse", "--short", "HEAD")
+	if err != nil || strings.TrimSpace(oid) == "" {
+		return "detached"
+	}
+	return "detached at " + strings.TrimSpace(oid)
+}
+
+func shortOID(oid string) string {
+	oid = strings.TrimSpace(oid)
+	if len(oid) > 12 {
+		return oid[:12]
+	}
+	return oid
+}
+
+func detachedAt(commit string) bool {
+	ref, err := git.Output("symbolic-ref", "--quiet", "HEAD")
+	if err == nil && strings.TrimSpace(ref) != "" {
+		return false
+	}
+	oid, err := git.Output("rev-parse", "--verify", "HEAD")
+	return err == nil && strings.TrimSpace(oid) == commit
+}
+
+func onDestination(op recovery.Op) (bool, error) {
+	gitDir, err := memrepo.GitDir()
+	if err != nil {
+		return false, err
+	}
+	if !sameGitPath(op.Worktree, gitDir) {
+		return false, nil
+	}
+	if op.Detached {
+		return detachedAt(op.Source), nil
+	}
+	head, err := headBranch()
+	if err != nil {
+		return false, err
+	}
+	want := op.Source
+	if op.RestoreBranch != "" {
+		want = op.RestoreBranch
+	}
+	return head == want, nil
+}
+
+func headBranch() (string, error) {
+	out, err := git.Output("rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
+}
+
+func sameGitPath(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	ra, ea := filepath.EvalSymlinks(a)
+	rb, eb := filepath.EvalSymlinks(b)
+	return ea == nil && eb == nil && ra == rb
 }
 
 func sourceSafe(op recovery.Op) bool {

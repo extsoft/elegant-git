@@ -38,7 +38,9 @@ and `refs/remotes/origin/x` are remote, and `tags/x` and `refs/tags/x` are a tag
 short name is both a local branch and a tag, the local branch is used and a notice names
 `tags/x`.
 
-Uncommitted changes are carried onto the branch you switch to. In a terminal you can keep them,
+Uncommitted changes are carried onto the branch you switch to when you started on a branch,
+and only while that branch is still checked out in this worktree. Starting from a detached
+HEAD leaves the stash in place. In a terminal you can keep them,
 discard them, or cancel. Non-interactive mode keeps them. If the checkout fails, those changes
 are put back. A repository with no commits yet cannot carry uncommitted changes, because
 stashing needs a commit. Switching to the branch you are already on prints a notice and changes

@@ -117,7 +117,8 @@ func trackLogic(ctx context.Context, p prompt.Prompter, pattern, localBranch str
 	if err != nil {
 		return err
 	}
-	return checkoutTrackedLocal(p, local, remote, fold, trackDivergenceError)
+	_, err = checkoutTrackedLocal(p, local, remote, fold, trackDivergenceError)
+	return err
 }
 
 func resolveRemotePattern(ctx context.Context, p prompt.Prompter, pattern string) (string, error) {
@@ -208,10 +209,10 @@ const (
 	trackDivergenceStay
 )
 
-func checkoutTrackedLocal(p prompt.Prompter, local, remote string, fold caseFold, divergence trackDivergence) error {
+func checkoutTrackedLocal(p prompt.Prompter, local, remote string, fold caseFold, divergence trackDivergence) (string, error) {
 	branches, err := state.LocalBranchNames()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if branchListed(branches, local) && localTracksRemote(local, remote) {
 		return trackSameUpstream(p, local, remote, fold, divergence)
@@ -219,11 +220,17 @@ func checkoutTrackedLocal(p prompt.Prompter, local, remote string, fold caseFold
 	if submitNewBranchNameProblem(local, branches) != "" {
 		name, err := resolveNewBranchNameFold(p, local, branches, local, &fold)
 		if err != nil {
-			return err
+			return "", err
 		}
-		return createTrackingBranch(name, remote)
+		if err := createTrackingBranch(name, remote); err != nil {
+			return "", err
+		}
+		return name, nil
 	}
-	return createTrackingBranch(local, remote)
+	if err := createTrackingBranch(local, remote); err != nil {
+		return "", err
+	}
+	return local, nil
 }
 
 func branchListed(branches []string, name string) bool {
@@ -239,42 +246,57 @@ func createTrackingBranch(local, remote string) error {
 	return git.Verbose("checkout", "-b", local, "--track", remoteTrackingRef(remote))
 }
 
-func trackSameUpstream(p prompt.Prompter, local, remote string, fold caseFold, divergence trackDivergence) error {
+func trackSameUpstream(p prompt.Prompter, local, remote string, fold caseFold, divergence trackDivergence) (string, error) {
 	if prompt.NonInteractive(p) {
 		if divergence == trackDivergenceStay {
-			return fastForwardOrStay(local, remote)
+			if err := fastForwardOrStay(local, remote); err != nil {
+				return "", err
+			}
+			return local, nil
 		}
 		text.ErrorText(fmt.Sprintf("local branch '%s' already tracks '%s'; run 'git switch %s'", local, remote, local))
-		return cliruntime.ExitStatus{Code: exitcode.WorkflowError}
+		return "", cliruntime.ExitStatus{Code: exitcode.WorkflowError}
 	}
 	choices, def := trackUpstreamChoices(local, remote)
 	label := fmt.Sprintf("Local branch '%s' already tracks '%s'", local, remote)
 	ans, err := p.Pick(label, choices, def)
 	if err != nil {
-		return err
+		return "", err
 	}
 	switch ans {
 	case "switch":
-		return git.Verbose("checkout", local, "--")
+		if err := git.Verbose("checkout", local, "--"); err != nil {
+			return "", err
+		}
+		return local, nil
 	case "fast-forward":
 		if err := git.Verbose("checkout", local, "--"); err != nil {
-			return err
+			return "", err
 		}
-		return git.Verbose("merge", "--ff-only", remoteTrackingRef(remote))
+		if err := git.Verbose("merge", "--ff-only", remoteTrackingRef(remote)); err != nil {
+			return "", err
+		}
+		return local, nil
 	case "reset":
-		return git.Verbose("checkout", "-B", local, remoteTrackingRef(remote))
+		if err := git.Verbose("checkout", "-B", local, remoteTrackingRef(remote)); err != nil {
+			return "", err
+		}
+		return local, nil
 	case "new name":
 		branches, err := state.LocalBranchNames()
 		if err != nil {
-			return err
+			return "", err
 		}
 		name, err := askNewBranchName(p, "Branch name", branches, "", fold)
 		if err != nil {
-			return err
+			return "", err
 		}
-		return createTrackingBranch(name, remote)
+		if err := createTrackingBranch(name, remote); err != nil {
+			return "", err
+		}
+		return name, nil
 	default:
-		return fmt.Errorf("invalid choice %q", ans)
+		return "", fmt.Errorf("invalid choice %q", ans)
 	}
 }
 

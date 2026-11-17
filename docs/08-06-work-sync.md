@@ -24,7 +24,8 @@ branch. In non-interactive mode, an omitted name rebases onto the source branch 
 Shell completion uses the same list.
 
 The [stash pipe](reference/pipes.md) always wraps the rebase, so uncommitted changes are
-preserved and restored. If a rebase is already in progress, it continues that rebase first.
+preserved and restored on this branch in this worktree. Another branch, including one at the
+same commit, does not receive them. If a rebase is already in progress, it continues that rebase first.
 
 ## Already delivered work
 

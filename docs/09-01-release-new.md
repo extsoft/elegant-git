@@ -28,5 +28,6 @@ Elegant Git
 
 The command runs inside both the [stash pipe and the branch pipe](reference/pipes.md), so
 uncommitted changes and the branch you were on are preserved and restored — you end up back where
-you started. "The last tag" means the highest tag by version order, not the most recently created
+you started, and the changes are restored only when that branch is still checked out in this
+worktree. "The last tag" means the highest tag by version order, not the most recently created
 one.

@@ -19,7 +19,7 @@ local and remote branches. From bare `eg work` on a feature branch, picking `acc
 branch you are already on.
 
 The [stash pipe](reference/pipes.md) wraps the whole run, so uncommitted changes are preserved and
-restored when the branch they came from still exists. The stash entry stays in the list. If you
+restored when that branch is still checked out in this worktree. The stash entry stays in the list. If you
 accepted that branch, it is deleted and those changes are not restored onto the default
 development branch. The
 [branch pipe](reference/pipes.md) restores the branch you were on when that local ref still exists.

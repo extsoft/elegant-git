@@ -20,7 +20,8 @@ allowed.
 If a rebase is already in progress, it continues that rebase. If there are no unique commits
 against the freshest source, it says so and stops. Otherwise the [stash pipe](reference/pipes.md)
 wraps an interactive rebase of those unique commits, so uncommitted changes are preserved and
-restored.
+restored on this branch in this worktree. Another branch, including one at the same commit,
+does not receive them.
 
 When you started this rebase from `accept`, the helper branch is `__eg` and bare `eg work`
 continues with `accept` instead of `polish`. See [the branch lifecycle](08-00-work.md#the-branch-lifecycle).

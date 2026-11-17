@@ -72,7 +72,16 @@ command runs without a backup.
 
 If the source branch is gone, or a detached HEAD has moved or is no longer detached, the
 stash stays in place. The command
-tells you to inspect it. Another command that has its own changes will not start while that
+tells you to inspect it. Restore also requires the worktree that saved the backup and HEAD
+on the branch that command is allowed to restore to: the branch the stash was taken from for
+`sync`, `polish`, `push`, `accept`, and `release new`, or the branch `start` or `switch`
+checked out. Another branch at the same commit is not that destination. The check is read
+again immediately before `git stash apply` and again after it returns. Another process can
+still change the branch while `git stash apply` is running. Git does not give Elegant Git a
+way to prevent that. If the branch no longer matches when apply returns, the command does
+not report success. It keeps the stash entry, the journal, and the private ref, and it does
+not apply that backup again.
+Another command that has its own changes will not start while that
 backup is pending. A clean command still runs. A command started from inside a running Elegant
 Git process is not blocked by that guard.
 

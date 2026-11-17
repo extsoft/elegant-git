@@ -988,6 +988,284 @@ func TestRealGitPopLegacyDoesNotPopAfterLookup(t *testing.T) {
 	}
 }
 
+func TestRealGitRebaseThenSameCommitBranchDoesNotRestore(t *testing.T) {
+	r := newPipeRepo(t)
+	r.git("checkout", "-q", "-b", "feat")
+	r.write("g", "feat\n")
+	r.git("add", "g")
+	r.git("commit", "-q", "-m", "feat")
+	r.git("checkout", "-q", "main")
+	r.write("h", "main\n")
+	r.git("add", "h")
+	r.git("commit", "-q", "-m", "main2")
+	r.git("checkout", "-q", "feat")
+	r.write("f", "staged\n")
+	r.git("add", "f")
+	r.write("f", "unstaged\n")
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		r.git("rebase", "main")
+		r.git("branch", "other", "HEAD")
+		r.git("checkout", "-q", "other")
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "HEAD is other, not feat") {
+		t.Fatal(err)
+	}
+	if calls != 1 || r.git("rev-parse", "--abbrev-ref", "HEAD") != "other" || r.read("f") != "base\n" || r.read("g") != "feat\n" {
+		t.Fatalf("calls=%d head=%s f=%q g=%q", calls, r.git("rev-parse", "--abbrev-ref", "HEAD"), r.read("f"), r.read("g"))
+	}
+	if r.git("diff", "--cached") != "" || r.git("diff") != "" {
+		t.Fatalf("index %q work %q", r.git("diff", "--cached"), r.git("diff"))
+	}
+	op := r.oneRecoveryOp(t)
+	if op.Phase != recovery.PhaseSuspended || op.StashOID == "" || !r.hasStash(op.StashOID) {
+		t.Fatalf("op %+v", op)
+	}
+	if refs := r.git("for-each-ref", op.Ref); !strings.Contains(refs, op.StashOID) {
+		t.Fatalf("ref %q", refs)
+	}
+	stash := r.git("stash", "list")
+	err = StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "will not run again") || calls != 1 {
+		t.Fatalf("calls=%d err=%v", calls, err)
+	}
+	if r.read("f") != "base\n" || r.git("stash", "list") != stash || r.git("rev-parse", "--abbrev-ref", "HEAD") != "other" {
+		t.Fatal("second run changed the repo")
+	}
+}
+
+func TestRealGitMovedAndDetachedHeadDoesNotRestore(t *testing.T) {
+	r := newPipeRepo(t)
+	r.git("checkout", "-q", "-b", "feat")
+	r.write("g", "feat\n")
+	r.git("add", "g")
+	r.git("commit", "-q", "-m", "feat")
+	r.write("f", "dirty\n")
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	err := StashPipe(id, func() error {
+		r.git("checkout", "-q", "main")
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "HEAD is main, not feat") || r.read("f") == "dirty\n" {
+		t.Fatalf("err=%v file %q", err, r.read("f"))
+	}
+	if op := r.oneRecoveryOp(t); op.Phase != recovery.PhaseSuspended || !r.hasStash(op.StashOID) {
+		t.Fatalf("op %+v", op)
+	}
+
+	r = newPipeRepo(t)
+	r.write("f", "dirty\n")
+	err = StashPipe(id, func() error {
+		r.git("checkout", "-q", "--detach")
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "detached at") || !strings.Contains(err.Error(), "not main") || r.read("f") == "dirty\n" {
+		t.Fatalf("err=%v file %q", err, r.read("f"))
+	}
+	if r.git("rev-parse", "--abbrev-ref", "HEAD") != "HEAD" {
+		t.Fatal(r.git("rev-parse", "--abbrev-ref", "HEAD"))
+	}
+}
+
+func TestRealGitRecordedDestinationRestores(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "staged\n")
+	r.git("add", "f")
+	r.write("f", "unstaged\n")
+	id := cmdid.ID{Command: "work", Action: "start"}
+	if err := StashPipe(id, func() error {
+		r.git("checkout", "-q", "-b", "feat")
+		return RememberRestoreBranch("feat")
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if r.git("rev-parse", "--abbrev-ref", "HEAD") != "feat" {
+		t.Fatal(r.git("rev-parse", "--abbrev-ref", "HEAD"))
+	}
+	cached := r.git("diff", "--cached", "--", "f")
+	unstaged := r.git("diff", "--", "f")
+	if !strings.Contains(cached, "+staged") || !strings.Contains(unstaged, "+unstaged") {
+		t.Fatalf("cached %q unstaged %q", cached, unstaged)
+	}
+	if refs := r.git("for-each-ref", recovery.RefPrefix); refs != "" || len(r.recoveryOps(t)) != 0 {
+		t.Fatalf("refs %q ops %d", refs, len(r.recoveryOps(t)))
+	}
+	if !strings.Contains(r.git("stash", "list"), "auto-stash") {
+		t.Fatal(r.git("stash", "list"))
+	}
+}
+
+func TestRealGitSameBranchCommitMoveRestores(t *testing.T) {
+	r := newPipeRepo(t)
+	r.git("checkout", "-q", "-b", "feat")
+	r.write("f", "staged\n")
+	r.git("add", "f")
+	r.write("f", "unstaged\n")
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	if err := StashPipe(id, func() error {
+		r.git("commit", "--allow-empty", "-q", "-m", "move")
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if r.git("rev-parse", "--abbrev-ref", "HEAD") != "feat" {
+		t.Fatal(r.git("rev-parse", "--abbrev-ref", "HEAD"))
+	}
+	if !strings.Contains(r.git("diff", "--cached", "--", "f"), "+staged") || !strings.Contains(r.git("diff", "--", "f"), "+unstaged") {
+		t.Fatalf("cached %q unstaged %q", r.git("diff", "--cached", "--", "f"), r.git("diff", "--", "f"))
+	}
+}
+
+func TestRealGitRestoreOnErrorRefusesOtherBranch(t *testing.T) {
+	r := newPipeRepo(t)
+	r.git("checkout", "-q", "-b", "feat")
+	r.git("branch", "other")
+	r.write("f", "dirty\n")
+	id := cmdid.ID{Command: "work", Action: "switch"}
+	err := StashPipeRestoring(id, func() error {
+		r.git("checkout", "-q", "other")
+		return errors.New("switch failed")
+	})
+	if err == nil || !strings.Contains(err.Error(), "switch failed") || !strings.Contains(err.Error(), "HEAD is other, not feat") {
+		t.Fatal(err)
+	}
+	if r.read("f") == "dirty\n" || r.git("rev-parse", "--abbrev-ref", "HEAD") != "other" {
+		t.Fatalf("file %q head %s", r.read("f"), r.git("rev-parse", "--abbrev-ref", "HEAD"))
+	}
+	op := r.oneRecoveryOp(t)
+	if op.Phase != recovery.PhaseSuspended || !r.hasStash(op.StashOID) {
+		t.Fatalf("op %+v", op)
+	}
+	if refs := r.git("for-each-ref", op.Ref); !strings.Contains(refs, op.StashOID) {
+		t.Fatalf("ref %q", refs)
+	}
+}
+
+func TestRealGitBranchSwitchBetweenCheckAndApplyDoesNotRestore(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "dirty\n")
+	beforeRestoreApply = func() { r.git("checkout", "-q", "-b", "other") }
+	t.Cleanup(func() { beforeRestoreApply = nil })
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "HEAD is other, not main") || !strings.Contains(err.Error(), "will not be applied again") {
+		t.Fatal(err)
+	}
+	if calls != 1 || r.read("f") == "dirty\n" || r.git("diff") != "" || r.git("diff", "--cached") != "" {
+		t.Fatalf("calls=%d file %q", calls, r.read("f"))
+	}
+	op := r.oneRecoveryOp(t)
+	if op.Phase != recovery.PhaseApplying || !r.hasStash(op.StashOID) {
+		t.Fatalf("op %+v", op)
+	}
+	err = StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "will not be applied again") || calls != 1 || r.read("f") == "dirty\n" {
+		t.Fatalf("calls=%d err=%v file %q", calls, err, r.read("f"))
+	}
+}
+
+func TestRealGitBranchSwitchAfterApplyKeepsRecord(t *testing.T) {
+	r := newPipeRepo(t)
+	r.git("branch", "other")
+	r.write("f", "dirty\n")
+	afterRestoreApply = func() { r.git("checkout", "-q", "other") }
+	t.Cleanup(func() { afterRestoreApply = nil })
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	op := r.oneRecoveryOp(t)
+	if err == nil || !strings.Contains(err.Error(), op.StashOID) || !strings.Contains(err.Error(), "landed on other, not main") || !strings.Contains(err.Error(), "eg repo doctor") || !strings.Contains(err.Error(), "will not apply it again") {
+		t.Fatal(err)
+	}
+	if calls != 1 || r.git("rev-parse", "--abbrev-ref", "HEAD") != "other" || r.read("f") != "dirty\n" {
+		t.Fatalf("calls=%d head=%s file %q", calls, r.git("rev-parse", "--abbrev-ref", "HEAD"), r.read("f"))
+	}
+	if op.Phase != recovery.PhaseApplying || !r.hasStash(op.StashOID) {
+		t.Fatalf("op %+v", op)
+	}
+	if refs := r.git("for-each-ref", op.Ref); !strings.Contains(refs, op.StashOID) {
+		t.Fatalf("ref %q", refs)
+	}
+	err = StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "will not be applied again") || calls != 1 {
+		t.Fatalf("calls=%d err=%v", calls, err)
+	}
+	if again := r.oneRecoveryOp(t); again.Phase != recovery.PhaseApplying || again.StashOID != op.StashOID || r.read("f") != "dirty\n" {
+		t.Fatalf("op %+v file %q", again, r.read("f"))
+	}
+}
+
+func TestRealGitAppliedResumeOnOtherBranchDoesNotApply(t *testing.T) {
+	r := newPipeRepo(t)
+	oid := r.stash("plain", "stashed\n")
+	r.git("checkout", "-q", "-b", "other")
+	r.write("f", "other\n")
+	r.saveApplied(t, oid)
+	calls := 0
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	if err := StashPipe(id, func() error {
+		calls++
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 || r.read("f") != "other\n" || r.git("rev-parse", "--abbrev-ref", "HEAD") != "other" || !r.hasStash(oid) {
+		t.Fatalf("calls=%d file %q stash %v", calls, r.read("f"), r.hasStash(oid))
+	}
+	if _, err := os.Stat(filepath.Join(r.dir, "extra")); !os.IsNotExist(err) {
+		t.Fatal("applied onto other")
+	}
+	if len(r.recoveryOps(t)) != 0 || r.git("for-each-ref", recovery.RefPrefix) != "" {
+		t.Fatal("cleanup left the record")
+	}
+}
+
+func TestRealGitOtherWorktreeDoesNotRestore(t *testing.T) {
+	r := newPipeRepo(t)
+	other := t.TempDir()
+	r.git("worktree", "add", "-q", "-b", "side", other, "HEAD")
+	r.write("f", "dirty\n")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+	id := cmdid.ID{Command: "work", Action: "sync"}
+	err = StashPipe(id, func() error {
+		return os.Chdir(other)
+	})
+	if err == nil || !strings.Contains(err.Error(), "not the worktree") {
+		t.Fatal(err)
+	}
+	body, readErr := os.ReadFile(filepath.Join(other, "f"))
+	if readErr != nil || string(body) != "base\n" || r.read("f") == "dirty\n" {
+		t.Fatalf("other %q primary %q", body, r.read("f"))
+	}
+	op := r.oneRecoveryOp(t)
+	if op.Phase != recovery.PhaseSuspended || !r.hasStash(op.StashOID) {
+		t.Fatalf("op %+v", op)
+	}
+}
+
 func (r *pipeRepo) stash(message, body string) string {
 	r.t.Helper()
 	r.write("extra", body)
