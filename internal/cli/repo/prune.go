@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -26,7 +25,7 @@ var pruneID = cmdid.ID{Command: "repo", Action: "prune"}
 
 const (
 	pruneRefFormat   = "%(refname:short)%09%(committerdate:unix)%09%(committerdate:short)%09%(upstream:short)"
-	pruneStashFormat = "%gd%x09%ct%x09%cs%x09%s%x09%H"
+	pruneStashFormat = "%H%x09%gd%x09%ct%x09%cs%x09%s"
 	pruneNameMaxLen  = 40
 )
 
@@ -133,7 +132,7 @@ func containsPhase(phases []string, name string) bool {
 func prunePhase(w io.Writer, p prompt.Prompter, phase, defaultBranch string) error {
 	text.CommandText(phaseHeader(phase, defaultBranch))
 	progress := newPruneProgress(w, phaseNoun(phase))
-	choices, err := collectPhase(phase, defaultBranch, progress)
+	choices, stashOIDs, err := collectPhase(phase, defaultBranch, progress)
 	progress.close()
 	if err != nil {
 		return err
@@ -168,7 +167,7 @@ func prunePhase(w io.Writer, p prompt.Prompter, phase, defaultBranch string) err
 	if len(selected) == 0 {
 		return nil
 	}
-	if err := deletePhase(phase, choices, selected); err != nil {
+	if err := deletePhase(phase, choices, selected, stashOIDs); err != nil {
 		return err
 	}
 	text.InfoText(phasePastVerb(phase) + " " + phaseCount(phase, len(selected)) + ".")
@@ -295,18 +294,21 @@ func selectedDefaults(phase string, choices []prompt.Choice) []string {
 	return out
 }
 
-func collectPhase(phase, defaultBranch string, progress *pruneProgress) ([]prompt.Choice, error) {
+func collectPhase(phase, defaultBranch string, progress *pruneProgress) ([]prompt.Choice, map[string]string, error) {
 	switch phase {
 	case "local":
-		return collectLocal(defaultBranch, progress)
+		choices, err := collectLocal(defaultBranch, progress)
+		return choices, nil, err
 	case "remote":
-		return collectRemote(defaultBranch, progress)
+		choices, err := collectRemote(defaultBranch, progress)
+		return choices, nil, err
 	case "stashes":
 		return collectStashes(progress)
 	case "worktrees":
-		return collectWorktrees(progress)
+		choices, err := collectWorktrees(progress)
+		return choices, nil, err
 	default:
-		return nil, fmt.Errorf("unknown prune phase %q", phase)
+		return nil, nil, fmt.Errorf("unknown prune phase %q", phase)
 	}
 }
 
@@ -430,31 +432,32 @@ func collectRemote(defaultBranch string, progress *pruneProgress) ([]prompt.Choi
 	return choices, nil
 }
 
-func collectStashes(progress *pruneProgress) ([]prompt.Choice, error) {
-	out := git.OutputOK("stash", "list", "--format="+pruneStashFormat)
-	lines := splitLines(out)
-	progress.setTotal(len(lines))
+func collectStashes(progress *pruneProgress) ([]prompt.Choice, map[string]string, error) {
 	common, err := repo.GitCommonDir()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	entries, err := readStashes()
+	if err != nil {
+		return nil, nil, err
+	}
+	progress.setTotal(len(entries))
 	var choices []prompt.Choice
-	for i := len(lines) - 1; i >= 0; i-- {
-		ref, unix, short, subject, oid := splitStash(lines[i])
-		progress.tick(ref)
-		if ref == "" {
-			continue
-		}
-		protected, err := recovery.Protects(common, oid, subject)
+	listed := map[string]string{}
+	for i := len(entries) - 1; i >= 0; i-- {
+		entry := entries[i]
+		progress.tick(entry.ref)
+		listed[entry.ref] = entry.oid
+		protected, err := recovery.Protects(common, entry.oid, entry.subject)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if protected {
 			continue
 		}
-		choices = append(choices, datedChoice(ref, unix, short, subject))
+		choices = append(choices, datedChoice(entry.ref, entry.unix, entry.short, strings.ReplaceAll(entry.subject, "\t", " ")))
 	}
-	return choices, nil
+	return choices, listed, nil
 }
 
 type pruneWorktree struct {
@@ -509,7 +512,7 @@ func parseWorktrees(out string) []pruneWorktree {
 	return recs
 }
 
-func deletePhase(phase string, choices []prompt.Choice, selected []string) error {
+func deletePhase(phase string, choices []prompt.Choice, selected []string, stashOIDs map[string]string) error {
 	if len(selected) == 0 {
 		return nil
 	}
@@ -519,7 +522,7 @@ func deletePhase(phase string, choices []prompt.Choice, selected []string) error
 	case "remote":
 		return deleteRemote(selected)
 	case "stashes":
-		return deleteStashes(selected)
+		return deleteStashes(selected, stashOIDs)
 	case "worktrees":
 		return deleteWorktrees(choices, selected)
 	default:
@@ -551,46 +554,117 @@ func deleteRemote(refs []string) error {
 	return git.Verbose(args...)
 }
 
-func deleteStashes(refs []string) error {
-	sorted := append([]string(nil), refs...)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		return stashIndex(sorted[i]) > stashIndex(sorted[j])
-	})
+func deleteStashes(refs []string, listed map[string]string) error {
+	var oids []string
+	seen := map[string]bool{}
+	for _, ref := range refs {
+		oid := listed[ref]
+		if !stashOID(oid) {
+			return fmt.Errorf("stash %s has no recorded identity; nothing was dropped", ref)
+		}
+		if seen[oid] {
+			continue
+		}
+		seen[oid] = true
+		oids = append(oids, oid)
+	}
 	common, err := repo.GitCommonDir()
 	if err != nil {
 		return err
 	}
-	for _, ref := range sorted {
-		oid, subject, err := stashAt(ref)
+	dropped := 0
+	for len(oids) > 0 {
+		entries, err := readStashes()
 		if err != nil {
-			return err
+			return withDropProgress(err, dropped)
 		}
-		protected, err := recovery.Protects(common, oid, subject)
+		type hit struct {
+			index int
+			entry stashEntry
+		}
+		best := -1
+		var chosen hit
+		var chosenOID string
+		for _, oid := range oids {
+			var matches []stashEntry
+			for _, entry := range entries {
+				if entry.oid == oid {
+					matches = append(matches, entry)
+				}
+			}
+			if len(matches) == 0 {
+				return withDropProgress(fmt.Errorf("stash %s is no longer in the list", oid), dropped)
+			}
+			if len(matches) > 1 {
+				return withDropProgress(fmt.Errorf("stash %s matches more than one entry", oid), dropped)
+			}
+			index := stashIndex(matches[0].ref)
+			if index < 0 {
+				return withDropProgress(fmt.Errorf("stash %s is not addressable", oid), dropped)
+			}
+			if best < 0 || index > best {
+				best = index
+				chosen = hit{index: index, entry: matches[0]}
+				chosenOID = oid
+			}
+		}
+		if chosenOID == "" {
+			return withDropProgress(fmt.Errorf("no selected stash remains"), dropped)
+		}
+		protected, err := recovery.Protects(common, chosen.entry.oid, chosen.entry.subject)
 		if err != nil {
-			return err
+			return withDropProgress(err, dropped)
 		}
 		if protected {
-			return fmt.Errorf("refusing to drop %s; it is a recovery backup", ref)
+			return withDropProgress(fmt.Errorf("refusing to drop %s; it is a recovery backup", chosen.entry.ref), dropped)
 		}
-		if err := git.Verbose("stash", "drop", ref); err != nil {
-			return err
+		if err := git.Verbose("stash", "drop", chosen.entry.ref); err != nil {
+			return withDropProgress(err, dropped)
 		}
+		dropped++
+		next := oids[:0]
+		for _, oid := range oids {
+			if oid != chosenOID {
+				next = append(next, oid)
+			}
+		}
+		oids = next
 	}
 	return nil
 }
 
-func stashAt(ref string) (oid, subject string, err error) {
+func withDropProgress(err error, dropped int) error {
+	if err == nil {
+		return nil
+	}
+	if dropped == 0 {
+		return fmt.Errorf("%w; nothing was dropped", err)
+	}
+	return fmt.Errorf("%w; nothing further was dropped", err)
+}
+
+type stashEntry struct {
+	ref     string
+	unix    string
+	short   string
+	subject string
+	oid     string
+}
+
+func readStashes() ([]stashEntry, error) {
 	out, err := git.Output("stash", "list", "--format="+pruneStashFormat)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
+	var entries []stashEntry
 	for _, line := range splitLines(out) {
-		name, _, _, sub, id := splitStash(line)
-		if name == ref {
-			return id, sub, nil
+		ref, unix, short, subject, oid, ok := splitStash(line)
+		if !ok {
+			return nil, fmt.Errorf("stash list entry %q cannot be identified", line)
 		}
+		entries = append(entries, stashEntry{ref: ref, unix: unix, short: short, subject: subject, oid: oid})
 	}
-	return "", "", fmt.Errorf("stash %s is not in the list; nothing was dropped", ref)
+	return entries, nil
 }
 
 func stashIndex(ref string) int {
@@ -654,24 +728,32 @@ func splitLines(out string) []string {
 	return strings.Split(out, "\n")
 }
 
-func splitStash(line string) (ref, unix, short, subject, oid string) {
-	parts := strings.Split(line, "\t")
-	if len(parts) > 0 {
-		ref = strings.TrimSpace(parts[0])
+func splitStash(line string) (ref, unix, short, subject, oid string, ok bool) {
+	parts := strings.SplitN(line, "\t", 5)
+	if len(parts) < 5 {
+		return "", "", "", "", "", false
 	}
-	if len(parts) > 1 {
-		unix = strings.TrimSpace(parts[1])
+	oid = strings.TrimSpace(parts[0])
+	ref = strings.TrimSpace(parts[1])
+	unix = strings.TrimSpace(parts[2])
+	short = strings.TrimSpace(parts[3])
+	subject = strings.TrimSpace(parts[4])
+	if !stashOID(oid) || ref == "" {
+		return "", "", "", "", "", false
 	}
-	if len(parts) > 2 {
-		short = strings.TrimSpace(parts[2])
+	return ref, unix, short, subject, oid, true
+}
+
+func stashOID(s string) bool {
+	if len(s) != 40 && len(s) != 64 {
+		return false
 	}
-	if len(parts) > 3 {
-		subject = strings.TrimSpace(parts[3])
+	for _, c := range s {
+		if c < '0' || (c > '9' && c < 'a') || c > 'f' {
+			return false
+		}
 	}
-	if len(parts) > 4 {
-		oid = strings.TrimSpace(parts[4])
-	}
-	return ref, unix, short, subject, oid
+	return true
 }
 
 func splitRef(line string) (name, unix, short, extra string) {
