@@ -26,6 +26,10 @@ type pipeOpt struct {
 	includeUntracked bool
 	retain           bool
 	label            string
+	// restoreWhenSafe applies a failed body when HEAD is on the recorded
+	// destination and no Git operation is in progress. Other failures stay
+	// suspended.
+	restoreWhenSafe bool
 	// beforePrepare runs only when a new stash would be created.
 	// It can select retain and the stash label, or refuse before any backup.
 	beforePrepare func() (retain bool, label string, err error)
@@ -352,18 +356,24 @@ func finish(id cmdid.ID, gitDir, common string, dec decision, bodyErr error, opt
 			return bodyErr
 		}
 		if bodyErr != nil && !opt.restoreOnError {
-			if op.Phase == recovery.PhaseRunning {
-				op.Phase = recovery.PhaseSuspended
-				rememberOwnedRebase(&op)
-				f.Upsert(op)
-				if err := recovery.Save(common, f); err != nil {
-					return combine(bodyErr, err)
+			safe, err := restoreAllowed(opt, op)
+			if err != nil {
+				return combine(bodyErr, err)
+			}
+			if !safe {
+				if op.Phase == recovery.PhaseRunning {
+					op.Phase = recovery.PhaseSuspended
+					rememberOwnedRebase(&op)
+					f.Upsert(op)
+					if err := recovery.Save(common, f); err != nil {
+						return combine(bodyErr, err)
+					}
 				}
+				if op.StashOID != "" {
+					kept = Retention{OID: op.StashOID}
+				}
+				return bodyErr
 			}
-			if op.StashOID != "" {
-				kept = Retention{OID: op.StashOID}
-			}
-			return bodyErr
 		}
 		if cur := state.InProgressOperation(); cur != "" {
 			return combine(bodyErr, fmt.Errorf("recovery backup %s was kept because a %s is still in progress. Inspect it with `eg repo doctor`", op.StashOID, cur))
@@ -718,6 +728,13 @@ func sameGitPath(a, b string) bool {
 	ra, ea := filepath.EvalSymlinks(a)
 	rb, eb := filepath.EvalSymlinks(b)
 	return ea == nil && eb == nil && ra == rb
+}
+
+func restoreAllowed(opt pipeOpt, op recovery.Op) (bool, error) {
+	if opt.retain || !opt.restoreWhenSafe || state.InProgressOperation() != "" || !sourceSafe(op) {
+		return false, nil
+	}
+	return onDestination(op)
 }
 
 func sourceSafe(op recovery.Op) bool {

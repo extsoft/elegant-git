@@ -34,8 +34,9 @@ not a terminal — a pipe, a heredoc, a CI log — the command is always non-int
 
 ## Uncommitted changes
 
-`work start`, `work switch`, `work sync`, `work polish`, `work push`, `work accept`, and
-`release new` ask only when the tree has tracked edits or non-ignored untracked files.
+`work start`, `work switch`, `work sync`, `work polish`, `work push`, `work accept`,
+`release new`, and `repo prune` ask only when the tree has tracked edits or non-ignored
+untracked files.
 The question and `--dirty` use the same four words: `carry`, `stash`, `discard`, and
 `cancel`. The picker starts on `carry`. `--dirty` answers that question and no other one.
 `cancel` stops before files are stashed or reset. Without a terminal, omitting `--dirty`
@@ -253,9 +254,10 @@ selected, so the names stay in one column:
 Space toggles the current row.
 Enter accepts every selected row, in the list's original order, including an empty selection.
 The accepted values are shown back, or `(none)`. Esc, Ctrl+C, and Ctrl+D cancel. `repo prune`
-uses this picker for the phases and for each phase's candidates. Cancelling a phase's candidates
-skips that phase.
-Cancelling the phase list fails the command.
+uses this picker for the phases and for each phase's candidates. The phase list is before
+checkout. Cancelling it fails the command and does not check out or rebase. Cancelling a phase's
+candidates skips that phase, leaves the checkout in place, and does not report the carried
+changes as unfinished.
 
 When the terminal cannot run the picker, the rows are printed with `*` on the selected ones and
 you get an optional line, `Toggle (press enter to skip):`. Type one or more values to flip them.
@@ -283,5 +285,5 @@ Descriptions are not free text — each list has its own convention:
 | `repo prune` phases | What that phase removes. Every phase starts selected |
 | `repo prune` local branches | Option is `[NN u ago]  YYYY-MM-DD  name`, name trimmed to 40; description is `merged into <branch>` or `upstream <ref> is gone`. Oldest first, selected |
 | `repo prune` remote branches | Option is `[NN u ago]  YYYY-MM-DD  origin/name`, name trimmed to 40; description is `merged into <branch>`. Oldest first, selected |
-| `repo prune` stashes | Option is `[NN u ago]  YYYY-MM-DD  stash@{n}`; description is the subject. Oldest first, unselected |
+| `repo prune` stashes | Not a picker. Printed lines are `[NN u ago]  YYYY-MM-DD  stash@{n}` and the subject. Oldest first. Recovery backups are omitted. The last line is the `git stash drop stash@{n}` guidance |
 | `repo prune` stale worktrees | None |

@@ -24,7 +24,7 @@ func TestDirtyClassCatalog(t *testing.T) {
 		"repo.clone":       "create",
 		"repo.configure":   "tolerate",
 		"repo.sync":        "tolerate",
-		"repo.prune":       "prepare-legacy",
+		"repo.prune":       "prepare",
 		"repo.doctor":      "tolerate",
 		"hook.list":        "tolerate",
 		"hook.new":         "tolerate",

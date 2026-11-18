@@ -28,7 +28,7 @@ branches are protected comes from [per-repo memory](memory.md).
 `43` means the command refused to continue because your input or the repository state does not make
 sense for it — an unsupported release notes layout, a hook file that already exists, a hook id that
 is not a real command, a dirty `work start`, `work switch`, `work sync`, `work polish`,
-`work push`, `work accept`, or `release new` with no `--dirty` choice, or a
+`work push`, `work accept`, `release new`, or `repo prune` with no `--dirty` choice, or a
 discard or preserve that would overwrite an untracked or ignored file, or a protected
 `work save` that stashed its inputs and stopped without committing. The failure is reported
 before the working tree is prepared, except that protected save, which reports it after the

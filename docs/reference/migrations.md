@@ -28,9 +28,9 @@ ones wait for a yes; advisory ones are informational only.
 If Elegant Git wrote the bytes and the rewrite is determined, it is automatic; otherwise it
 belongs to doctor.
 
-`work start`, `work switch`, `work sync`, `work polish`, `work push`, `work accept`, and
-`release new` are the exception for one behavior. A dirty run without `--dirty` now fails
-instead of stashing. That change is immediate. There is no release where the old
+`work start`, `work switch`, `work sync`, `work polish`, `work push`, `work accept`,
+`release new`, and `repo prune` are the exception for one behavior. A dirty run without
+`--dirty` now fails instead of stashing. That change is immediate. There is no release where the old
 non-interactive stash still happens, and there is no fallback that turns it back on.
 Names, hooks, aliases, and recovery records already written stay compatible.
 

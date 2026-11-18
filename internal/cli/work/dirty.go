@@ -169,6 +169,12 @@ func readDirtyFlags(cmd *cobra.Command) (choice, name string, nameSet bool, err 
 	return choice, strings.TrimSpace(name), nameSet, nil
 }
 
+// ValidateDirtyFlags reports a usage error for --dirty or --stash-name.
+func ValidateDirtyFlags(cmd *cobra.Command) error {
+	_, _, _, err := readDirtyFlags(cmd)
+	return err
+}
+
 func chooseDirty(r navRequest, explicit string) (string, error) {
 	if explicit != "" {
 		return explicit, nil
@@ -476,7 +482,43 @@ func refuseIncoming(h History, choice, target string) error {
 	if err != nil {
 		return workflowText(unknownIncoming)
 	}
-	if path, ok := firstObstruction(writes, preservedOccupants(snap, choice == "carry"), coreIgnoreCase()); ok {
+	occupants := preservedOccupants(snap, choice == "carry")
+	if h.Occupants != nil {
+		occupants, err = h.Occupants(snap, choice)
+		if err != nil {
+			return err
+		}
+	}
+	if path, ok := firstObstruction(writes, occupants, coreIgnoreCase()); ok {
+		return workflowText(fmt.Sprintf("%s would be overwritten. It was left in place.", path))
+	}
+	return nil
+}
+
+// DiscardKeeps lists paths discard leaves in the worktree: staged additions,
+// copy targets, and rename targets.
+func DiscardKeeps() ([]string, error) {
+	keep, _, err := discardPlan()
+	return keep, err
+}
+
+// DiffPaths lists paths that differ between commits.
+func DiffPaths(revs ...string) ([]string, error) {
+	return diffPaths(revs...)
+}
+
+// ReplayAddedPaths lists files added between commits.
+func ReplayAddedPaths(from, to string) ([]string, error) {
+	return replayAdds(from, to)
+}
+
+// RefuseIgnored reports an ignored path the write set would overwrite.
+func RefuseIgnored(paths []string) error {
+	snap, err := state.ReadSnapshot()
+	if err != nil {
+		return err
+	}
+	if path, ok := firstObstruction(paths, snap.Ignored, coreIgnoreCase()); ok {
 		return workflowText(fmt.Sprintf("%s would be overwritten. It was left in place.", path))
 	}
 	return nil
@@ -734,7 +776,13 @@ type History struct {
 	Replay bool
 	// Footprint overrides the default HEAD-to-target write set.
 	Footprint func(target string) ([]string, error)
-	Body      func() error
+	// Occupants overrides which paths block that write set. Nil keeps ignored
+	// files, plus untracked files when the choice is carry.
+	Occupants func(state.Snapshot, string) ([]string, error)
+	// RestoreWhenSafe applies a carried backup after the body fails when HEAD
+	// is on the recorded destination and no Git operation is in progress.
+	RestoreWhenSafe bool
+	Body            func() error
 }
 
 // PrepareHistory classifies an in-progress operation before protected checks
@@ -753,7 +801,7 @@ func PrepareHistory(h History) error {
 	}
 	if snap.Operation != "" {
 		if h.Allow != nil && h.Allow(snap) {
-			_, err = pipe.StashPipeHistory(h.ID, nil, h.Body)
+			_, err = pipe.StashPipeHistory(h.ID, nil, h.Body, h.RestoreWhenSafe)
 			return err
 		}
 		if h.Mismatch != nil {
@@ -787,6 +835,17 @@ func PrepareHistory(h History) error {
 		if picked == "cancel" {
 			return false, "", cancelled(h.Verb)
 		}
+		var label string
+		if picked == "stash" {
+			name, nameSet, err := stashName(h.Cmd)
+			if err != nil {
+				return false, "", err
+			}
+			label, err = resolveStashLabel(navRequest{cmd: h.Cmd, ctx: ctx, verb: h.Verb, dest: h.Dest}, name, nameSet)
+			if err != nil {
+				return false, "", err
+			}
+		}
 		target, err := incomingTarget(h)
 		if err != nil {
 			return false, "", err
@@ -805,18 +864,10 @@ func PrepareHistory(h History) error {
 			return false, "", err
 		}
 		if picked == "stash" {
-			name, nameSet, err := stashName(h.Cmd)
-			if err != nil {
-				return false, "", err
-			}
-			label, err := resolveStashLabel(navRequest{cmd: h.Cmd, ctx: ctx, verb: h.Verb, dest: h.Dest}, name, nameSet)
-			if err != nil {
-				return false, "", err
-			}
 			return true, label, nil
 		}
 		return false, "", nil
-	}, h.Body)
+	}, h.Body, h.RestoreWhenSafe)
 	if errors.Is(err, errHistoryDiscard) {
 		return discardThen(incoming, h.Body)
 	}
@@ -870,7 +921,7 @@ func dirtyClass(object, action string) string {
 	case "work.polish", "work.sync", "work.push", "work.accept", "release.new":
 		return "prepare"
 	case "repo.prune":
-		return "prepare-legacy"
+		return "prepare"
 	case "repo.init", "repo.clone":
 		return "create"
 	default:

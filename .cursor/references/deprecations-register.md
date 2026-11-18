@@ -27,7 +27,7 @@
 ## Waivers
 
 D11 (2026-11-15): `work start`, `work switch`, `work sync`, `work polish`, `work push`,
-`work accept`, and `release new` take the new non-interactive default immediately. A dirty
+`work accept`, `release new`, and `repo prune` take the new non-interactive default immediately. A dirty
 invocation without `--dirty=carry|stash|discard|cancel` fails before preparation. There is
 no retention window and no fallback that stashes automatically. Command names, hooks,
 aliases, and existing recovery records keep their compatibility obligations. `preserve` and

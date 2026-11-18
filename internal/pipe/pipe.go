@@ -59,11 +59,14 @@ func StashPipeNavigation(id cmdid.ID, retain bool, label string, fn func() error
 // StashPipeHistory preserves the same content as StashPipeNavigation.
 // before runs only when a new backup would be created, after an in-progress
 // operation has already been classified. A failed fn keeps that backup and
-// does not run again on a later call.
-func StashPipeHistory(id cmdid.ID, before func() (retain bool, label string, err error), fn func() error) (Retention, error) {
+// does not run again on a later call, unless restoreWhenSafe is set, the backup
+// was not retained as a stash, and HEAD is already on the recorded destination
+// with no operation in progress.
+func StashPipeHistory(id cmdid.ID, before func() (retain bool, label string, err error), fn func() error, restoreWhenSafe bool) (Retention, error) {
 	return runStashPipe(id, fn, pipeOpt{
 		includeUntracked: true,
 		beforePrepare:    before,
+		restoreWhenSafe:  restoreWhenSafe,
 	})
 }
 

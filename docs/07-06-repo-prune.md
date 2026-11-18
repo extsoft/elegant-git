@@ -16,28 +16,54 @@ eg repo prune [phase...]
 
 ## What each phase removes
 
-Every candidate starts selected, except stashes.
+Every candidate starts selected. `stashes` has no selection.
 
 - `local` — deletes local branches merged into the default development branch or a protected
   branch, or whose upstream is gone.
 - `remote` — deletes remote branches merged into the default development branch or a protected
   branch, on the default upstream remote (`origin`) itself.
-- `stashes` — drops only the stashes you pick; none start selected.
+- `stashes` — lists ordinary stashes and does not drop them. Elegant Git cannot drop one stash
+  safely by commit. The phase prints `git stash drop stash@{n}` for you to run yourself.
 - `worktrees` — prunes worktrees whose directory no longer exists.
 
 Protected branches and the default development branch are never removed.
 
 ## How a run goes
 
-The command checks out the default development branch first, fetches every remote with `--prune`
-if an upstream exists (and says so if fetch fails, then continues with the local version), and
-rebases onto that upstream when it can. The fetch deletes remote-tracking branches whose remote
-branch is gone, so `local` sees those upstreams as gone.
+Interactive mode asks `What to clean up`, with every phase selected, before it checks anything
+out. Naming phases on the command line skips that question. Accepting none stops before checkout.
+Cancelling that list fails the command and leaves the working tree where it was. Non-interactive
+mode with no phases runs `local` only. `stashes` does not ask, so naming it without a
+terminal lists the ordinary stashes and the `git stash drop` command.
 
-Phases run in the order of the table, whichever ones you name. Leave them off and interactive
-mode asks `What to clean up`, with every phase selected. Naming phases on the command line skips
-that question. Non-interactive mode with no phases runs `local` only. `stashes` needs you to pick,
-so naming it in non-interactive mode fails before anything is checked out or fetched.
+When the tree has tracked edits or non-ignored untracked files, the next question is the same
+`carry`, `stash`, `discard`, and `cancel` choice as
+[work start](08-01-work-start.md). `carry` restores those changes on the default development
+branch, with the staged and unstaged split kept. If this command deletes the branch you were on,
+that backup stays in the stash and is not applied to the default branch. `stash` leaves an
+ordinary stash and does not apply it. `discard` reverts modifications and deletions of committed
+files and leaves staged additions and rename targets as untracked files. An ignored file the
+checkout or rebase would write is refused first, and so is an untracked file for `carry` or
+`discard`, including a staged addition or rename target that carry or discard would leave
+behind. The stash name is asked before any fetch. A phase that fails after checkout restores
+a carried backup when HEAD is on the default branch and no rebase is in progress, then
+reports that phase error. A rebase still in progress, a deleted source branch, or a
+destination that is not the default branch leaves the backup in place. With `stash`, a
+failed phase also leaves that backup suspended.
+`cancel`, or cancelling the question, stops before any stash or reset. Without a
+terminal, a dirty tree fails until `--dirty` is set. A clean tree does not need it. The phase
+list is asked first. An in-progress Git operation is refused after that list and before the
+dirty question. If the branch you were on was deleted, the backup stays suspended. A later
+`repo prune`, even with a clean tree, does not run again until `eg repo doctor` clears it,
+and it does not repeat those deletions.
+
+The command then fetches every remote with `--prune` when the default branch has an upstream (and
+says so if fetch fails, then continues with the local version), checks out that default branch,
+and rebases onto the upstream when the fetch worked. The fetch deletes remote-tracking branches
+whose remote branch is gone, so `local` sees those upstreams as gone. Candidates are read after
+that, so a stash created for this command does not change which older stash is which.
+
+Phases run in the order of the table, whichever ones you named.
 
 Each phase prints what it is about to remove, then scans. On a terminal, a progress line shows the
 item being checked and stays up for at least 1.5 seconds before it is erased. The examples use
@@ -57,8 +83,9 @@ Delete 2 branches on origin? [yes/no] (press enter to 'no'):
 ```
 
 Answering `no`, accepting an empty selection, or pressing Esc prints `Nothing deleted.` (`Nothing
-dropped.` for stashes, `Nothing pruned.` for worktrees) and moves to the next phase. After a phase
-applies, it reports what it did, such as `Deleted 2 branches on origin.` A phase with no
+pruned.` for worktrees) and moves to the next phase. `stashes` does not ask. That skip
+does not undo the checkout, and it does not mean the carried changes failed to come back. After a
+phase applies, it reports what it did, such as `Deleted 2 branches on origin.` A phase with no
 candidates says why, such as `No origin branches are merged into main or a protected branch.`,
 or `No remotes; skipping origin branches.` The messages name the actual branch and remote.
 
@@ -89,12 +116,10 @@ upstream is gone, and the row says so.
 - `remote` never removes the remote's `HEAD`, the default development branch, or a protected
   branch. The branches you select are deleted on the default upstream remote with one push. This
   phase does nothing when the repository has no remotes.
-- `stashes` lists every stash, with the subject after it. It does not drop the ones you
-  select. Git can delete the stash list only by checking the tip commit and removing the
-  whole list, and that check does not see the other entries. Another command can remove
-  the list, add a different stash, and put the old tip back; the delete would then remove
-  that different stash too. Prune refuses instead, and nothing is dropped. A recovery
-  backup stays in the list.
+- `stashes` lists ordinary stashes, oldest first, with the subject after the date and
+  `stash@{n}`. Recovery backups are omitted. It then prints: Elegant Git cannot drop one
+  stash safely by commit. Drop one yourself with `git stash drop stash@{n}`. The phase
+  succeeds either way, including when the list is empty.
 - `worktrees` removes worktrees whose directory is gone and that are not locked. Unselected stale
   worktrees are locked for the duration of the prune, then unlocked, so only the ones you picked
   are removed.

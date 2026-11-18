@@ -21,15 +21,18 @@ There are the following pipes:
 - **branch pipe** which preserves and restores current branch when that local ref still exists
 - **stash pipe** which preserves and restores uncommitted changes
 
-`work sync`, `work polish`, `work push`, `work accept`, and `release new` ask
+`work sync`, `work polish`, `work push`, `work accept`, `release new`, and `repo prune` ask
 `carry`, `stash`, `discard`, or `cancel` before they change a dirty tree, the same four
 words as `work start` and `work switch`. A non-interactive run fails until `--dirty` is set.
-A clean tree does not ask. An in-progress rebase is continued first, and a merge,
-cherry-pick, revert, or bisect is refused, before that question. Conflict resolutions are
-not stashed or reset. `carry` and `stash` keep tracked and non-ignored untracked files and
+A clean tree does not ask. For sync, polish, push, accept, and release new, an in-progress
+rebase is continued first, and a merge, cherry-pick, revert, or bisect is refused, before
+that question. `repo prune` refuses any in-progress Git operation before the question.
+Conflict resolutions are not stashed or reset. `carry` and `stash` keep tracked and non-ignored untracked files and
 the staged and unstaged split. `carry` restores that backup on the branch the command is
-allowed to return to: the branch you stayed on for sync, polish, and push, or the branch
-you started on for accept and release new. `stash` checks that the stash is still there,
+allowed to return to: the branch you stayed on for sync, polish, and push, the branch
+you started on for accept and release new, or the default development branch for
+`repo prune`. If prune deletes the branch the changes came from, the backup stays and is
+not applied to that default branch. `stash` checks that the stash is still there,
 then drops the recovery record and the private ref so the stash is an ordinary one you can
 restore yourself with `git stash apply --index <oid>`. It is not applied afterward. If that
 handoff fails, the record stays. If the branch the stash was taken from is gone — for
@@ -84,20 +87,25 @@ If the source branch is gone, or a detached HEAD has moved or is no longer detac
 stash stays in place. The command
 tells you to inspect it. Restore also requires the worktree that saved the backup and HEAD
 on the branch that command is allowed to restore to: the branch the stash was taken from for
-`sync`, `polish`, `push`, `accept`, and `release new`, or the branch `start` or `switch`
-checked out. Another branch at the same commit is not that destination. The check is read
+`sync`, `polish`, `push`, `accept`, and `release new`, the branch `start` or `switch`
+checked out, or the default development branch for `repo prune`. A phase error while HEAD is
+still on that default branch, with no rebase in progress, restores a carried backup and then
+reports the error. A stash choice stays in the stash. If prune deleted the branch the changes came from, or a rebase is still in progress,
+that backup stays and prune does not run again until `eg repo doctor`
+clears it. Another branch at the same commit is not that destination. The check is read
 again immediately before `git stash apply` and again after it returns. Another process can
 still change the branch while `git stash apply` is running. Git does not give Elegant Git a
 way to prevent that. If the branch no longer matches when apply returns, the command does
 not report success. It keeps the stash entry, the journal, and the private ref, and it does
 not apply that backup again.
 Another command that has its own changes will not start while that
-backup is pending. A clean command still runs. A command started from inside a running Elegant
+backup is pending. A clean command still runs, except `repo prune` while its own backup
+is suspended. A command started from inside a running Elegant
 Git process is not blocked by that guard.
 
 `eg repo doctor` prints the owner, source, phase, backup id, and ref. Confirming the repair
 clears the journal only. It does not apply the stash, drop it, or retry the command. After you
-confirm, prune may offer that stash. Until then a journaled backup, a private ref, or a stash
+confirm, prune lists that stash with the ordinary ones and does not drop it. Until then a journaled backup, a private ref, or a stash
 message still recorded in command memory is hidden, including an older
 `On <branch>: eg <command> auto-stash:` subject. A leftover subject with no record can be pruned.
 The protected stash stays the same one when other stashes are dropped.
