@@ -26,7 +26,8 @@ Shell completion uses the same list.
 If a rebase is already in progress, it continues that rebase first. Conflict resolutions are
 not stashed or discarded. Otherwise a dirty tree asks you to `carry`, `stash`, `discard`, or
 `cancel`, the same choice as [eg work start](08-01-work-start.md). `carry` restores tracked
-and non-ignored untracked files on this branch and keeps the staged and unstaged split.
+and non-ignored untracked files on this branch, keeps the staged and unstaged split, and then
+removes the temporary stash.
 `stash` leaves them in the stash. `discard` restores committed-file edits and keeps new-path files unless `--untracked=delete` is set with `--dirty=discard`, as described for [eg work start](08-01-work-start.md). An ignored file the incoming rebase would write, and for carry or keep an untracked file, is refused before any stash or reset. Delete removes only the listed new-path files and keeps no backup. Without a terminal,
 a dirty tree fails until `--dirty` is set. A clean tree does not need it. Non-interactive
 mode does not replace Git's rebase editor. The backup stays on this branch in this worktree.

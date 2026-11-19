@@ -238,7 +238,7 @@ func TestSwitchRemoteNewNameRestoresDirty(t *testing.T) {
 	if r.headRef() != "refs/heads/x2" || r.read("f") != "dirty\n" || r.upstream("x2") != "origin/x" {
 		t.Fatalf("head %s file %q upstream %s", r.headRef(), r.read("f"), r.upstream("x2"))
 	}
-	if !strings.Contains(r.stashList(), "auto-stash") {
+	if r.stashList() != "" {
 		t.Fatal(r.stashList())
 	}
 }
@@ -294,7 +294,7 @@ func TestSwitchM18WorktreeRestores(t *testing.T) {
 	if !strings.Contains(stderr, "feat") {
 		t.Fatalf("stderr %q err %v", stderr, err)
 	}
-	if r.headRef() != "refs/heads/main" || r.read("f") != "dirty\n" || !strings.Contains(r.stashList(), "auto-stash") {
+	if r.headRef() != "refs/heads/main" || r.read("f") != "dirty\n" || r.stashList() != "" {
 		t.Fatalf("head %s file %q stash %q", r.headRef(), r.read("f"), r.stashList())
 	}
 }

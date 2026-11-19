@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/extsoft/elegant-git/internal/prompt"
+	"github.com/extsoft/elegant-git/internal/recovery"
 )
 
 func TestRunNonInteractivePrintsOnly(t *testing.T) {
@@ -141,6 +142,22 @@ func TestRepairableCountIgnoresAdvisory(t *testing.T) {
 	}
 	if n := RepairableCount(findings); n != 1 {
 		t.Fatalf("RepairableCount = %d", n)
+	}
+}
+
+func TestAppliedRecoveryDoesNotSuggestApply(t *testing.T) {
+	applied := recoveryProblem(recovery.Op{
+		Command: "work.sync", Phase: recovery.PhaseApplied, Source: "main",
+		StashOID: "abc", Ref: "refs/elegant-git/recovery/abc",
+	})
+	if strings.Contains(applied, "git stash apply") || !strings.Contains(applied, "were restored") || !strings.Contains(applied, "does not apply") {
+		t.Fatal(applied)
+	}
+	preserved := recoveryProblem(recovery.Op{
+		Command: "work.sync", Phase: recovery.PhasePreserved, Source: "main", StashOID: "abc",
+	})
+	if !strings.Contains(preserved, "git stash apply --index abc") {
+		t.Fatal(preserved)
 	}
 }
 

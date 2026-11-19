@@ -43,7 +43,7 @@ Uncommitted changes use the same `carry`, `stash`, `discard`, and `cancel` choic
 does not need the flag. In a terminal the picker starts on `carry`. Without a terminal, a
 dirty tree fails until `--dirty` is set; a dirty `work switch` no longer stashes on its
 own. `carry` moves tracked and non-ignored untracked files onto the branch you switch to
-and keeps the staged and unstaged split. That includes a detached HEAD: the changes land
+and keeps the staged and unstaged split. It then removes the temporary stash. That includes a detached HEAD: the changes land
 on the branch you switch to. An untracked or ignored path that the destination would
 replace, including a file where the branch has a directory, stops the command before
 any stash, even when nothing else is uncommitted. `stash` still saves that untracked

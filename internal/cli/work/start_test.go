@@ -515,7 +515,7 @@ func TestStartDirtyRestoresOnNewBranch(t *testing.T) {
 	if err := runStartOpt(prompt.NewNonInteractive(), "carry", "", "feat"); err != nil {
 		t.Fatal(err)
 	}
-	if r.headRef() != "refs/heads/feat" || r.read("f") != "dirty\n" || !strings.Contains(r.stashList(), "auto-stash") {
+	if r.headRef() != "refs/heads/feat" || r.read("f") != "dirty\n" || r.stashList() != "" {
 		t.Fatalf("head %s file %q stash %q", r.headRef(), r.read("f"), r.stashList())
 	}
 }

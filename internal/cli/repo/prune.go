@@ -244,7 +244,7 @@ func phaseChoices() []prompt.Choice {
 	return []prompt.Choice{
 		{Value: "local", Description: "Delete local branches that are merged or whose upstream is gone."},
 		{Value: "remote", Description: "Delete remote branches that are merged."},
-		{Value: "stashes", Description: "List ordinary stashes. Elegant Git cannot drop one safely by commit."},
+		{Value: "stashes", Description: "List ordinary stashes. This phase does not drop them."},
 		{Value: "worktrees", Description: "Prune worktrees whose directory is gone."},
 	}
 }
@@ -263,7 +263,7 @@ func orderedPhases(names []string) []string {
 	return out
 }
 
-const stashDropGuidance = "Elegant Git cannot drop one stash safely by commit. Drop one yourself with `git stash drop stash@{n}`."
+const stashDropGuidance = "This phase lists ordinary stashes and does not drop them. Drop one yourself with `git stash drop stash@{n}`."
 
 func prunePhase(w io.Writer, p prompt.Prompter, phase, defaultBranch string) error {
 	if phase == "stashes" {

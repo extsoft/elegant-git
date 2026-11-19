@@ -42,7 +42,9 @@ prints that the current repository was repaired.
 - hook files still use the `git-` command prefix — renames them to `self-`
 - a pipe recovery is still open — prints the command, phase, source, backup id, and private ref.
   Confirming clears that record only. It does not apply or drop the stash, and it does not run
-  the command again. An `applying` phase is never applied a second time. A recovery ref with no
+  the command again. An `applying` phase is never applied a second time. An `applied` phase means
+  the changes were already restored and cleanup did not finish; repeating the command only finishes
+  cleanup. A recovery ref with no
   journal entry is reported and is not deleted. The manual restore commands are on the
   [stash pipe](reference/pipes.md#recovery) page
 

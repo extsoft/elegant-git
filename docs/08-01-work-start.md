@@ -53,7 +53,8 @@ stop before any stash or reset. Tracked edits and non-ignored untracked files ar
 where they are. If checkout would overwrite one, the command stops and leaves it, even
 when the rest of the tree is clean.
 
-`carry` moves that work onto the new branch, including when HEAD is detached. It stops
+`carry` moves that work onto the new branch, including when HEAD is detached, and then removes
+the temporary stash. It stops
 before any stash when an untracked or ignored path would be overwritten by a file or
 directory on that branch. `stash` still saves a non-ignored untracked path that the
 branch also has, and checks out a clean branch. An ignored collision still stops it.

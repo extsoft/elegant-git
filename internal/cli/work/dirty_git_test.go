@@ -75,16 +75,8 @@ func TestCarryKeepsIndexSplit(t *testing.T) {
 	if r.git("diff", "--cached") != cached || r.git("diff") != plain {
 		t.Fatalf("cached %q plain %q", r.git("diff", "--cached"), r.git("diff"))
 	}
-	if r.read("free") != "u\n" || r.read("skip") != "ignored\n" {
-		t.Fatal("untracked or ignored content changed")
-	}
-	if strings.Contains(r.git("ls-tree", "-r", "--name-only", "stash@{0}"), "skip") {
-		t.Fatal("ignored file was stashed")
-	}
-	if third := r.gitAllow("rev-parse", "--verify", "--quiet", "stash@{0}^3"); third == nil {
-		if strings.Contains(r.git("ls-tree", "-r", "--name-only", "stash@{0}^3"), "skip") {
-			t.Fatal("ignored file was stashed")
-		}
+	if r.read("free") != "u\n" || r.read("skip") != "ignored\n" || r.stashList() != "" {
+		t.Fatalf("free %q skip %q stash %q", r.read("free"), r.read("skip"), r.stashList())
 	}
 }
 

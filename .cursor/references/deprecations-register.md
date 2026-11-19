@@ -38,6 +38,12 @@ files no longer refuses. `--dirty=discard` keeps those files unless `--untracked
 is also set. `--untracked=keep|delete` is additive. No previous flag, hook id, or
 recovery record is removed, and there is no shim that reproduces the old refusal.
 
+Temporary stash cleanup (2026-11-19): A successful carry removes the temporary auto-stash
+after the changes are restored. The manual-drop warning is gone. `--dirty=stash`, a failed
+command, a conflict, and an uncertain apply still keep the stash and the recovery record.
+No flag, hook, or journal field is removed, and there is no shim that leaves the temporary
+stash after success.
+
 DEP-022 (2026-11-17): Elegant Git drops support for Git older than 2.40.0 immediately. The old
 backup note of Git 2.13 was not a full-product contract. D4 accepts this withdrawal of older Git
 support, so there is no grace period and no compatibility fallback. Help, version, static

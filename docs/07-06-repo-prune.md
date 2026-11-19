@@ -22,8 +22,8 @@ Every candidate starts selected. `stashes` has no selection.
   branch, or whose upstream is gone.
 - `remote` — deletes remote branches merged into the default development branch or a protected
   branch, on the default upstream remote (`origin`) itself.
-- `stashes` — lists ordinary stashes and does not drop them. Elegant Git cannot drop one stash
-  safely by commit. The phase prints `git stash drop stash@{n}` for you to run yourself.
+- `stashes` — lists ordinary stashes and does not drop them. A finished carry removes its own
+  temporary stash; this phase does not. It prints `git stash drop stash@{n}` for you to run yourself.
 - `worktrees` — prunes worktrees whose directory no longer exists.
 
 Protected branches and the default development branch are never removed.
@@ -39,7 +39,8 @@ terminal lists the ordinary stashes and the `git stash drop` command.
 When the tree has tracked edits or non-ignored untracked files, the next question is the same
 `carry`, `stash`, `discard`, and `cancel` choice as
 [work start](08-01-work-start.md). `carry` restores those changes on the default development
-branch, with the staged and unstaged split kept. If this command deletes the branch you were on,
+branch, with the staged and unstaged split kept. A successful restore removes the temporary stash.
+If this command deletes the branch you were on,
 that backup stays in the stash and is not applied to the default branch. `stash` leaves an
 ordinary stash and does not apply it. `discard` restores committed-file edits and keeps
 new-path files unless `--untracked=delete` is set with `--dirty=discard`. Delete removes
@@ -117,8 +118,8 @@ upstream is gone, and the row says so.
   branch. The branches you select are deleted on the default upstream remote with one push. This
   phase does nothing when the repository has no remotes.
 - `stashes` lists ordinary stashes, oldest first, with the subject after the date and
-  `stash@{n}`. Recovery backups are omitted. It then prints: Elegant Git cannot drop one
-  stash safely by commit. Drop one yourself with `git stash drop stash@{n}`. The phase
+  `stash@{n}`. Recovery backups are omitted. It then prints that this phase does not drop
+  them, and shows `git stash drop stash@{n}` for you to run yourself. The phase
   succeeds either way, including when the list is empty.
 - `worktrees` removes worktrees whose directory is gone and that are not locked. Unselected stale
   worktrees are locked for the duration of the prune, then unlocked, so only the ones you picked

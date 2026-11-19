@@ -86,7 +86,7 @@ Avoid: using “repo” when you mean the **Repository** entity in shared memory
 
 Reachable backup of uncommitted work, with a journaled phase, kept until restore finishes or `repo doctor` records that you inspected it.
 
-Notes: private ref `refs/elegant-git/recovery/<id>`; journal `<git-common-dir>/elegant-git/recovery.json`. Prune hides a backup while the journal, a private ref, or a recorded stash message still names it. A leftover pipe subject with no record can be pruned.
+Notes: private ref `refs/elegant-git/recovery/<id>`; journal `<git-common-dir>/elegant-git/recovery.json`. A finished restore drops that temporary stash entry. Prune hides a backup while the journal, a private ref, or a recorded stash message still names it. A leftover pipe subject with no record can be pruned.
 
 Avoid: treating it as an ordinary stash you can drop while the journal still points at it
 

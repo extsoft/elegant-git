@@ -3,6 +3,7 @@
 package recovery
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,6 +34,17 @@ func TestRecoveryLockBlocksAnotherProcess(t *testing.T) {
 	}
 	if err != nil {
 		t.Fatalf("child acquired the lock: %v\n%s", err, out)
+	}
+}
+
+func TestRecoveryLockReleasedAfterError(t *testing.T) {
+	dir := t.TempDir()
+	want := errors.New("boom")
+	if err := WithLock(dir, func() error { return want }); !errors.Is(err, want) {
+		t.Fatal(err)
+	}
+	if err := WithLock(dir, func() error { return nil }); err != nil {
+		t.Fatal(err)
 	}
 }
 

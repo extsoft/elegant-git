@@ -256,7 +256,158 @@ func TestLegacyFieldDoesNotReplayBody(t *testing.T) {
 	}
 }
 
-func TestAppliedCleanupClearsFieldBeforeRefDelete(t *testing.T) {
+func TestAppliedCleanupKeepsRecordWhenRefDeleteFails(t *testing.T) {
+	m, common, id, msg := appliedCleanup(t)
+	m.FailOn["update-ref -d "+recovery.RefName("abc")+" deadbeef"] = fmt.Errorf("busy")
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "busy") || !strings.Contains(err.Error(), "temporary stash cleanup failed") || !strings.Contains(err.Error(), "deadbeef") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || hasApply(m) {
+		t.Fatalf("calls=%d apply=%v", calls, hasApply(m))
+	}
+	if drop := callIndex(m, "stash", "drop", "stash@{0}"); drop < 0 || drop > callIndex(m, "update-ref", "-d", recovery.RefName("abc"), "deadbeef") {
+		t.Fatalf("calls=%v", m.Calls)
+	}
+	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != msg {
+		t.Fatalf("field %q err=%v", got, gerr)
+	}
+	f, loadErr := recovery.Load(common)
+	if loadErr != nil || len(f.Ops) != 1 || f.Ops[0].Phase != recovery.PhaseApplied {
+		t.Fatalf("journal %+v err=%v", f.Ops, loadErr)
+	}
+}
+
+func TestAppliedCleanupDropFailureKeepsRecovery(t *testing.T) {
+	m, common, id, msg := appliedCleanup(t)
+	m.FailOn["stash drop stash@{0}"] = fmt.Errorf("busy")
+	calls := 0
+	err := StashPipe(id, func() error {
+		calls++
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "Changes were restored") || !strings.Contains(err.Error(), "temporary stash cleanup failed") || !strings.Contains(err.Error(), "deadbeef") || !strings.Contains(err.Error(), "busy") {
+		t.Fatalf("err=%v", err)
+	}
+	if calls != 0 || hasApply(m) || callIndex(m, "update-ref", "-d", recovery.RefName("abc"), "deadbeef") >= 0 {
+		t.Fatalf("calls=%d git=%v", calls, m.Calls)
+	}
+	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != msg {
+		t.Fatalf("field %q err=%v", got, gerr)
+	}
+	f, loadErr := recovery.Load(common)
+	if loadErr != nil || len(f.Ops) != 1 || f.Ops[0].Phase != recovery.PhaseApplied {
+		t.Fatalf("journal %+v err=%v", f.Ops, loadErr)
+	}
+}
+
+func TestAppliedCleanupListFailureKeepsRecovery(t *testing.T) {
+	m, common, id, msg := appliedCleanup(t)
+	m.FailOn["stash list --format=%H%x00%gd%x00%gs"] = fmt.Errorf("busy")
+	err := StashPipe(id, func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "temporary stash cleanup failed") || !strings.Contains(err.Error(), "busy") {
+		t.Fatalf("err=%v", err)
+	}
+	if callIndex(m, "stash", "drop", "stash@{0}") >= 0 {
+		t.Fatalf("dropped %#v", m.Calls)
+	}
+	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != msg {
+		t.Fatalf("field %q err=%v", got, gerr)
+	}
+	f, loadErr := recovery.Load(common)
+	if loadErr != nil || len(f.Ops) != 1 || f.Ops[0].Phase != recovery.PhaseApplied {
+		t.Fatalf("journal %+v err=%v", f.Ops, loadErr)
+	}
+}
+
+func TestAppliedCleanupAbsentStashFinishes(t *testing.T) {
+	m, common, id, _ := appliedCleanup(t)
+	m.Outputs["stash list --format=%H%x00%gd%x00%gs"] = ""
+	calls := 0
+	if err := StashPipe(id, func() error {
+		calls++
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 || hasApply(m) || callIndex(m, "stash", "drop", "stash@{0}") >= 0 {
+		t.Fatalf("calls=%d git=%v", calls, m.Calls)
+	}
+	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != "" {
+		t.Fatalf("field %q err=%v", got, gerr)
+	}
+	f, loadErr := recovery.Load(common)
+	if loadErr != nil || len(f.Ops) != 0 {
+		t.Fatalf("journal %+v err=%v", f.Ops, loadErr)
+	}
+}
+
+func TestAppliedCleanupCommandMemoryFailureKeepsJournal(t *testing.T) {
+	m, common, id, msg := appliedCleanup(t)
+	gitDir := m.Outputs["rev-parse --git-dir"]
+	stateDir := filepath.Join(gitDir, "elegant-git", "cmdstate")
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ELEGANT_GIT_CMD_STATE_FILE", filepath.Join(stateDir, "commands.json"))
+	if err := cmdmem.Set(id, cmdmem.FieldStash, msg); err != nil {
+		t.Fatal(err)
+	}
+	beforeRecoveryCleanup = func() {
+		if err := os.Chmod(stateDir, 0o555); err != nil {
+			t.Errorf("chmod: %v", err)
+		}
+	}
+	t.Cleanup(func() {
+		beforeRecoveryCleanup = nil
+		_ = os.Chmod(stateDir, 0o755)
+	})
+	err := StashPipe(id, func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "temporary stash cleanup failed") {
+		t.Fatalf("err=%v", err)
+	}
+	if callIndex(m, "stash", "drop", "stash@{0}") < 0 || callIndex(m, "update-ref", "-d", recovery.RefName("abc"), "deadbeef") < 0 {
+		t.Fatalf("calls=%v", m.Calls)
+	}
+	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != msg {
+		t.Fatalf("field %q err=%v", got, gerr)
+	}
+	f, loadErr := recovery.Load(common)
+	if loadErr != nil || len(f.Ops) != 1 || f.Ops[0].Phase != recovery.PhaseApplied {
+		t.Fatalf("journal %+v err=%v", f.Ops, loadErr)
+	}
+}
+
+func TestAppliedCleanupJournalFailureKeepsRecord(t *testing.T) {
+	m, common, id, _ := appliedCleanup(t)
+	beforeRecoveryCleanup = func() {
+		if err := os.Mkdir(filepath.Join(common, "elegant-git", "recovery.json.tmp"), 0o755); err != nil {
+			t.Errorf("mkdir: %v", err)
+		}
+	}
+	t.Cleanup(func() { beforeRecoveryCleanup = nil })
+	err := StashPipe(id, func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "temporary stash cleanup failed") || !strings.Contains(err.Error(), "deadbeef") {
+		t.Fatalf("err=%v", err)
+	}
+	if callIndex(m, "stash", "drop", "stash@{0}") < 0 || callIndex(m, "update-ref", "-d", recovery.RefName("abc"), "deadbeef") < 0 {
+		t.Fatalf("calls=%v", m.Calls)
+	}
+	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != "" {
+		t.Fatalf("field %q err=%v", got, gerr)
+	}
+	f, loadErr := recovery.Load(common)
+	if loadErr != nil || len(f.Ops) != 1 || f.Ops[0].Phase != recovery.PhaseApplied {
+		t.Fatalf("journal %+v err=%v", f.Ops, loadErr)
+	}
+}
+
+func appliedCleanup(t *testing.T) (*git.MemoryRunner, string, cmdid.ID, string) {
+	t.Helper()
 	m := setupRecoveryRepo(t)
 	gitDir := m.Outputs["rev-parse --git-dir"]
 	common := m.Outputs["rev-parse --git-common-dir"]
@@ -273,27 +424,27 @@ func TestAppliedCleanupClearsFieldBeforeRefDelete(t *testing.T) {
 	if err := cmdmem.Set(id, cmdmem.FieldStash, msg); err != nil {
 		t.Fatal(err)
 	}
-	listKey := strings.Join([]string{"stash", "list", "--format=%H%x00%gd%x00%s"}, " ")
-	m.Outputs[listKey] = strings.Join([]string{"deadbeef", "stash@{0}", "On main: " + msg}, "\x00")
-	m.FailOn["update-ref -d "+recovery.RefName("abc")+" deadbeef"] = fmt.Errorf("busy")
-	calls := 0
-	err := StashPipe(id, func() error {
-		calls++
-		return nil
-	})
-	if err == nil || !strings.Contains(err.Error(), "busy") {
-		t.Fatalf("err=%v calls=%#v", err, m.Calls)
+	m.Outputs["stash list --format=%H%x00%gd%x00%gs"] = strings.Join([]string{"deadbeef", "stash@{0}", "On main: " + msg}, "\x00")
+	return m, common, id, msg
+}
+
+func callIndex(m *git.MemoryRunner, args ...string) int {
+	for i, call := range m.Calls {
+		if len(call.Args) != len(args) {
+			continue
+		}
+		match := true
+		for j := range args {
+			if call.Args[j] != args[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
 	}
-	if calls != 0 {
-		t.Fatalf("body ran %d times", calls)
-	}
-	if got, gerr := cmdmem.Get(id, cmdmem.FieldStash); gerr != nil || got != "" {
-		t.Fatalf("field %q err=%v", got, gerr)
-	}
-	f, loadErr := recovery.Load(common)
-	if loadErr != nil || len(f.Ops) != 1 || f.Ops[0].Phase != recovery.PhaseApplied {
-		t.Fatalf("journal %+v err=%v", f.Ops, loadErr)
-	}
+	return -1
 }
 
 func TestSuspendedPhaseDoesNotReplayBody(t *testing.T) {

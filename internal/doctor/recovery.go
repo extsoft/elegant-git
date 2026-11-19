@@ -93,6 +93,8 @@ func recoveryProblem(op recovery.Op) string {
 	manual := "The backup has not been identified yet."
 	if backup != "" && op.Phase == recovery.PhaseApplying {
 		manual = "Backup " + backup + " remains in the stash and will not be applied again automatically. It may already be in the worktree."
+	} else if backup != "" && op.Phase == recovery.PhaseApplied {
+		manual = "Changes from backup " + backup + " were restored. Cleanup did not finish, so this record was kept. Repeating the command only finishes cleanup and does not apply the backup again."
 	} else if backup != "" {
 		manual = "To restore it yourself: git stash apply --index " + backup + "."
 	} else {

@@ -479,43 +479,35 @@ func handoffRetain(common string, id cmdid.ID, op recovery.Op, f *recovery.File,
 	return Retention{Label: label, OID: op.StashOID, Selector: match[0].ref}, nil
 }
 
-// beforeRecoveryCleanup runs after the stash list is read and before the
-// private ref is removed. Tests change the list in that window.
+// beforeRecoveryCleanup runs before cleanup resolves the owned stash.
+// popLegacy runs it after that legacy lookup and before it refuses to pop.
+// Tests change the stash list in that window.
 var beforeRecoveryCleanup func()
 
 func cleanup(common string, id cmdid.ID, op recovery.Op, f *recovery.File) error {
-	if err := clearStashField(id, op.Message); err != nil {
-		return err
-	}
-	hits, err := listStashes()
-	if err != nil {
-		return err
-	}
-	matches := 0
-	for _, hit := range hits {
-		if hit.oid == op.StashOID {
-			matches++
-		}
-	}
-	if matches > 1 {
-		return fmt.Errorf("recovery stash %s is ambiguous; other stashes were not changed", op.StashOID)
-	}
 	if beforeRecoveryCleanup != nil {
 		beforeRecoveryCleanup()
 	}
+	if err := git.DropStash(op.StashOID, op.Message); err != nil {
+		return cleanupFailed(op.StashOID, err)
+	}
 	if err := deleteRecoveryRef(op); err != nil {
-		return err
+		return cleanupFailed(op.StashOID, err)
+	}
+	if err := clearStashField(id, op.Message); err != nil {
+		return cleanupFailed(op.StashOID, err)
 	}
 	if !f.Remove(op.ID, op.StashOID) {
-		return fmt.Errorf("recovery %s is not in the journal", op.ID)
+		return cleanupFailed(op.StashOID, fmt.Errorf("recovery %s is not in the journal", op.ID))
 	}
 	if err := recovery.Save(common, *f); err != nil {
-		return err
-	}
-	if matches == 1 {
-		text.InfoText(fmt.Sprintf("Recovery backup %s is still in the stash list. Elegant Git did not drop it, because Git cannot remove that one entry without possibly removing a different stash. These changes will not be applied again.", op.StashOID))
+		return cleanupFailed(op.StashOID, err)
 	}
 	return nil
+}
+
+func cleanupFailed(oid string, err error) error {
+	return fmt.Errorf("Changes were restored; temporary stash cleanup failed for %s: %w", oid, err)
 }
 
 func legacyReplayError(command, message string) error {

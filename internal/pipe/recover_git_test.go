@@ -42,8 +42,8 @@ func TestRealGitRestoresTrackedIndexSplit(t *testing.T) {
 	if !strings.Contains(cached, "+staged") || !strings.Contains(unstaged, "+unstaged") {
 		t.Fatalf("cached %q unstaged %q", cached, unstaged)
 	}
-	if list := r.git("stash", "list"); !strings.Contains(list, "auto-stash") {
-		t.Fatalf("backup not retained %q", list)
+	if list := r.git("stash", "list"); list != "" {
+		t.Fatalf("temporary stash kept %q", list)
 	}
 	if refs := r.git("for-each-ref", recovery.RefPrefix); refs != "" {
 		t.Fatalf("refs %q", refs)
@@ -781,7 +781,7 @@ func TestRealGitCleanupInsertionLeavesUnrelatedStash(t *testing.T) {
 	if !strings.Contains(cached, "+staged") || !strings.Contains(unstaged, "+unstaged") {
 		t.Fatalf("cached %q unstaged %q", cached, unstaged)
 	}
-	if !r.hasStash(owned) || !r.hasStash(inserted) || !strings.Contains(r.patch(inserted), "external") {
+	if r.hasStash(owned) || !r.hasStash(inserted) || !strings.Contains(r.patch(inserted), "external") {
 		t.Fatalf("stashes\n%s", r.git("stash", "list", "--format=%H %s"))
 	}
 	if refs := r.git("for-each-ref", recovery.RefPrefix); refs != "" {
@@ -790,7 +790,7 @@ func TestRealGitCleanupInsertionLeavesUnrelatedStash(t *testing.T) {
 	if ops := r.recoveryOps(t); len(ops) != 0 {
 		t.Fatalf("ops %+v", ops)
 	}
-	if !strings.Contains(buf.String(), owned) || !strings.Contains(buf.String(), "did not drop") {
+	if strings.Contains(buf.String(), "did not drop") {
 		t.Fatalf("output %q", buf.String())
 	}
 }
@@ -817,6 +817,9 @@ func TestRealGitCleanupRemovalLeavesReplacement(t *testing.T) {
 	if calls != 1 || r.read("f") != "dirty\n" || !r.hasStash(replaced) || !strings.Contains(r.patch(replaced), "replaced") {
 		t.Fatalf("calls=%d file=%q stashes\n%s", calls, r.read("f"), r.git("stash", "list", "--format=%H %s"))
 	}
+	if len(r.recoveryOps(t)) != 0 || r.git("for-each-ref", recovery.RefPrefix) != "" {
+		t.Fatal("cleanup left the record")
+	}
 }
 
 func TestRealGitCleanupABALeavesUnselectedStash(t *testing.T) {
@@ -833,14 +836,22 @@ func TestRealGitCleanupABALeavesUnselectedStash(t *testing.T) {
 		r.git("stash", "store", "-m", "restored", owned)
 	}
 	t.Cleanup(func() { beforeRecoveryCleanup = nil })
-	if err := StashPipe(cmdid.ID{Command: "work", Action: "sync"}, func() error { return nil }); err != nil {
-		t.Fatal(err)
+	err := StashPipe(cmdid.ID{Command: "work", Action: "sync"}, func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "changed identity") || !strings.Contains(err.Error(), "Changes were restored") || !strings.Contains(err.Error(), owned) {
+		t.Fatalf("err=%v", err)
 	}
 	if r.read("f") != "dirty\n" || !r.hasStash(owned) || !r.hasStash(inserted) {
 		t.Fatalf("file %q stashes\n%s", r.read("f"), r.git("stash", "list", "--format=%H %s"))
 	}
 	if !strings.Contains(r.patch(inserted), "external") || !strings.Contains(r.patch(owned), "dirty") {
 		t.Fatalf("patches\n%s", r.git("stash", "list", "--format=%H %s"))
+	}
+	ops := r.recoveryOps(t)
+	if len(ops) != 1 || ops[0].Phase != recovery.PhaseApplied {
+		t.Fatalf("ops %+v", ops)
+	}
+	if refs := r.git("for-each-ref", recovery.RefPrefix); !strings.Contains(refs, owned) {
+		t.Fatalf("refs %q", refs)
 	}
 }
 
@@ -858,10 +869,10 @@ func TestRealGitAppliedCleanupDoesNotApplyAgain(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if calls != 0 || r.read("f") != "base\n" || !r.hasStash(oid) || !strings.Contains(r.patch(oid), "dirty") {
+	if calls != 0 || r.read("f") != "base\n" || r.hasStash(oid) {
 		t.Fatalf("calls=%d file=%q stashes\n%s", calls, r.read("f"), r.git("stash", "list", "--format=%H %s"))
 	}
-	if ops := r.recoveryOps(t); len(ops) != 0 {
+	if ops := r.recoveryOps(t); len(ops) != 0 || r.git("for-each-ref", recovery.RefPrefix) != "" {
 		t.Fatalf("ops %+v", ops)
 	}
 }
@@ -878,15 +889,48 @@ func TestRealGitDuplicateStashIdentityIsNotDropped(t *testing.T) {
 	r.git("stash", "store", "-m", "duplicate", oid)
 	r.saveApplied(t, oid)
 	calls := 0
+	if err := StashPipe(cmdid.ID{Command: "work", Action: "sync"}, func() error {
+		calls++
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 || !r.hasStash(oid) || !strings.Contains(r.patch(oid), "dirty") {
+		t.Fatalf("calls=%d stashes\n%s", calls, r.git("stash", "list", "--format=%H %s"))
+	}
+	subjects := r.git("stash", "list", "--format=%gs")
+	if strings.Contains(subjects, "owned") || !strings.Contains(subjects, "duplicate") || !strings.Contains(subjects, "other") {
+		t.Fatalf("subjects %q", subjects)
+	}
+	if ops := r.recoveryOps(t); len(ops) != 0 || r.git("for-each-ref", recovery.RefPrefix) != "" {
+		t.Fatalf("ops %+v", ops)
+	}
+}
+
+func TestRealGitIndistinguishableStashIdentityIsNotDropped(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "dirty\n")
+	r.git("add", "f")
+	r.git("stash", "push", "-q", "--message", "owned")
+	oid := r.git("rev-parse", "stash@{0}")
+	r.write("g", "other\n")
+	r.git("add", "g")
+	r.git("stash", "push", "-q", "--message", "other")
+	r.git("stash", "store", "-m", "owned", oid)
+	r.saveApplied(t, oid)
+	calls := 0
 	err := StashPipe(cmdid.ID{Command: "work", Action: "sync"}, func() error {
 		calls++
 		return nil
 	})
-	if err == nil || !strings.Contains(err.Error(), oid) || !strings.Contains(err.Error(), "ambiguous") {
+	if err == nil || !strings.Contains(err.Error(), oid) || !strings.Contains(err.Error(), "ambiguous") || !strings.Contains(err.Error(), "Changes were restored") {
 		t.Fatalf("err=%v", err)
 	}
 	if calls != 0 || !r.hasStash(oid) || !strings.Contains(r.patch(oid), "dirty") {
 		t.Fatalf("calls=%d stashes\n%s", calls, r.git("stash", "list", "--format=%H %s"))
+	}
+	if strings.Count(r.git("stash", "list", "--format=%H"), oid) != 2 {
+		t.Fatalf("stashes\n%s", r.git("stash", "list", "--format=%H %s"))
 	}
 	ops := r.recoveryOps(t)
 	if len(ops) != 1 || ops[0].Phase != recovery.PhaseApplied {
@@ -900,8 +944,9 @@ func TestRealGitDuplicateStashIdentityIsNotDropped(t *testing.T) {
 func TestRealGitRestoringCleanupLeavesInsertedStash(t *testing.T) {
 	r := newPipeRepo(t)
 	r.write("f", "dirty\n")
-	var inserted string
+	var owned, inserted string
 	beforeRecoveryCleanup = func() {
+		owned = r.git("rev-parse", "stash@{0}")
 		r.write("g", "external\n")
 		r.git("add", "g")
 		r.git("stash", "push", "-q", "--message", "unrelated-external", "--", "g")
@@ -916,7 +961,7 @@ func TestRealGitRestoringCleanupLeavesInsertedStash(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "body failed") || calls != 1 {
 		t.Fatalf("err=%v calls=%d", err, calls)
 	}
-	if r.read("f") != "dirty\n" || !r.hasStash(inserted) || !strings.Contains(r.patch(inserted), "external") {
+	if r.read("f") != "dirty\n" || r.hasStash(owned) || !r.hasStash(inserted) || !strings.Contains(r.patch(inserted), "external") {
 		t.Fatalf("file %q stashes\n%s", r.read("f"), r.git("stash", "list", "--format=%H %s"))
 	}
 	if ops := r.recoveryOps(t); len(ops) != 0 {
@@ -1096,8 +1141,8 @@ func TestRealGitRecordedDestinationRestores(t *testing.T) {
 	if refs := r.git("for-each-ref", recovery.RefPrefix); refs != "" || len(r.recoveryOps(t)) != 0 {
 		t.Fatalf("refs %q ops %d", refs, len(r.recoveryOps(t)))
 	}
-	if !strings.Contains(r.git("stash", "list"), "auto-stash") {
-		t.Fatal(r.git("stash", "list"))
+	if list := r.git("stash", "list"); list != "" {
+		t.Fatalf("temporary stash kept %q", list)
 	}
 }
 
@@ -1216,7 +1261,7 @@ func TestRealGitBranchSwitchAfterApplyKeepsRecord(t *testing.T) {
 
 func TestRealGitAppliedResumeOnOtherBranchDoesNotApply(t *testing.T) {
 	r := newPipeRepo(t)
-	oid := r.stash("plain", "stashed\n")
+	oid := r.stash("owned", "stashed\n")
 	r.git("checkout", "-q", "-b", "other")
 	r.write("f", "other\n")
 	r.saveApplied(t, oid)
@@ -1228,7 +1273,7 @@ func TestRealGitAppliedResumeOnOtherBranchDoesNotApply(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if calls != 0 || r.read("f") != "other\n" || r.git("rev-parse", "--abbrev-ref", "HEAD") != "other" || !r.hasStash(oid) {
+	if calls != 0 || r.read("f") != "other\n" || r.git("rev-parse", "--abbrev-ref", "HEAD") != "other" || r.hasStash(oid) {
 		t.Fatalf("calls=%d file %q stash %v", calls, r.read("f"), r.hasStash(oid))
 	}
 	if _, err := os.Stat(filepath.Join(r.dir, "extra")); !os.IsNotExist(err) {
@@ -1263,6 +1308,122 @@ func TestRealGitOtherWorktreeDoesNotRestore(t *testing.T) {
 	op := r.oneRecoveryOp(t)
 	if op.Phase != recovery.PhaseSuspended || !r.hasStash(op.StashOID) {
 		t.Fatalf("op %+v", op)
+	}
+}
+
+func TestRealGitCarryDropsOwnedStashAndKeepsUnrelated(t *testing.T) {
+	r := newPipeRepo(t)
+	unrelated := r.stash("intentional", "keep-me\n")
+	r.write("f", "staged\n")
+	r.git("add", "f")
+	r.write("f", "unstaged\n")
+	r.write("free", "track-me\n")
+	id := cmdid.ID{Command: "work", Action: "switch"}
+	if _, err := StashPipeNavigation(id, false, "", func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	cached := r.git("diff", "--cached", "--", "f")
+	unstaged := r.git("diff", "--", "f")
+	if !strings.Contains(cached, "+staged") || !strings.Contains(unstaged, "+unstaged") || r.read("free") != "track-me\n" || r.read("ignored") != "keep\n" {
+		t.Fatalf("cached %q unstaged %q free %q ignored %q", cached, unstaged, r.read("free"), r.read("ignored"))
+	}
+	if !r.hasStash(unrelated) || strings.Contains(r.git("stash", "list"), "auto-stash") {
+		t.Fatalf("stashes\n%s", r.git("stash", "list", "--format=%H %gs"))
+	}
+	if !strings.Contains(r.patch(unrelated), "keep-me") {
+		t.Fatal(r.patch(unrelated))
+	}
+	if refs := r.git("for-each-ref", recovery.RefPrefix); refs != "" || len(r.recoveryOps(t)) != 0 {
+		t.Fatalf("refs %q ops %d", refs, len(r.recoveryOps(t)))
+	}
+	if got, err := cmdmem.Get(id, cmdmem.FieldStash); err != nil || got != "" {
+		t.Fatalf("field %q err=%v", got, err)
+	}
+}
+
+func TestRealGitHandoffKeepsLabeledStash(t *testing.T) {
+	r := newPipeRepo(t)
+	r.write("f", "dirty\n")
+	kept, err := StashPipeNavigation(cmdid.ID{Command: "work", Action: "start"}, true, "kept label", func() error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.read("f") == "dirty\n" || !r.hasStash(kept.OID) || !strings.Contains(r.git("stash", "list"), "kept label") {
+		t.Fatalf("file %q stash %q", r.read("f"), r.git("stash", "list"))
+	}
+	if len(r.recoveryOps(t)) != 0 || r.git("for-each-ref", recovery.RefPrefix) != "" {
+		t.Fatal("handoff left recovery")
+	}
+	err = StashPipe(cmdid.ID{Command: "work", Action: "sync"}, func() error {
+		r.write("g", "more\n")
+		return errors.New("later")
+	})
+	if err == nil || !strings.Contains(err.Error(), "later") || !r.hasStash(kept.OID) || !strings.Contains(r.patch(kept.OID), "dirty") {
+		t.Fatalf("err=%v stashes\n%s", err, r.git("stash", "list", "--format=%H %gs"))
+	}
+	if r.read("f") == "dirty\n" {
+		t.Fatal("labeled stash was applied")
+	}
+}
+
+func TestRealGitAppliedRetryWhenStashGone(t *testing.T) {
+	r := newPipeRepo(t)
+	oid := r.stash("owned", "dirty\n")
+	r.saveApplied(t, oid)
+	r.git("stash", "drop", "stash@{0}")
+	calls := 0
+	if err := StashPipe(cmdid.ID{Command: "work", Action: "sync"}, func() error {
+		calls++
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 0 || len(r.recoveryOps(t)) != 0 || r.git("for-each-ref", recovery.RefPrefix) != "" {
+		t.Fatalf("calls=%d ops=%d refs=%q", calls, len(r.recoveryOps(t)), r.git("for-each-ref", recovery.RefPrefix))
+	}
+}
+
+func TestRealGitDropStashSelectsExactIdentity(t *testing.T) {
+	r := newPipeRepo(t)
+	raw := "keep\t\"quoted\""
+	older := r.stash("older", "older\n")
+	middle := r.stash(raw, "middle\n")
+	newer := r.stash("newer", "newer\n")
+	stored := ""
+	for _, line := range strings.Split(r.git("stash", "list", "--format=%H %gs"), "\n") {
+		if strings.HasPrefix(line, middle+" ") {
+			stored = strings.TrimPrefix(line, middle+" ")
+		}
+	}
+	msg := stored
+	if rest, ok := strings.CutPrefix(stored, "On main: "); ok {
+		msg = rest
+	}
+	if !strings.Contains(msg, "\"quoted\"") {
+		t.Fatalf("stored %q", stored)
+	}
+	if msg != raw {
+		if err := git.DropStash(middle, raw); err == nil || !strings.Contains(err.Error(), "changed identity") || !r.hasStash(middle) {
+			t.Fatalf("err=%v", err)
+		}
+	}
+	if err := git.DropStash(middle, msg); err != nil {
+		t.Fatal(err)
+	}
+	if r.hasStash(middle) || !r.hasStash(older) || !r.hasStash(newer) {
+		t.Fatalf("stashes\n%s", r.git("stash", "list", "--format=%H %gs"))
+	}
+	if err := git.DropStash(newer, "nope"); err == nil || !strings.Contains(err.Error(), "changed identity") || !r.hasStash(newer) {
+		t.Fatalf("err=%v stashes\n%s", err, r.git("stash", "list", "--format=%H %gs"))
+	}
+	if err := git.DropStash(strings.Repeat("ab", 20), ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := git.DropStash(older, "older"); err != nil {
+		t.Fatal(err)
+	}
+	if r.hasStash(older) || !r.hasStash(newer) {
+		t.Fatalf("stashes\n%s", r.git("stash", "list", "--format=%H %gs"))
 	}
 }
 

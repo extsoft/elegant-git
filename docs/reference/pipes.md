@@ -32,13 +32,14 @@ the staged and unstaged split. `discard` does not create a stash. With `--untrac
 listed new-path files and keeps no backup; otherwise those files stay. `carry` restores that backup on the branch the command is
 allowed to return to: the branch you stayed on for sync, polish, and push, the branch
 you started on for accept and release new, or the default development branch for
-`repo prune`. If prune deletes the branch the changes came from, the backup stays and is
-not applied to that default branch. `stash` checks that the stash is still there,
+`repo prune`. When that restore finishes, the temporary stash is removed. If prune deletes
+the branch the changes came from, the backup stays and is not applied to that default branch.
+`stash` checks that the stash is still there,
 then drops the recovery record and the private ref so the stash is an ordinary one you can
 restore yourself with `git stash apply --index <oid>`. It is not applied afterward. If that
 handoff fails, the record stays. If the branch the stash was taken from is gone — for
 example because `work accept` deleted it — the changes are not restored onto the current
-branch. The stash entry stays in the list. A failed command keeps the backup and does not
+branch, and that stash entry stays in the list. A failed command keeps the backup and does not
 run the push, tag, or delete again when you repeat it. The branch pipe is used by
 `work accept` and `release new`, so both of them can walk away from your branch and bring
 you back to it. If the saved branch is gone — for example because `work accept` deleted the
@@ -81,10 +82,15 @@ Finishing or aborting the rebase outside Elegant Git leaves the backup
 recorded and does not run the command again.
 Merge, cherry-pick, revert, and bisect are refused before any backup, including on a
 clean tree. `applied` only finishes cleanup and does
-not run the command again. Cleanup removes the private ref and the journal after the
-changes are restored. It leaves the stash entry. Git cannot remove that one entry
-without possibly removing a different stash, so the command names the backup and
-does not apply it again. If creating the stash fails, or Git saves nothing, the preparing record is removed and the
+not run the command again. After a confirmed restore, cleanup drops that temporary stash, then
+the private ref, then the matching command-memory note and the journal entry. The drop uses a
+fresh `stash@{n}` for that commit and the full stash message, so a different stash stays. An
+entry that is already gone is cleaned up without applying again. A changed message, or two
+entries with the same identity, stops cleanup. The error says the changes were restored and names
+the commit; the stash, private ref, and journal stay for a later retry. That retry does not run
+the command or apply the stash again. Git drops by selector only. A change made after the
+selector is chosen and before the drop can remove a different entry. That window is not a
+guarantee. If creating the stash fails, or Git saves nothing, the preparing record is removed and the
 command runs without a backup.
 
 If the source branch is gone, or a detached HEAD has moved or is no longer detached, the
@@ -121,9 +127,10 @@ git stash apply --index <backup-oid>
 git update-ref -d refs/elegant-git/recovery/<id> <backup-oid>
 ```
 
-Drop the stash yourself only after the changes are back or you mean to discard them. An older
-binary does not understand a new journal. Finish or inspect that recovery before you switch back
-to it. Deleting the journal or the ref is not how you downgrade.
+After you restore by hand, or when you mean to discard the changes, drop the stash yourself.
+Do not drop it while the changes are not back. An older binary does not understand a new journal.
+Finish or inspect that recovery before you switch back to it. Deleting the journal or the ref is
+not how you downgrade.
 
-A recorded backup that is no longer in the stash list is reported and left alone. Other stashes
-are not dropped.
+If the temporary stash is already gone, retrying the command removes the private ref and the
+journal and does not apply a stash. Other stashes are not dropped.
