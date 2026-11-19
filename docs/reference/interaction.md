@@ -290,5 +290,5 @@ Descriptions are not free text — each list has its own convention:
 | `repo prune` phases | What that phase removes. Every phase starts selected |
 | `repo prune` local branches | Option is `[NN u ago]  YYYY-MM-DD  name`, name trimmed to 40; description is `merged into <branch>` or `upstream <ref> is gone`. Oldest first, selected |
 | `repo prune` remote branches | Option is `[NN u ago]  YYYY-MM-DD  origin/name`, name trimmed to 40; description is `merged into <branch>`. Oldest first, selected |
-| `repo prune` stashes | Not a picker. Printed lines are `[NN u ago]  YYYY-MM-DD  stash@{n}` and the subject. Oldest first. Recovery backups are omitted. The last line is the `git stash drop stash@{n}` guidance |
+| `repo prune` stashes | Option is `[NN u ago]  YYYY-MM-DD  stash@{n}`; description is the subject. Oldest first, selected. Recovery backups are omitted |
 | `repo prune` stale worktrees | None |

@@ -44,6 +44,12 @@ command, a conflict, and an uncertain apply still keep the stash and the recover
 No flag, hook, or journal field is removed, and there is no shim that leaves the temporary
 stash after success.
 
+Stash prune deletion (2026-11-19): `repo prune stashes` deletes the unprotected stashes you
+select. Without a terminal, naming `stashes` deletes every unprotected stash it finds. A run
+with no phase still cleans local branches only. Recovery backups stay until `eg repo doctor`
+records that you inspected them. `--dirty=stash` still leaves that stash. No flag or command
+name is removed, and there is no shim that only lists stashes.
+
 DEP-022 (2026-11-17): Elegant Git drops support for Git older than 2.40.0 immediately. The old
 backup note of Git 2.13 was not a full-product contract. D4 accepts this withdrawal of older Git
 support, so there is no grace period and no compatibility fallback. Help, version, static

@@ -16,14 +16,15 @@ eg repo prune [phase...]
 
 ## What each phase removes
 
-Every candidate starts selected. `stashes` has no selection.
+Every candidate starts selected.
 
 - `local` — deletes local branches merged into the default development branch or a protected
   branch, or whose upstream is gone.
 - `remote` — deletes remote branches merged into the default development branch or a protected
   branch, on the default upstream remote (`origin`) itself.
-- `stashes` — lists ordinary stashes and does not drop them. A finished carry removes its own
-  temporary stash; this phase does not. It prints `git stash drop stash@{n}` for you to run yourself.
+- `stashes` — drops ordinary stashes, including an old auto-stash leftover and a stash you named.
+  A recovery backup stays hidden until `eg repo doctor` records that you inspected it. A finished
+  carry still removes its own temporary stash. A stash kept with `--dirty=stash` stays.
 - `worktrees` — prunes worktrees whose directory no longer exists.
 
 Protected branches and the default development branch are never removed.
@@ -33,8 +34,8 @@ Protected branches and the default development branch are never removed.
 Interactive mode asks `What to clean up`, with every phase selected, before it checks anything
 out. Naming phases on the command line skips that question. Accepting none stops before checkout.
 Cancelling that list fails the command and leaves the working tree where it was. Non-interactive
-mode with no phases runs `local` only. `stashes` does not ask, so naming it without a
-terminal lists the ordinary stashes and the `git stash drop` command.
+mode with no phases runs `local` only. Naming `stashes` without a terminal drops every
+unprotected stash it finds.
 
 When the tree has tracked edits or non-ignored untracked files, the next question is the same
 `carry`, `stash`, `discard`, and `cancel` choice as
@@ -42,7 +43,8 @@ When the tree has tracked edits or non-ignored untracked files, the next questio
 branch, with the staged and unstaged split kept. A successful restore removes the temporary stash.
 If this command deletes the branch you were on,
 that backup stays in the stash and is not applied to the default branch. `stash` leaves an
-ordinary stash and does not apply it. `discard` restores committed-file edits and keeps
+ordinary stash and does not apply it. The `stashes` phase does not drop that stash.
+`discard` restores committed-file edits and keeps
 new-path files unless `--untracked=delete` is set with `--dirty=discard`. Delete removes
 only that listed set and keeps no backup. An ignored file the checkout or rebase would
 write is refused first, and so is an untracked file for `carry` or for discard unless
@@ -84,7 +86,7 @@ Delete 2 branches on origin? [yes/no] (press enter to 'no'):
 ```
 
 Answering `no`, accepting an empty selection, or pressing Esc prints `Nothing deleted.` (`Nothing
-pruned.` for worktrees) and moves to the next phase. `stashes` does not ask. That skip
+pruned.` for worktrees, `Nothing dropped.` for stashes) and moves to the next phase. That skip
 does not undo the checkout, and it does not mean the carried changes failed to come back. After a
 phase applies, it reports what it did, such as `Deleted 2 branches on origin.` A phase with no
 candidates says why, such as `No origin branches are merged into main or a protected branch.`,
@@ -118,9 +120,11 @@ upstream is gone, and the row says so.
   branch. The branches you select are deleted on the default upstream remote with one push. This
   phase does nothing when the repository has no remotes.
 - `stashes` lists ordinary stashes, oldest first, with the subject after the date and
-  `stash@{n}`. Recovery backups are omitted. It then prints that this phase does not drop
-  them, and shows `git stash drop stash@{n}` for you to run yourself. The phase
-  succeeds either way, including when the list is empty.
+  `stash@{n}`. Recovery backups are omitted. Each selected stash is found again by its commit
+  and message before it is dropped, so a stash added later, or one that moved because another
+  entry was dropped, is not removed by an old number. A protected, changed, or ambiguous stash
+  is kept and named. A missing one counts as already gone. If Git fails, the command stops and
+  reports how many stashes were actually dropped. An empty list says there are no stashes.
 - `worktrees` removes worktrees whose directory is gone and that are not locked. Unselected stale
   worktrees are locked for the duration of the prune, then unlocked, so only the ones you picked
   are removed.

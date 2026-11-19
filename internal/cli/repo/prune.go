@@ -28,7 +28,7 @@ var pruneID = cmdid.ID{Command: "repo", Action: "prune"}
 
 const (
 	pruneRefFormat   = "%(refname:short)%09%(committerdate:unix)%09%(committerdate:short)%09%(upstream:short)"
-	pruneStashFormat = "%H%x09%gd%x09%ct%x09%cs%x09%s"
+	pruneStashFormat = "%H%x09%gd%x09%ct%x09%cs%x09%gs"
 	pruneNameMaxLen  = 40
 )
 
@@ -40,9 +40,9 @@ func newPruneCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "prune [phase...]",
 		Short: "Cleans up branches, stashes, and worktrees",
-		Long: `Deletes local branches merged into the default development branch or a protected branch, or whose upstream is gone; deletes branches on origin merged into those same branches; lists ordinary stashes without dropping them; and prunes worktrees whose directory is gone. Pass phase names to choose. Interactive mode asks which phases to run before checkout, lets you pick candidates, and confirms before each phase applies. Non-interactive mode with no phases runs local only and applies without asking. The stashes phase lists ordinary stashes and prints how to drop one with git stash drop. It does not ask, and it works without a terminal.
+		Long: `Deletes local branches merged into the default development branch or a protected branch, or whose upstream is gone; deletes branches on origin merged into those same branches; drops ordinary stashes that are not recovery backups; and prunes worktrees whose directory is gone. Pass phase names to choose. Interactive mode asks which phases to run before checkout, lets you pick candidates, and confirms before each phase applies. Non-interactive mode with no phases runs local only and applies without asking. Naming stashes without a terminal drops every unprotected stash it finds.
 
-When there are uncommitted changes, choose carry, stash, discard, or cancel before that checkout. carry restores them on the default development branch and keeps the staged and unstaged split. If prune deletes the branch you were on, the backup stays and is not applied there, and a later prune does not run again until eg repo doctor clears it. A phase that fails after checkout still restores a carried backup when HEAD is on the default branch and no rebase is in progress. stash leaves them in the stash instead, including when a later phase fails. The stash name is asked before any fetch. discard restores modifications and deletions of committed files. Without --untracked=delete it leaves staged additions, rename targets, and other non-ignored untracked files in place. --untracked=delete removes those listed new-path files permanently and keeps no backup. An ignored file the checkout or rebase would write is refused before any stash or reset, and so is an untracked file for carry or for discard unless --untracked=delete removes that listed new-path file. cancel stops before any of that. A non-interactive run with uncommitted changes fails unless --dirty is set. A clean tree does not need --dirty. An in-progress Git operation is refused before that choice. Cancelling a phase after preparation skips that phase and does not undo the checkout. Prune stays on the default branch.`,
+When there are uncommitted changes, choose carry, stash, discard, or cancel before that checkout. carry restores them on the default development branch and keeps the staged and unstaged split. If prune deletes the branch you were on, the backup stays and is not applied there, and a later prune does not run again until eg repo doctor clears it. A phase that fails after checkout still restores a carried backup when HEAD is on the default branch and no rebase is in progress. stash leaves them in the stash instead, including when a later phase fails. The stashes phase does not drop that stash. The stash name is asked before any fetch. discard restores modifications and deletions of committed files. Without --untracked=delete it leaves staged additions, rename targets, and other non-ignored untracked files in place. --untracked=delete removes those listed new-path files permanently and keeps no backup. An ignored file the checkout or rebase would write is refused before any stash or reset, and so is an untracked file for carry or for discard unless --untracked=delete removes that listed new-path file. cancel stops before any of that. A non-interactive run with uncommitted changes fails unless --dirty is set. A clean tree does not need --dirty. An in-progress Git operation is refused before that choice. Cancelling a phase after preparation skips that phase and does not undo the checkout. Prune stays on the default branch.`,
 		ValidArgs: append([]string(nil), prunePhaseNames...),
 		Args:      cobra.OnlyValidArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -244,7 +244,7 @@ func phaseChoices() []prompt.Choice {
 	return []prompt.Choice{
 		{Value: "local", Description: "Delete local branches that are merged or whose upstream is gone."},
 		{Value: "remote", Description: "Delete remote branches that are merged."},
-		{Value: "stashes", Description: "List ordinary stashes. This phase does not drop them."},
+		{Value: "stashes", Description: "Drop ordinary stashes that are not recovery backups."},
 		{Value: "worktrees", Description: "Prune worktrees whose directory is gone."},
 	}
 }
@@ -263,12 +263,7 @@ func orderedPhases(names []string) []string {
 	return out
 }
 
-const stashDropGuidance = "This phase lists ordinary stashes and does not drop them. Drop one yourself with `git stash drop stash@{n}`."
-
 func prunePhase(w io.Writer, p prompt.Prompter, phase, defaultBranch string) error {
-	if phase == "stashes" {
-		return listStashes(w)
-	}
 	text.CommandText(phaseHeader(phase, defaultBranch))
 	progress := newPruneProgress(w, phaseNoun(phase))
 	choices, stashOIDs, err := collectPhase(phase, defaultBranch, progress)
@@ -309,6 +304,9 @@ func prunePhase(w io.Writer, p prompt.Prompter, phase, defaultBranch string) err
 	if err := deletePhase(phase, choices, selected, stashOIDs); err != nil {
 		return err
 	}
+	if phase == "stashes" {
+		return nil
+	}
 	text.InfoText(phasePastVerb(phase) + " " + phaseCount(phase, len(selected)) + ".")
 	return nil
 }
@@ -320,7 +318,7 @@ func phaseHeader(phase, defaultBranch string) string {
 	case "remote":
 		return "Pruning " + config.DefaultUpstreamRemote + " branches merged into " + defaultBranch + " or a protected branch (deletes them on " + config.DefaultUpstreamRemote + ")..."
 	case "stashes":
-		return "Listing ordinary stashes..."
+		return "Dropping ordinary stashes..."
 	case "worktrees":
 		return "Pruning worktrees whose directory no longer exists..."
 	default:
@@ -423,36 +421,11 @@ func emptyPhaseMessage(phase, defaultBranch string) string {
 }
 
 func selectedDefaults(phase string, choices []prompt.Choice) []string {
-	if phase == "stashes" {
-		return nil
-	}
 	out := make([]string, len(choices))
 	for i, c := range choices {
 		out[i] = c.Value
 	}
 	return out
-}
-
-func listStashes(w io.Writer) error {
-	text.CommandText(phaseHeader("stashes", ""))
-	progress := newPruneProgress(w, phaseNoun("stashes"))
-	choices, _, err := collectStashes(progress)
-	progress.close()
-	if err != nil {
-		return err
-	}
-	if len(choices) == 0 {
-		text.InfoText(emptyPhaseMessage("stashes", ""))
-	}
-	for _, c := range choices {
-		line := c.Display
-		if c.Description != "" {
-			line += "  " + c.Description
-		}
-		text.InfoText(line)
-	}
-	text.InfoText(stashDropGuidance)
-	return nil
 }
 
 func collectPhase(phase, defaultBranch string, progress *pruneProgress) ([]prompt.Choice, map[string]string, error) {
@@ -608,7 +581,6 @@ func collectStashes(progress *pruneProgress) ([]prompt.Choice, map[string]string
 	for i := len(entries) - 1; i >= 0; i-- {
 		entry := entries[i]
 		progress.tick(entry.ref)
-		listed[entry.ref] = entry.oid
 		protected, err := recovery.Protects(common, entry.oid, entry.subject)
 		if err != nil {
 			return nil, nil, err
@@ -616,6 +588,7 @@ func collectStashes(progress *pruneProgress) ([]prompt.Choice, map[string]string
 		if protected {
 			continue
 		}
+		listed[entry.ref] = stashChoiceValue(entry.oid, recovery.StashMessage(entry.subject))
 		choices = append(choices, datedChoice(entry.ref, entry.unix, entry.short, strings.ReplaceAll(entry.subject, "\t", " ")))
 	}
 	return choices, listed, nil
@@ -682,11 +655,128 @@ func deletePhase(phase string, choices []prompt.Choice, selected []string, stash
 		return deleteLocal(selected)
 	case "remote":
 		return deleteRemote(selected)
+	case "stashes":
+		return deleteStashes(selected, stashOIDs)
 	case "worktrees":
 		return deleteWorktrees(choices, selected)
 	default:
 		return fmt.Errorf("unknown prune phase %q", phase)
 	}
+}
+
+func stashChoiceValue(oid, message string) string {
+	return oid + "\n" + message
+}
+
+func parseStashChoice(value string) (oid, message string, ok bool) {
+	oid, message, ok = strings.Cut(value, "\n")
+	if !ok || !stashOID(oid) {
+		return "", "", false
+	}
+	return oid, message, true
+}
+
+type stashChoice struct {
+	oid     string
+	message string
+}
+
+func deleteStashes(selected []string, listed map[string]string) error {
+	seen := map[string]bool{}
+	var ids []stashChoice
+	for _, value := range selected {
+		raw, ok := listed[value]
+		if !ok {
+			return fmt.Errorf("stash selection %q cannot be identified", value)
+		}
+		if seen[raw] {
+			continue
+		}
+		seen[raw] = true
+		oid, message, ok := parseStashChoice(raw)
+		if !ok {
+			return fmt.Errorf("stash selection %q cannot be identified", value)
+		}
+		ids = append(ids, stashChoice{oid: oid, message: message})
+	}
+	common, err := repo.GitCommonDir()
+	if err != nil {
+		return err
+	}
+	var dropped int
+	var notes []string
+	err = recovery.WithLock(common, func() error {
+		for _, id := range ids {
+			n, note, derr := dropOneStash(common, id)
+			dropped += n
+			if note != "" {
+				notes = append(notes, note)
+			}
+			if derr != nil {
+				return derr
+			}
+		}
+		return nil
+	})
+	for _, note := range notes {
+		text.InfoText(note)
+	}
+	if err != nil {
+		if dropped == 0 {
+			return fmt.Errorf("stopped before any stash was dropped: %w", err)
+		}
+		return fmt.Errorf("stopped after dropping %s: %w", phaseCount("stashes", dropped), err)
+	}
+	if dropped == 0 {
+		text.InfoText(phaseNothingMessage("stashes"))
+		return nil
+	}
+	text.InfoText(phasePastVerb("stashes") + " " + phaseCount("stashes", dropped) + ".")
+	return nil
+}
+
+func dropOneStash(common string, id stashChoice) (int, string, error) {
+	entries, err := readStashes()
+	if err != nil {
+		return 0, "", err
+	}
+	var matches []stashEntry
+	sawOID := false
+	for _, entry := range entries {
+		if entry.oid != id.oid {
+			continue
+		}
+		sawOID = true
+		if recovery.StashMessage(entry.subject) == id.message {
+			matches = append(matches, entry)
+		}
+	}
+	if len(matches) == 0 {
+		if sawOID {
+			return 0, "stash " + id.oid + " changed and was kept.", nil
+		}
+		return 0, "stash " + id.oid + " is already gone.", nil
+	}
+	if len(matches) > 1 {
+		return 0, "stash " + id.oid + " is ambiguous and was kept.", nil
+	}
+	protected, err := recovery.Protects(common, id.oid, matches[0].subject)
+	if err != nil {
+		return 0, "", err
+	}
+	if protected {
+		return 0, "stash " + id.oid + " is protected and was kept.", nil
+	}
+	if err := git.DropStash(id.oid, id.message); err != nil {
+		if errors.Is(err, git.ErrStashAmbiguous) {
+			return 0, "stash " + id.oid + " is ambiguous and was kept.", nil
+		}
+		if errors.Is(err, git.ErrStashChanged) {
+			return 0, "stash " + id.oid + " changed and was kept.", nil
+		}
+		return 0, "", err
+	}
+	return 1, "", nil
 }
 
 func deleteLocal(names []string) error {

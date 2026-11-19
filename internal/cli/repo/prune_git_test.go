@@ -17,103 +17,136 @@ import (
 	"github.com/extsoft/elegant-git/internal/text"
 )
 
-func TestRealGitPruneLeavesTheOnlySelectedStash(t *testing.T) {
+func TestRealGitPruneDropsTheOnlyStash(t *testing.T) {
 	r := newPruneRepo(t)
 	selected := r.stash("selected-ordinary", "selected-body\n")
 	buf := capturePrune(t)
 	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if !r.hasStash(selected) || !strings.Contains(r.patch(selected), "selected-body") || !strings.Contains(buf.String(), stashDropGuidance) {
+	if r.hasStash(selected) || !strings.Contains(buf.String(), "Dropped 1 stash.") {
 		t.Fatalf("stashes\n%s\nout %s", r.stashList(), buf.String())
 	}
 }
 
-func TestRealGitPruneRefusesWhenAnotherStashIsPresent(t *testing.T) {
-	r := newPruneRepo(t)
-	keeper := r.stash("keeper", "keeper-body\n")
-	selected := r.stash("selected-ordinary", "selected-body\n")
-	buf := capturePrune(t)
-	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(buf.String(), keeper) {
-		t.Fatalf("named another stash:\n%s", buf.String())
-	}
-	if !r.hasStash(selected) || !r.hasStash(keeper) || !strings.Contains(r.patch(keeper), "keeper-body") || !strings.Contains(r.patch(selected), "selected-body") {
-		t.Fatalf("stashes\n%s", r.stashList())
-	}
-}
-
-func TestRealGitPruneABAListDeletesNothing(t *testing.T) {
-	r := newPruneRepo(t)
-	selected := r.stash("selected-ordinary", "selected-body\n")
-	r.git("stash", "drop", "stash@{0}")
-	inserted := r.stash("unrelated-external", "external-body\n")
-	r.git("stash", "store", "-m", "restored", selected)
-	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
-		t.Fatal(err)
-	}
-	if !r.hasStash(selected) || !r.hasStash(inserted) {
-		t.Fatalf("stashes\n%s", r.stashList())
-	}
-	if !strings.Contains(r.patch(selected), "selected-body") || !strings.Contains(r.patch(inserted), "external-body") {
-		t.Fatalf("patches\n%s", r.stashList())
-	}
-}
-
-func TestRealGitPruneRefusesWhenSelectionIsTheWholeList(t *testing.T) {
-	r := newPruneRepo(t)
-	older := r.stash("older", "older-body\n")
-	newer := r.stash("newer", "newer-body\n")
-	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
-		t.Fatal(err)
-	}
-	if !r.hasStash(older) || !r.hasStash(newer) || !strings.Contains(r.patch(older), "older-body") || !strings.Contains(r.patch(newer), "newer-body") {
-		t.Fatalf("stashes\n%s", r.stashList())
-	}
-}
-
-func TestRealGitPruneRefusesAPartialSelection(t *testing.T) {
+func TestRealGitPruneDropsSelectedAndKeepsUnselected(t *testing.T) {
 	r := newPruneRepo(t)
 	oldest := r.stash("oldest", "oldest-body\n")
 	keeper := r.stash("keeper", "keeper-body\n")
 	newest := r.stash("newest", "newest-body\n")
 	buf := capturePrune(t)
-	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{2}", "stash@{0}"}})
+	if err := runPrune(p, "stashes"); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(buf.String(), keeper) {
 		t.Fatalf("named another stash:\n%s", buf.String())
 	}
-	if !r.hasStash(newest) || !r.hasStash(keeper) || !r.hasStash(oldest) {
+	if r.hasStash(oldest) || r.hasStash(newest) || !r.hasStash(keeper) || !strings.Contains(r.patch(keeper), "keeper-body") {
 		t.Fatalf("stashes\n%s", r.stashList())
-	}
-	if !strings.Contains(r.patch(keeper), "keeper-body") || !strings.Contains(r.patch(newest), "newest-body") || !strings.Contains(r.patch(oldest), "oldest-body") {
-		t.Fatalf("patches\n%s", r.stashList())
 	}
 }
 
-func TestRealGitPruneRefusesDuplicateStashIdentity(t *testing.T) {
-	r := newPruneRepo(t)
-	oid := r.stash("original", "original-body\n")
-	r.stash("other", "other-body\n")
-	r.git("stash", "store", "-m", "duplicate", oid)
+func TestRealGitPruneEmptyStashList(t *testing.T) {
+	newPruneRepo(t)
+	buf := capturePrune(t)
 	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if !r.hasStash(oid) || !strings.Contains(r.patch(oid), "original-body") {
+	if !strings.Contains(buf.String(), "There are no stashes.") {
+		t.Fatalf("out %s", buf.String())
+	}
+}
+
+func TestRealGitPruneDropsEveryEligibleStash(t *testing.T) {
+	r := newPruneRepo(t)
+	older := r.stash("older", "older-body\n")
+	newer := r.stash("named stash", "newer-body\n")
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if r.hasStash(older) || r.hasStash(newer) {
 		t.Fatalf("stashes\n%s", r.stashList())
 	}
 }
 
-func TestRealGitPruneKeepsStashWhoseSubjectContainsATab(t *testing.T) {
+func TestRealGitPruneCancelAndDeclineDropNothing(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		p    *prunePrompter
+	}{
+		{name: "cancel", p: newPrunePrompter(prunePickResult{err: prompt.ErrUserCancelled})},
+		{name: "empty", p: newPrunePrompter(prunePickResult{})},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newPruneRepo(t)
+			oid := r.stash("keep", "keep-body\n")
+			if err := runPrune(tc.p, "stashes"); err != nil {
+				t.Fatal(err)
+			}
+			if !r.hasStash(oid) || !strings.Contains(r.patch(oid), "keep-body") {
+				t.Fatalf("stashes\n%s", r.stashList())
+			}
+		})
+	}
+	t.Run("decline", func(t *testing.T) {
+		r := newPruneRepo(t)
+		oid := r.stash("keep", "keep-body\n")
+		p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
+		p.decline = true
+		if err := runPrune(p, "stashes"); err != nil {
+			t.Fatal(err)
+		}
+		if !r.hasStash(oid) {
+			t.Fatal(r.stashList())
+		}
+	})
+}
+
+func TestRealGitPruneDefaultPhaseLeavesStashes(t *testing.T) {
+	r := newPruneRepo(t)
+	oid := r.stash("keep-me", "keep-body\n")
+	if err := runPrune(prompt.NewNonInteractive()); err != nil {
+		t.Fatal(err)
+	}
+	if !r.hasStash(oid) || !strings.Contains(r.patch(oid), "keep-body") {
+		t.Fatalf("stashes\n%s", r.stashList())
+	}
+}
+
+func TestRealGitPruneKeepsIndistinguishableDuplicate(t *testing.T) {
+	r := newPruneRepo(t)
+	oid := r.stash("original", "original-body\n")
+	other := r.stash("other", "other-body\n")
+	r.git("stash", "store", "-m", "On main: original", oid)
+	buf := capturePrune(t)
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if !r.hasStash(oid) || r.hasStash(other) || !strings.Contains(r.patch(oid), "original-body") || !strings.Contains(buf.String(), "ambiguous and was kept") {
+		t.Fatalf("stashes\n%s\nout %s", r.stashList(), buf.String())
+	}
+}
+
+func TestRealGitPruneDropsANamedStashWithATabInTheSubject(t *testing.T) {
 	r := newPruneRepo(t)
 	tabbed := r.stash("weird\tname \"quoted\"", "tab-body\n")
 	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if !r.hasStash(tabbed) || !strings.Contains(r.patch(tabbed), "tab-body") {
+	if r.hasStash(tabbed) {
+		t.Fatalf("stashes\n%s", r.stashList())
+	}
+}
+
+func TestRealGitPruneDropsOldLeftovers(t *testing.T) {
+	r := newPruneRepo(t)
+	current := r.stash("eg work.sync auto-stash abc", "current-body\n")
+	legacy := r.stash("eg work.sync auto-stash: WIP in 'main' branch on 2026", "legacy-body\n")
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if r.hasStash(current) || r.hasStash(legacy) {
 		t.Fatalf("stashes\n%s", r.stashList())
 	}
 }
@@ -127,14 +160,32 @@ func TestRealGitPruneKeepsRecoveryStashWhenItsNumberChanges(t *testing.T) {
 	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(buf.String(), owned) || !strings.Contains(buf.String(), "selected-ordinary") {
-		t.Fatalf("out=%s", buf.String())
-	}
-	if !r.hasStash(owned) || !r.hasStash(selected) || !strings.Contains(r.patch(owned), "owned-body") || !strings.Contains(r.patch(selected), "selected-body") {
-		t.Fatalf("stashes\n%s", r.stashList())
+	if strings.Contains(buf.String(), owned) || r.hasStash(selected) || !r.hasStash(owned) || !strings.Contains(r.patch(owned), "owned-body") {
+		t.Fatalf("stashes\n%s\nout %s", r.stashList(), buf.String())
 	}
 	if got := r.journal(t); got != journal {
 		t.Fatalf("journal changed\n%s", got)
+	}
+}
+
+func TestRealGitPruneDropsStashAfterDoctorAcknowledgment(t *testing.T) {
+	r := newPruneRepo(t)
+	oid := r.stash("owned", "owned-body\n")
+	r.saveRecovery(t, oid)
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if !r.hasStash(oid) {
+		t.Fatal("dropped a journaled stash")
+	}
+	if err := recovery.Save(r.common(t), recovery.File{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if r.hasStash(oid) {
+		t.Fatalf("stashes\n%s", r.stashList())
 	}
 }
 
@@ -575,6 +626,24 @@ func TestPruneIgnoredAndUntrackedCollisionsAreRefused(t *testing.T) {
 	})
 }
 
+func TestRealGitPruneStashesKeepsTheCurrentBackup(t *testing.T) {
+	r := newPruneRepo(t)
+	ordinary := r.stash("ordinary", "ordinary-body\n")
+	r.git("checkout", "-q", "-b", "feature")
+	r.write("f", "dirty\n")
+	buf := capturePrune(t)
+	if err := runPruneGit(t, prompt.NewNonInteractive(), "stash", "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	list := r.git("stash", "list")
+	if r.hasStash(ordinary) || !strings.Contains(list, "auto-stash") || !strings.Contains(buf.String(), "was not applied") {
+		t.Fatalf("list=%s\nout=%s", list, buf.String())
+	}
+	if r.head() != "main" || r.read("f") != "base\n" {
+		t.Fatalf("head %s file %q", r.head(), r.read("f"))
+	}
+}
+
 func TestPruneStashLeavesAnOrdinaryStash(t *testing.T) {
 	r := newPruneRepo(t)
 	r.git("checkout", "-q", "-b", "feature")
@@ -609,10 +678,10 @@ func TestPruneHidesRecoveryStashAfterPreparationShiftsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	if strings.Contains(out, "owned") || strings.Contains(out, owned) || !strings.Contains(out, "ordinary") || !strings.Contains(out, stashDropGuidance) {
-		t.Fatalf("out=%s", out)
+	if strings.Contains(out, "owned") || strings.Contains(out, owned) || r.hasStash(ordinary) || !strings.Contains(out, "Dropped 1 stash.") {
+		t.Fatalf("out=%s\nstashes %s", out, r.stashList())
 	}
-	if r.head() != "main" || r.read("f") != "dirty\n" || !r.hasStash(owned) || !r.hasStash(ordinary) {
+	if r.head() != "main" || r.read("f") != "dirty\n" || !r.hasStash(owned) {
 		t.Fatalf("head %s f %q stashes %s", r.head(), r.read("f"), r.stashList())
 	}
 	if strings.Contains(out, "was kept") || strings.Contains(out, "nothing was dropped") || strings.Contains(out, "while "+owned) {

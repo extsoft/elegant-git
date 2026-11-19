@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -8,6 +9,20 @@ import (
 // BeforeDropStash runs after the selector is chosen and before git stash drop.
 // Tests use it to check that the drop uses the selector chosen before this hook.
 var BeforeDropStash func()
+
+// ErrStashAmbiguous means more than one stash entry matches the requested identity.
+var ErrStashAmbiguous = errors.New("ambiguous")
+
+// ErrStashChanged means the commit is still listed under a different message.
+var ErrStashChanged = errors.New("changed identity")
+
+type stashIdentityError struct {
+	msg  string
+	kind error
+}
+
+func (e *stashIdentityError) Error() string { return e.msg }
+func (e *stashIdentityError) Unwrap() error { return e.kind }
 
 // DropStash resolves one stash entry to its current selector and drops it.
 // oid is the full commit. message, when set, must equal the subject after Git's
@@ -40,13 +55,19 @@ func DropStash(oid, message string) error {
 			continue
 		}
 		if selector != "" {
-			return fmt.Errorf("stash %s is ambiguous; other stashes were not changed", oid)
+			return &stashIdentityError{
+				msg:  fmt.Sprintf("stash %s is ambiguous; other stashes were not changed", oid),
+				kind: ErrStashAmbiguous,
+			}
 		}
 		selector = parts[1]
 	}
 	if selector == "" {
 		if sawOID && message != "" {
-			return fmt.Errorf("stash %s changed identity; other stashes were not changed", oid)
+			return &stashIdentityError{
+				msg:  fmt.Sprintf("stash %s changed identity; other stashes were not changed", oid),
+				kind: ErrStashChanged,
+			}
 		}
 		return nil
 	}

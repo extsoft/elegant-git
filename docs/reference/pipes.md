@@ -115,7 +115,7 @@ Git process is not blocked by that guard.
 
 `eg repo doctor` prints the owner, source, phase, backup id, and ref. Confirming the repair
 clears the journal only. It does not apply the stash, drop it, or retry the command. After you
-confirm, prune lists that stash with the ordinary ones and does not drop it. Until then a journaled backup, a private ref, or a stash
+confirm, prune offers that stash with the ordinary ones and can drop it. Until then a journaled backup, a private ref, or a stash
 message still recorded in command memory is hidden, including an older
 `On <branch>: eg <command> auto-stash:` subject. A leftover subject with no record can be pruned.
 The protected stash stays the same one when other stashes are dropped.

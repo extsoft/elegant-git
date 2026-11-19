@@ -45,6 +45,24 @@ func stashLine(oid, ref string, agoSec int64, date, subject string) string {
 	return fmt.Sprintf("%s\t%s\t%d\t%s\t%s", oid, ref, pruneTestNow-agoSec, date, subject)
 }
 
+const stashDropListKey = "stash list --format=%H%x00%gd%x00%gs"
+
+type stashRow struct {
+	oid, ref, subject string
+	ago               int64
+	date              string
+}
+
+func setStashes(m *git.MemoryRunner, items ...stashRow) {
+	var show, drop []string
+	for _, it := range items {
+		show = append(show, stashLine(it.oid, it.ref, it.ago, it.date, it.subject))
+		drop = append(drop, it.oid+"\x00"+it.ref+"\x00"+it.subject)
+	}
+	m.Outputs["stash list --format="+pruneStashFormat] = strings.Join(show, "\n")
+	m.Outputs[stashDropListKey] = strings.Join(drop, "\n")
+}
+
 func mergedIntoOutput(m *git.MemoryRunner, ref, prefix string, names ...string) {
 	m.Outputs["for-each-ref --merged="+ref+" --format=%(refname:short) "+prefix] = strings.Join(names, "\n")
 }
@@ -238,8 +256,13 @@ func TestPruneNonInteractiveStashesLists(t *testing.T) {
 			if err := runPrune(prompt.NewNonInteractive(), args...); err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(buf.String(), stashDropGuidance) {
+			if !strings.Contains(buf.String(), "There are no stashes.") {
 				t.Fatalf("output:\n%s", buf.String())
+			}
+			for _, c := range gitCalls(m) {
+				if strings.HasPrefix(c, "stash drop") {
+					t.Fatalf("dropped from an empty list: %v", gitCalls(m))
+				}
 			}
 			if callIndex(gitCalls(m), "checkout main") < 0 {
 				t.Fatal("did not reach the phase")
@@ -284,11 +307,14 @@ func TestPruneRemotePushDeleteOnce(t *testing.T) {
 
 func TestPruneStashesDropDescending(t *testing.T) {
 	m := setupPrune(t)
-	m.Outputs["stash list --format="+pruneStashFormat] = strings.Join([]string{
-		stashLine(strings.Repeat("a", 40), "stash@{0}", 2*week, "2025-09-25", "wip new"),
-		stashLine(strings.Repeat("b", 40), "stash@{1}", 30*week, "2025-03-13", "wip mid"),
-		stashLine(strings.Repeat("c", 40), "stash@{2}", 6*year, "2019-10-10", "wip old"),
-	}, "\n")
+	newest := strings.Repeat("a", 40)
+	mid := strings.Repeat("b", 40)
+	oldest := strings.Repeat("c", 40)
+	setStashes(m,
+		stashRow{newest, "stash@{0}", "wip new", 2 * week, "2025-09-25"},
+		stashRow{mid, "stash@{1}", "wip mid", 30 * week, "2025-03-13"},
+		stashRow{oldest, "stash@{2}", "wip old", 6 * year, "2019-10-10"},
+	)
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
@@ -296,44 +322,58 @@ func TestPruneStashesDropDescending(t *testing.T) {
 	if err := runPrune(p, "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if len(p.calls) != 0 {
+	if len(p.calls) != 1 || p.calls[0].label != "Stashes to drop" {
 		t.Fatalf("picker: %+v", p.calls)
 	}
-	out := buf.String()
-	old := strings.Index(out, "stash@{2}  wip old")
-	mid := strings.Index(out, "stash@{1}  wip mid")
-	newer := strings.Index(out, "stash@{0}  wip new")
-	if old < 0 || mid < 0 || newer < 0 || old > mid || mid > newer || !strings.Contains(out, stashDropGuidance) {
-		t.Fatalf("output:\n%s", out)
+	if strings.Join(p.calls[0].selected, ",") != "stash@{2},stash@{1},stash@{0}" {
+		t.Fatalf("defaults: %v", p.calls[0].selected)
+	}
+	for _, c := range p.calls[0].choices {
+		if strings.Contains(c.Value, "\n") || !strings.HasPrefix(c.Value, "stash@{") {
+			t.Fatalf("picker value %q", c.Value)
+		}
+	}
+	old := p.calls[0].choices[0].Display
+	middle := p.calls[0].choices[1].Display
+	newer := p.calls[0].choices[2].Display
+	if old != "[ 6 y ago]  2019-10-10  stash@{2}" || p.calls[0].choices[0].Description != "wip old" ||
+		middle != "[30 w ago]  2025-03-13  stash@{1}" || newer != "[14 d ago]  2025-09-25  stash@{0}" {
+		t.Fatalf("choices: %+v", p.calls[0].choices)
+	}
+	if strings.Join(p.questions, "|") != "Drop 2 stashes?" {
+		t.Fatalf("questions: %v", p.questions)
 	}
 	calls := gitCalls(m)
-	for _, c := range calls {
-		if strings.HasPrefix(c, "stash drop") || strings.HasPrefix(c, "update-ref ") {
-			t.Fatalf("deleted despite an unselected stash: %v", calls)
-		}
+	first := callIndex(calls, "stash drop stash@{0}")
+	second := callIndex(calls, "stash drop stash@{2}")
+	if first < 0 || second < 0 || first > second || callIndex(calls, "stash drop stash@{1}") >= 0 {
+		t.Fatalf("drops: %v", calls)
+	}
+	if !strings.Contains(buf.String(), "Dropped 2 stashes.") {
+		t.Fatalf("output:\n%s", buf.String())
 	}
 }
 
 func TestPruneRefusesWhenSelectionIsTheWholeList(t *testing.T) {
 	m := setupPrune(t)
 	tip := strings.Repeat("a", 40)
-	m.Outputs["stash list --format="+pruneStashFormat] = strings.Join([]string{
-		stashLine(tip, "stash@{0}", 2*week, "2025-09-25", "wip new"),
-		stashLine(strings.Repeat("b", 40), "stash@{1}", 30*week, "2025-03-13", "wip mid"),
-	}, "\n")
+	older := strings.Repeat("b", 40)
+	setStashes(m,
+		stashRow{tip, "stash@{0}", "wip new", 2 * week, "2025-09-25"},
+		stashRow{older, "stash@{1}", "wip mid", 30 * week, "2025-03-13"},
+	)
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
 	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "wip new") || !strings.Contains(buf.String(), stashDropGuidance) {
-		t.Fatalf("output:\n%s", buf.String())
+	calls := gitCalls(m)
+	if callIndex(calls, "stash drop stash@{1}") < 0 || callIndex(calls, "stash drop stash@{0}") < 0 {
+		t.Fatalf("drops: %v", calls)
 	}
-	for _, c := range gitCalls(m) {
-		if strings.HasPrefix(c, "stash drop") || strings.HasPrefix(c, "update-ref ") {
-			t.Fatalf("deleted %q", c)
-		}
+	if !strings.Contains(buf.String(), "Dropped 2 stashes.") {
+		t.Fatalf("output:\n%s", buf.String())
 	}
 }
 
@@ -348,25 +388,26 @@ func TestPruneHidesRecoveryStash(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(gitDir, "elegant-git", "commands.json"), body, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	m.Outputs["stash list --format="+pruneStashFormat] = strings.Join([]string{
-		stashLine(strings.Repeat("a", 40), "stash@{0}", day, "2025-10-08", "On main: "+recorded),
-		stashLine(strings.Repeat("b", 40), "stash@{1}", 2*week, "2025-09-25", "On main: eg work.sync auto-stash orphan"),
-		stashLine(strings.Repeat("c", 40), "stash@{2}", 3*week, "2025-09-18", "wip"),
-	}, "\n")
+	recordedOID := strings.Repeat("a", 40)
+	orphan := strings.Repeat("b", 40)
+	wip := strings.Repeat("c", 40)
+	setStashes(m,
+		stashRow{recordedOID, "stash@{0}", "On main: " + recorded, day, "2025-10-08"},
+		stashRow{orphan, "stash@{1}", "On main: eg work.sync auto-stash orphan", 2 * week, "2025-09-25"},
+		stashRow{wip, "stash@{2}", "wip", 3 * week, "2025-09-18"},
+	)
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
 	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	out := buf.String()
-	if !strings.Contains(out, "stash@{2}  wip") || !strings.Contains(out, "orphan") || strings.Contains(out, recorded) {
-		t.Fatalf("output:\n%s", out)
+	calls := gitCalls(m)
+	if callIndex(calls, "stash drop stash@{0}") >= 0 || callIndex(calls, "stash drop stash@{1}") < 0 || callIndex(calls, "stash drop stash@{2}") < 0 {
+		t.Fatalf("drops: %v", calls)
 	}
-	for _, c := range gitCalls(m) {
-		if strings.HasPrefix(c, "stash drop") || strings.HasPrefix(c, "update-ref ") {
-			t.Fatalf("deleted a stash: %v", gitCalls(m))
-		}
+	if strings.Contains(buf.String(), recorded) {
+		t.Fatalf("offered a recorded backup:\n%s", buf.String())
 	}
 }
 
@@ -380,24 +421,22 @@ func TestPruneHidesRecoveryStashAfterRenumber(t *testing.T) {
 		t.Fatal(err)
 	}
 	ordinary := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	m.Outputs["stash list --format="+pruneStashFormat] = strings.Join([]string{
-		stashLine(ordinary, "stash@{0}", day, "2025-10-08", "ordinary"),
-		stashLine(oid, "stash@{1}", 2*week, "2025-09-25", "renamed-subject"),
-	}, "\n")
+	setStashes(m,
+		stashRow{ordinary, "stash@{0}", "ordinary", day, "2025-10-08"},
+		stashRow{oid, "stash@{1}", "renamed-subject", 2 * week, "2025-09-25"},
+	)
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
 	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	out := buf.String()
-	if !strings.Contains(out, "ordinary") || strings.Contains(out, oid) {
-		t.Fatalf("output:\n%s", out)
+	calls := gitCalls(m)
+	if callIndex(calls, "stash drop stash@{0}") < 0 || callIndex(calls, "stash drop stash@{1}") >= 0 {
+		t.Fatalf("drops: %v", calls)
 	}
-	for _, c := range gitCalls(m) {
-		if strings.HasPrefix(c, "stash drop") || strings.HasPrefix(c, "update-ref ") {
-			t.Fatalf("deleted a stash: %v", gitCalls(m))
-		}
+	if strings.Contains(buf.String(), oid) {
+		t.Fatalf("offered a journaled backup:\n%s", buf.String())
 	}
 }
 
@@ -566,11 +605,14 @@ func TestPruneConfirmsBeforeApplying(t *testing.T) {
 
 func TestPruneDeclinedConfirmDeletesNothing(t *testing.T) {
 	m := setupPrune(t)
-	m.Outputs["stash list --format="+pruneStashFormat] = stashLine(strings.Repeat("a", 40), "stash@{0}", day, "2025-10-08", "wip")
+	oid := strings.Repeat("a", 40)
+	setStashes(m, stashRow{oid, "stash@{0}", "wip", day, "2025-10-08"})
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
-	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
+	p.decline = true
+	if err := runPrune(p, "stashes"); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range gitCalls(m) {
@@ -578,7 +620,7 @@ func TestPruneDeclinedConfirmDeletesNothing(t *testing.T) {
 			t.Fatalf("dropped: %v", gitCalls(m))
 		}
 	}
-	if !strings.Contains(buf.String(), stashDropGuidance) || strings.Contains(buf.String(), "Nothing dropped") {
+	if !strings.Contains(buf.String(), "Nothing dropped.") {
 		t.Fatalf("output:\n%s", buf.String())
 	}
 }
@@ -831,44 +873,50 @@ func TestPruneDropFollowsSelectedOIDAfterInsertion(t *testing.T) {
 	selected := strings.Repeat("a", 40)
 	keeper := strings.Repeat("b", 40)
 	inserted := strings.Repeat("c", 40)
-	key := "stash list --format=" + pruneStashFormat
-	m.Outputs[key] = strings.Join([]string{
-		stashLine(selected, "stash@{0}", day, "2025-10-08", "selected"),
-		stashLine(keeper, "stash@{1}", 2*week, "2025-09-25", "keeper"),
+	setStashes(m,
+		stashRow{selected, "stash@{0}", "selected", day, "2025-10-08"},
+		stashRow{keeper, "stash@{1}", "keeper", 2 * week, "2025-09-25"},
+	)
+	m.Outputs[stashDropListKey] = strings.Join([]string{
+		inserted + "\x00stash@{0}\x00inserted",
+		selected + "\x00stash@{1}\x00selected",
+		keeper + "\x00stash@{2}\x00keeper",
 	}, "\n")
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
-	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
+	if err := runPrune(p, "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "selected") || strings.Contains(buf.String(), inserted) {
-		t.Fatalf("output:\n%s", buf.String())
+	calls := gitCalls(m)
+	if callIndex(calls, "stash drop stash@{1}") < 0 || callIndex(calls, "stash drop stash@{0}") >= 0 || callIndex(calls, "stash drop stash@{2}") >= 0 {
+		t.Fatalf("drops: %v", calls)
 	}
-	for _, c := range gitCalls(m) {
-		if strings.HasPrefix(c, "stash drop") || strings.HasPrefix(c, "update-ref ") {
-			t.Fatalf("deleted %q", c)
-		}
+	if strings.Contains(buf.String(), inserted) {
+		t.Fatalf("output:\n%s", buf.String())
 	}
 }
 
 func TestPruneRefusesWhenSelectedStashIsReplaced(t *testing.T) {
 	m := setupPrune(t)
 	selected := strings.Repeat("a", 40)
-	inserted := strings.Repeat("c", 40)
-	key := "stash list --format=" + pruneStashFormat
-	m.Outputs[key] = stashLine(selected, "stash@{0}", day, "2025-10-08", "selected")
+	setStashes(m, stashRow{selected, "stash@{0}", "selected", day, "2025-10-08"})
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
-	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
+	p.beforeDrop = func() {
+		setStashes(m, stashRow{selected, "stash@{0}", "other", day, "2025-10-08"})
+	}
+	if err := runPrune(p, "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "selected") || strings.Contains(buf.String(), inserted) {
+	if !strings.Contains(buf.String(), "changed and was kept") || !strings.Contains(buf.String(), "Nothing dropped.") {
 		t.Fatalf("output:\n%s", buf.String())
 	}
 	for _, c := range gitCalls(m) {
-		if strings.HasPrefix(c, "stash drop") || strings.HasPrefix(c, "update-ref ") {
+		if strings.HasPrefix(c, "stash drop") {
 			t.Fatalf("dropped %q", c)
 		}
 	}
@@ -880,44 +928,304 @@ func TestPruneDropsShiftedSelectionInDescendingOrder(t *testing.T) {
 	b := strings.Repeat("b", 40)
 	c := strings.Repeat("c", 40)
 	d := strings.Repeat("d", 40)
-	key := "stash list --format=" + pruneStashFormat
-	m.Outputs[key] = strings.Join([]string{
-		stashLine(a, "stash@{0}", day, "2025-10-08", "a"),
-		stashLine(b, "stash@{1}", 2*week, "2025-09-25", "b"),
-		stashLine(c, "stash@{2}", 3*week, "2025-09-18", "c"),
-	}, "\n")
+	setStashes(m,
+		stashRow{a, "stash@{0}", "a", day, "2025-10-08"},
+		stashRow{b, "stash@{1}", "b", 2 * week, "2025-09-25"},
+		stashRow{c, "stash@{2}", "c", 3 * week, "2025-09-18"},
+	)
+	n := 0
+	git.BeforeDropStash = func() {
+		n++
+		if n != 1 {
+			return
+		}
+		setStashes(m,
+			stashRow{d, "stash@{0}", "d", day, "2025-10-08"},
+			stashRow{a, "stash@{1}", "a", day, "2025-10-08"},
+			stashRow{b, "stash@{2}", "b", 2 * week, "2025-09-25"},
+		)
+	}
+	t.Cleanup(func() { git.BeforeDropStash = nil })
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
-	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{2}", "stash@{0}"}})
+	if err := runPrune(p, "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "stash@{0}  a") || strings.Contains(buf.String(), d) {
-		t.Fatalf("output:\n%s", buf.String())
+	calls := gitCalls(m)
+	first := callIndex(calls, "stash drop stash@{2}")
+	second := callIndex(calls, "stash drop stash@{1}")
+	if first < 0 || second < 0 || first > second || callIndex(calls, "stash drop stash@{0}") >= 0 {
+		t.Fatalf("drops: %v", calls)
 	}
-	for _, c := range gitCalls(m) {
-		if strings.HasPrefix(c, "stash drop") || strings.HasPrefix(c, "update-ref ") {
-			t.Fatalf("deleted %q", c)
-		}
+	if strings.Contains(buf.String(), d) || !strings.Contains(buf.String(), "Dropped 2 stashes.") {
+		t.Fatalf("output:\n%s", buf.String())
 	}
 }
 
 func TestPruneRefusesToDropTheOnlyStash(t *testing.T) {
 	m := setupPrune(t)
 	selected := strings.Repeat("a", 40)
-	m.Outputs["stash list --format="+pruneStashFormat] = stashLine(selected, "stash@{0}", day, "2025-10-08", "selected")
+	setStashes(m, stashRow{selected, "stash@{0}", "selected", day, "2025-10-08"})
 	buf := &bytes.Buffer{}
 	text.SetOutput(buf)
 	t.Cleanup(func() { text.SetOutput(os.Stdout) })
 	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(buf.String(), "selected") || !strings.Contains(buf.String(), stashDropGuidance) {
+	if callIndex(gitCalls(m), "stash drop stash@{0}") < 0 || !strings.Contains(buf.String(), "Dropped 1 stash.") {
+		t.Fatalf("output:\n%s\ncalls: %v", buf.String(), gitCalls(m))
+	}
+}
+
+func TestPruneStashCancelAndEmptySelectionDropNothing(t *testing.T) {
+	oid := strings.Repeat("a", 40)
+	for _, tc := range []struct {
+		name   string
+		result prunePickResult
+	}{
+		{name: "cancel", result: prunePickResult{err: prompt.ErrUserCancelled}},
+		{name: "empty", result: prunePickResult{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := setupPrune(t)
+			setStashes(m, stashRow{oid, "stash@{0}", "wip", day, "2025-10-08"})
+			buf := &bytes.Buffer{}
+			text.SetOutput(buf)
+			t.Cleanup(func() { text.SetOutput(os.Stdout) })
+			if err := runPrune(newPrunePrompter(tc.result), "stashes"); err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range gitCalls(m) {
+				if strings.HasPrefix(c, "stash drop") {
+					t.Fatalf("dropped: %v", gitCalls(m))
+				}
+			}
+			if !strings.Contains(buf.String(), "Nothing dropped.") {
+				t.Fatalf("output:\n%s", buf.String())
+			}
+		})
+	}
+}
+
+func TestPruneDefaultPhaseDoesNotDropStashes(t *testing.T) {
+	m := setupPrune(t)
+	setStashes(m, stashRow{strings.Repeat("a", 40), "stash@{0}", "wip", day, "2025-10-08"})
+	if err := runPrune(prompt.NewNonInteractive()); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range gitCalls(m) {
+		if strings.HasPrefix(c, "stash ") {
+			t.Fatalf("touched a stash: %s", c)
+		}
+	}
+}
+
+func TestPruneSkipsMissingChangedAndAmbiguousStashes(t *testing.T) {
+	m := setupPrune(t)
+	gone := strings.Repeat("a", 40)
+	changed := strings.Repeat("b", 40)
+	dup := strings.Repeat("c", 40)
+	setStashes(m,
+		stashRow{gone, "stash@{0}", "gone", day, "2025-10-08"},
+		stashRow{changed, "stash@{1}", "keep", 2 * week, "2025-09-25"},
+		stashRow{dup, "stash@{2}", "same", 3 * week, "2025-09-18"},
+		stashRow{dup, "stash@{3}", "On main: same", 4 * week, "2025-09-11"},
+	)
+	buf := &bytes.Buffer{}
+	text.SetOutput(buf)
+	t.Cleanup(func() { text.SetOutput(os.Stdout) })
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}", "stash@{1}", "stash@{2}"}})
+	p.beforeDrop = func() {
+		setStashes(m,
+			stashRow{changed, "stash@{0}", "other", day, "2025-10-08"},
+			stashRow{dup, "stash@{1}", "same", 2 * week, "2025-09-25"},
+			stashRow{dup, "stash@{2}", "On main: same", 3 * week, "2025-09-18"},
+		)
+	}
+	if err := runPrune(p, "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{gone + " is already gone.", changed + " changed and was kept.", dup + " is ambiguous and was kept.", "Nothing dropped."} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q:\n%s", want, out)
+		}
+	}
+	for _, c := range gitCalls(m) {
+		if strings.HasPrefix(c, "stash drop") {
+			t.Fatalf("dropped: %v", gitCalls(m))
+		}
+	}
+}
+
+func TestPruneDropsStashSubjectWithTabAndQuotes(t *testing.T) {
+	m := setupPrune(t)
+	oid := strings.Repeat("d", 40)
+	subject := "weird\tname \"quoted\""
+	setStashes(m, stashRow{oid, "stash@{0}", subject, day, "2025-10-08"})
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if callIndex(gitCalls(m), "stash drop stash@{0}") < 0 {
+		t.Fatalf("calls: %v", gitCalls(m))
+	}
+}
+
+func TestPruneStashBatchStopsAfterAGitFailure(t *testing.T) {
+	m := setupPrune(t)
+	a := strings.Repeat("a", 40)
+	b := strings.Repeat("b", 40)
+	c := strings.Repeat("c", 40)
+	setStashes(m,
+		stashRow{a, "stash@{0}", "a", day, "2025-10-08"},
+		stashRow{b, "stash@{1}", "b", 2 * week, "2025-09-25"},
+		stashRow{c, "stash@{2}", "c", 3 * week, "2025-09-18"},
+	)
+	m.FailOn["stash drop stash@{1}"] = errors.New("busy")
+	buf := &bytes.Buffer{}
+	text.SetOutput(buf)
+	t.Cleanup(func() { text.SetOutput(os.Stdout) })
+	err := runPrune(prompt.NewNonInteractive(), "stashes")
+	if err == nil || !strings.Contains(err.Error(), "stopped after dropping 1 stash") || !strings.Contains(err.Error(), "busy") {
+		t.Fatalf("err=%v", err)
+	}
+	calls := gitCalls(m)
+	if callIndex(calls, "stash drop stash@{2}") < 0 || callIndex(calls, "stash drop stash@{1}") < 0 || callIndex(calls, "stash drop stash@{0}") >= 0 {
+		t.Fatalf("drops: %v", calls)
+	}
+}
+
+func TestPruneHoldsRecoveryLockWhileDropping(t *testing.T) {
+	m := setupPrune(t)
+	common := m.Outputs["rev-parse --git-common-dir"]
+	setStashes(m, stashRow{strings.Repeat("a", 40), "stash@{0}", "wip", day, "2025-10-08"})
+	release := make(chan struct{})
+	blocked := false
+	git.BeforeDropStash = func() {
+		go func() {
+			_ = recovery.WithLock(common, func() error {
+				close(release)
+				return nil
+			})
+		}()
+		select {
+		case <-release:
+		case <-time.After(200 * time.Millisecond):
+			blocked = true
+		}
+	}
+	t.Cleanup(func() { git.BeforeDropStash = nil })
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if !blocked {
+		t.Fatal("drop did not hold the recovery lock")
+	}
+	select {
+	case <-release:
+	case <-time.After(2 * time.Second):
+		t.Fatal("lock was not released")
+	}
+}
+
+func TestPruneReleasesRecoveryLockAfterStashDropError(t *testing.T) {
+	m := setupPrune(t)
+	common := m.Outputs["rev-parse --git-common-dir"]
+	setStashes(m, stashRow{strings.Repeat("a", 40), "stash@{0}", "wip", day, "2025-10-08"})
+	m.FailOn["stash drop stash@{0}"] = errors.New("busy")
+	err := runPrune(prompt.NewNonInteractive(), "stashes")
+	if err == nil || !strings.Contains(err.Error(), "stopped before any stash was dropped") {
+		t.Fatalf("err=%v", err)
+	}
+	if err := recovery.WithLock(common, func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPruneKeepsLinkedWorktreeAndOrphanRefStashes(t *testing.T) {
+	m := setupPrune(t)
+	common := m.Outputs["rev-parse --git-common-dir"]
+	linked := strings.Repeat("a", 40)
+	orphan := strings.Repeat("b", 40)
+	ordinary := strings.Repeat("c", 40)
+	dir := filepath.Join(common, "worktrees", "wt", "elegant-git")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := []byte(`{"work.sync":{"stash":"eg work.sync auto-stash linked"}}` + "\n")
+	if err := os.WriteFile(filepath.Join(dir, "commands.json"), body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m.Outputs["for-each-ref --format=%(objectname) "+recovery.RefPrefix] = orphan
+	setStashes(m,
+		stashRow{linked, "stash@{0}", "On main: eg work.sync auto-stash linked", day, "2025-10-08"},
+		stashRow{orphan, "stash@{1}", "orphan-ref", 2 * week, "2025-09-25"},
+		stashRow{ordinary, "stash@{2}", "ordinary", 3 * week, "2025-09-18"},
+	)
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	calls := gitCalls(m)
+	if callIndex(calls, "stash drop stash@{2}") < 0 || callIndex(calls, "stash drop stash@{0}") >= 0 || callIndex(calls, "stash drop stash@{1}") >= 0 {
+		t.Fatalf("drops: %v", calls)
+	}
+}
+
+func TestPruneOffersStashAfterRecoveryIsAcknowledged(t *testing.T) {
+	m := setupPrune(t)
+	common := m.Outputs["rev-parse --git-common-dir"]
+	oid := strings.Repeat("a", 40)
+	if err := recovery.Save(common, recovery.File{Ops: []recovery.Op{{
+		ID: "abc", Command: "work.sync", Phase: recovery.PhaseSuspended, StashOID: oid,
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	setStashes(m, stashRow{oid, "stash@{0}", "leftover", day, "2025-10-08"})
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if callIndex(gitCalls(m), "stash drop stash@{0}") >= 0 {
+		t.Fatal("dropped a journaled stash")
+	}
+	if err := recovery.Save(common, recovery.File{}); err != nil {
+		t.Fatal(err)
+	}
+	m.Calls = nil
+	if err := runPrune(prompt.NewNonInteractive(), "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if callIndex(gitCalls(m), "stash drop stash@{0}") < 0 {
+		t.Fatalf("calls: %v", gitCalls(m))
+	}
+}
+
+func TestPruneRechecksProtectionBeforeDropping(t *testing.T) {
+	m := setupPrune(t)
+	common := m.Outputs["rev-parse --git-common-dir"]
+	oid := strings.Repeat("a", 40)
+	setStashes(m, stashRow{oid, "stash@{0}", "ordinary", day, "2025-10-08"})
+	buf := &bytes.Buffer{}
+	text.SetOutput(buf)
+	t.Cleanup(func() { text.SetOutput(os.Stdout) })
+	p := newPrunePrompter(prunePickResult{values: []string{"stash@{0}"}})
+	p.beforeDrop = func() {
+		if err := recovery.Save(common, recovery.File{Ops: []recovery.Op{{
+			ID: "abc", Command: "work.sync", Phase: recovery.PhaseSuspended, StashOID: oid,
+		}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runPrune(p, "stashes"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "protected and was kept") {
 		t.Fatalf("output:\n%s", buf.String())
 	}
 	for _, c := range gitCalls(m) {
-		if strings.HasPrefix(c, "stash drop") || strings.HasPrefix(c, "update-ref ") {
-			t.Fatalf("deleted %q", c)
+		if strings.HasPrefix(c, "stash drop") {
+			t.Fatalf("dropped: %v", gitCalls(m))
 		}
 	}
 }
