@@ -20,9 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const discardScope = "reverts modifications and deletions of committed files and leaves staged additions and rename targets as untracked files"
-
-const untrackedDiscardMessage = "Discard reverts modifications and deletions of committed files and leaves staged additions and rename targets as untracked files. These changes are untracked, so nothing would be discarded. Use --dirty=carry, --dirty=stash, or --dirty=cancel."
+const discardScope = "restores committed-file edits. New-path files stay unless you delete them"
 
 const unknownIncoming = "The incoming changes cannot be identified, so nothing was stashed or reset."
 
@@ -33,7 +31,7 @@ const unbornDirtyMessage = "Uncommitted changes cannot be stashed because this r
 var dirtyChoices = []prompt.Choice{
 	{Value: "carry", Description: "Carry the changes onto the destination and keep the staged and unstaged split."},
 	{Value: "stash", Description: "Stash the changes without carrying them."},
-	{Value: "discard", Description: "Revert modifications and deletions of committed files. Staged additions and rename targets stay as untracked files, and a collision is refused."},
+	{Value: "discard", Description: "Restore committed-file edits. Keep new-path files, or delete the listed ones permanently with no backup."},
 	{Value: "cancel", Description: "Stop without changing working files."},
 }
 
@@ -45,6 +43,7 @@ func AddDirtyFlags(c *cobra.Command) {
 func addDirtyFlags(c *cobra.Command) {
 	c.Flags().String("dirty", "", "How to handle uncommitted changes: carry, stash, discard, or cancel")
 	c.Flags().String("stash-name", "", "Stash message for --dirty=stash. Scripts use this value, or a generated WIP name when it is omitted. In a terminal it is the suggestion and can still be edited.")
+	c.Flags().String("untracked", "", "With --dirty=discard, keep or delete new-path files, including staged additions and rename targets. Without a terminal, omit this to keep them. delete removes the listed files permanently and keeps no backup.")
 }
 
 type navRequest struct {
@@ -58,10 +57,11 @@ type navRequest struct {
 }
 
 func applyNavigation(r navRequest) error {
-	choice, name, nameSet, err := readDirtyFlags(r.cmd)
+	flags, err := readDirtyFlags(r.cmd)
 	if err != nil {
 		return err
 	}
+	choice, name, nameSet := flags.choice, flags.name, flags.nameSet
 	snap, err := state.ReadSnapshot()
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func applyNavigation(r navRequest) error {
 		return operationError(snap.Operation)
 	}
 	if snap.Unborn && snap.Relevant() {
-		return unbornDirty(r, choice, snap)
+		return unbornDirty(r, choice)
 	}
 	if !snap.Relevant() {
 		return checkoutUnlessIgnored(r, snap)
@@ -98,6 +98,11 @@ func applyNavigation(r navRequest) error {
 			return err
 		}
 	}
+	if choice == "discard" {
+		if err := bindDisposition(r.cmd, r.ctx, r.verb); err != nil {
+			return err
+		}
+	}
 	target := ""
 	if r.target != nil {
 		target, err = r.target()
@@ -107,7 +112,7 @@ func applyNavigation(r navRequest) error {
 	}
 	switch choice {
 	case "discard":
-		return discardThen(target, r.body)
+		return discardThen(r.cmd, target, r.body)
 	case "stash":
 		if err := refusePreserve(target, false); err != nil {
 			return err
@@ -133,49 +138,77 @@ func applyNavigation(r navRequest) error {
 	}
 }
 
-func readDirtyFlags(cmd *cobra.Command) (choice, name string, nameSet bool, err error) {
+func readDirtyFlags(cmd *cobra.Command) (dirtyFlags, error) {
+	var flags dirtyFlags
 	if cmd == nil || cmd.Flags().Lookup("dirty") == nil {
-		return "", "", false, nil
+		return flags, nil
 	}
-	choice, err = cmd.Flags().GetString("dirty")
+	choice, err := cmd.Flags().GetString("dirty")
 	if err != nil {
-		return "", "", false, err
+		return flags, err
 	}
-	name, err = cmd.Flags().GetString("stash-name")
+	name, err := cmd.Flags().GetString("stash-name")
 	if err != nil {
-		return "", "", false, err
+		return flags, err
+	}
+	untracked := ""
+	if cmd.Flags().Lookup("untracked") != nil {
+		untracked, err = cmd.Flags().GetString("untracked")
+		if err != nil {
+			return flags, err
+		}
+		if f := cmd.Flags().Lookup("untracked"); f != nil && f.Changed {
+			flags.untrackedSet = true
+		}
 	}
 	choice = strings.TrimSpace(choice)
+	untracked = strings.TrimSpace(untracked)
 	if f := cmd.Flags().Lookup("stash-name"); f != nil && f.Changed {
-		nameSet = true
+		flags.nameSet = true
+	}
+	flags.choice = choice
+	flags.name = strings.TrimSpace(name)
+	flags.untracked = untracked
+	if flags.untrackedSet && untracked != "keep" && untracked != "delete" {
+		return flags, cliruntime.NewUsageError(cmd, fmt.Errorf("--untracked=%s is not keep or delete", untracked))
+	}
+	if flags.untrackedSet && choice != "discard" {
+		return flags, cliruntime.NewUsageError(cmd, fmt.Errorf("--untracked requires --dirty=discard"))
 	}
 	if choice == "" {
-		if nameSet {
-			return "", "", false, cliruntime.NewUsageError(cmd, fmt.Errorf("--stash-name requires --dirty=stash"))
+		if flags.nameSet {
+			return flags, cliruntime.NewUsageError(cmd, fmt.Errorf("--stash-name requires --dirty=stash"))
 		}
-		return "", "", false, nil
+		return flags, nil
 	}
 	switch choice {
 	case "carry", "stash", "discard", "cancel":
 	default:
-		return "", "", false, cliruntime.NewUsageError(cmd, fmt.Errorf("--dirty=%s is not carry, stash, discard, or cancel", choice))
+		return flags, cliruntime.NewUsageError(cmd, fmt.Errorf("--dirty=%s is not carry, stash, discard, or cancel", choice))
 	}
-	if nameSet && choice != "stash" {
-		return "", "", false, cliruntime.NewUsageError(cmd, fmt.Errorf("--stash-name requires --dirty=stash"))
+	if flags.nameSet && choice != "stash" {
+		return flags, cliruntime.NewUsageError(cmd, fmt.Errorf("--stash-name requires --dirty=stash"))
 	}
-	if nameSet && (strings.TrimSpace(name) == "" || strings.ContainsAny(name, "\r\n\x00")) {
-		return "", "", false, cliruntime.NewUsageError(cmd, fmt.Errorf("stash name must be one non-blank line"))
+	if flags.nameSet && (strings.TrimSpace(name) == "" || strings.ContainsAny(name, "\r\n\x00")) {
+		return flags, cliruntime.NewUsageError(cmd, fmt.Errorf("stash name must be one non-blank line"))
 	}
-	return choice, strings.TrimSpace(name), nameSet, nil
+	return flags, nil
 }
 
-// ValidateDirtyFlags reports a usage error for --dirty or --stash-name.
+// ValidateDirtyFlags reports a usage error for --dirty, --stash-name, or --untracked.
 func ValidateDirtyFlags(cmd *cobra.Command) error {
-	_, _, _, err := readDirtyFlags(cmd)
+	_, err := readDirtyFlags(cmd)
 	return err
 }
 
 func chooseDirty(r navRequest, explicit string) (string, error) {
+	if err := showDirtyPreview(r.dest); err != nil {
+		return "", err
+	}
+	before, err := readIdentity()
+	if err != nil {
+		return "", err
+	}
 	if explicit != "" {
 		return explicit, nil
 	}
@@ -192,6 +225,13 @@ func chooseDirty(r navRequest, explicit string) (string, error) {
 	}
 	switch ans {
 	case "carry", "stash", "discard", "cancel":
+		after, err := readIdentity()
+		if err != nil {
+			return "", err
+		}
+		if !before.same(after) {
+			return "", workflowText(changedBeforePrep)
+		}
 		return ans, nil
 	default:
 		return "", fmt.Errorf("invalid choice %q (use carry, stash, discard, or cancel)", ans)
@@ -205,7 +245,7 @@ func dirtyPrompt(dest string) string {
 	return "Uncommitted changes before " + dest + ". Discard " + discardScope
 }
 
-func unbornDirty(r navRequest, choice string, snap state.Snapshot) error {
+func unbornDirty(r navRequest, choice string) error {
 	if choice == "" && prompt.NonInteractive(prompt.FromContext(r.ctx)) {
 		return workflowText(unbornDirtyMessage)
 	}
@@ -221,9 +261,6 @@ func unbornDirty(r navRequest, choice string, snap state.Snapshot) error {
 	}
 	if err := guardChoice(r.ctx, choice); err != nil {
 		return err
-	}
-	if choice == "discard" && !snap.HasTracked() {
-		return workflowText(untrackedDiscardMessage)
 	}
 	return workflowText(unbornDirtyMessage)
 }
@@ -297,55 +334,24 @@ func reportStash(kept pipe.Retention) {
 	text.InfoText("It was not applied. After you check out the branch you want, restore it with `git stash apply --index " + kept.OID + "`. Drop it only after that result is what you want.")
 }
 
-func discardThen(target string, body func() error) error {
-	snap, err := state.ReadSnapshot()
-	if err != nil {
-		return err
-	}
-	if !snap.HasTracked() {
-		return workflowText(untrackedDiscardMessage)
-	}
-	keep, restore, err := discardPlan()
-	if err != nil {
-		return err
-	}
-	if path, err := blockedPath(target, preservedOccupants(snap, true), true); err != nil || path != "" {
-		if err != nil {
-			return err
-		}
-		return workflowText(fmt.Sprintf("%s would be overwritten. It was left in place.", path))
-	}
-	if path, err := blockedPath(target, keep, false); err != nil || path != "" {
-		if err != nil {
-			return err
-		}
-		return workflowText(fmt.Sprintf("%s would be overwritten. It was left in place.", path))
-	}
-	if err := revertTrackedEdits(keep, restore); err != nil {
-		return err
-	}
-	again, err := state.ReadSnapshot()
-	if err != nil {
-		return err
-	}
-	if path, err := blockedPath(target, preservedOccupants(again, true), false); err != nil || path != "" {
-		if err != nil {
-			return err
-		}
-		return workflowText(fmt.Sprintf("%s would be overwritten. It was left in place. Tracked edits were already discarded, and checkout did not run.", path))
-	}
-	return body()
-}
-
 func revertTrackedEdits(keep, restore []string) error {
+	if len(keep) == 0 && len(restore) == 0 {
+		return nil
+	}
+	prefix, err := gitAtRoot()
+	if err != nil {
+		return err
+	}
 	if len(keep) > 0 {
-		args := append([]string{"--literal-pathspecs", "rm", "--cached", "-f", "--ignore-unmatch", "--"}, keep...)
+		args := append(append([]string{}, prefix...), "--literal-pathspecs", "rm", "--cached", "-f", "--ignore-unmatch", "--")
+		args = append(args, keep...)
 		if err := git.Verbose(args...); err != nil {
 			return err
 		}
 	}
 	if len(restore) > 0 {
-		args := append([]string{"--literal-pathspecs", "restore", "--source=HEAD", "--staged", "--worktree", "--"}, restore...)
+		args := append(append([]string{}, prefix...), "--literal-pathspecs", "restore", "--source=HEAD", "--staged", "--worktree", "--")
+		args = append(args, restore...)
 		if err := git.Verbose(args...); err != nil {
 			return err
 		}
@@ -353,26 +359,29 @@ func revertTrackedEdits(keep, restore []string) error {
 	return nil
 }
 
+func gitAtRoot() ([]string, error) {
+	out, err := git.Output("rev-parse", "--show-prefix")
+	if err != nil {
+		msg := strings.TrimSpace(out)
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("%s", msg)
+	}
+	if strings.TrimSpace(out) == "" {
+		return nil, nil
+	}
+	root, err := repoRoot()
+	if err != nil {
+		return nil, err
+	}
+	return []string{"-C", root}, nil
+}
+
 func discardPlan() (keep, restore []string, err error) {
-	for _, cached := range []bool{false, true} {
-		args := []string{"diff", "-z", "--name-status", "--find-renames", "HEAD"}
-		if cached {
-			args = []string{"diff", "-z", "--cached", "--name-status", "--find-renames", "HEAD"}
-		}
-		out, err := git.Output(args...)
-		if err != nil {
-			msg := strings.TrimSpace(out)
-			if msg == "" {
-				msg = err.Error()
-			}
-			return nil, nil, fmt.Errorf("%s", msg)
-		}
-		k, r, err := classifyNameStatus(out)
-		if err != nil {
-			return nil, nil, err
-		}
-		keep = append(keep, k...)
-		restore = append(restore, r...)
+	keep, restore, _, err = planTracked()
+	if err != nil {
+		return nil, nil, err
 	}
 	keep = uniquePaths(keep)
 	kept := map[string]bool{}
@@ -404,7 +413,8 @@ func uniquePaths(paths []string) []string {
 	return out
 }
 
-func classifyNameStatus(out string) (keep, restore []string, err error) {
+func classifyNameStatus(out string) (keep, restore []string, kinds map[string]string, err error) {
+	kinds = map[string]string{}
 	parts := strings.Split(out, "\x00")
 	for i := 0; i < len(parts); {
 		status := parts[i]
@@ -415,34 +425,37 @@ func classifyNameStatus(out string) (keep, restore []string, err error) {
 		switch status[:1] {
 		case "R":
 			if i+2 >= len(parts) {
-				return nil, nil, fmt.Errorf("cannot list tracked edits")
+				return nil, nil, nil, fmt.Errorf("cannot list tracked edits")
 			}
 			restore = append(restore, parts[i+1])
 			keep = append(keep, parts[i+2])
+			kinds[parts[i+2]] = "renamed"
 			i += 3
 		case "C":
 			if i+2 >= len(parts) {
-				return nil, nil, fmt.Errorf("cannot list tracked edits")
+				return nil, nil, nil, fmt.Errorf("cannot list tracked edits")
 			}
 			keep = append(keep, parts[i+2])
+			kinds[parts[i+2]] = "copied"
 			i += 3
 		case "A":
 			if i+1 >= len(parts) {
-				return nil, nil, fmt.Errorf("cannot list tracked edits")
+				return nil, nil, nil, fmt.Errorf("cannot list tracked edits")
 			}
 			keep = append(keep, parts[i+1])
+			kinds[parts[i+1]] = "added"
 			i += 2
 		case "M", "D", "T":
 			if i+1 >= len(parts) {
-				return nil, nil, fmt.Errorf("cannot list tracked edits")
+				return nil, nil, nil, fmt.Errorf("cannot list tracked edits")
 			}
 			restore = append(restore, parts[i+1])
 			i += 2
 		default:
-			return nil, nil, fmt.Errorf("cannot list tracked edits")
+			return nil, nil, nil, fmt.Errorf("cannot list tracked edits")
 		}
 	}
-	return keep, restore, nil
+	return keep, restore, kinds, nil
 }
 
 func incomingTarget(h History) (string, error) {
@@ -483,6 +496,16 @@ func refuseIncoming(h History, choice, target string) error {
 		return workflowText(unknownIncoming)
 	}
 	occupants := preservedOccupants(snap, choice == "carry")
+	if choice == "discard" {
+		occupants = preservedOccupants(snap, true)
+		if DiscardRemoves(h.Cmd) {
+			drop, err := DisposablePaths()
+			if err != nil {
+				return err
+			}
+			occupants = withoutPaths(occupants, drop)
+		}
+	}
 	if h.Occupants != nil {
 		occupants, err = h.Occupants(snap, choice)
 		if err != nil {
@@ -788,7 +811,8 @@ type History struct {
 // PrepareHistory classifies an in-progress operation before protected checks
 // and the dirty choice. Continuation and recovery stay on the shared pipe.
 func PrepareHistory(h History) error {
-	explicit, _, _, err := readDirtyFlags(h.Cmd)
+	flags, err := readDirtyFlags(h.Cmd)
+	explicit := flags.choice
 	if err != nil {
 		return err
 	}
@@ -851,6 +875,14 @@ func PrepareHistory(h History) error {
 			return false, "", err
 		}
 		incoming = target
+		if picked == "discard" {
+			if err := refuseUnsupported(); err != nil {
+				return false, "", err
+			}
+			if err := bindDisposition(h.Cmd, ctx, h.Verb); err != nil {
+				return false, "", err
+			}
+		}
 		if err := refuseIncoming(h, picked, target); err != nil {
 			return false, "", err
 		}
@@ -869,7 +901,7 @@ func PrepareHistory(h History) error {
 		return false, "", nil
 	}, h.Body, h.RestoreWhenSafe)
 	if errors.Is(err, errHistoryDiscard) {
-		return discardThen(incoming, h.Body)
+		return discardThen(h.Cmd, incoming, h.Body)
 	}
 	if err != nil {
 		return noteKeptBackup(err, kept)
@@ -908,8 +940,8 @@ func noteKeptBackup(err error, kept pipe.Retention) error {
 }
 
 func stashName(cmd *cobra.Command) (string, bool, error) {
-	_, name, nameSet, err := readDirtyFlags(cmd)
-	return name, nameSet, err
+	flags, err := readDirtyFlags(cmd)
+	return flags.name, flags.nameSet, err
 }
 
 func dirtyClass(object, action string) string {

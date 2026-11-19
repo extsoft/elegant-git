@@ -8,6 +8,13 @@ import (
 	"github.com/extsoft/elegant-git/internal/git"
 )
 
+// StatusLine is one porcelain record. X and Y are the staged and unstaged
+// status bytes. Path is the current path, after a rename or copy.
+type StatusLine struct {
+	X, Y byte
+	Path string
+}
+
 // Snapshot is a read of the working tree. Errors from reading status are
 // returned separately and are not treated as dirt.
 type Snapshot struct {
@@ -19,6 +26,7 @@ type Snapshot struct {
 	Untracked []string
 	Ignored   []string
 	Unmerged  []string
+	Lines     []StatusLine
 }
 
 // Relevant reports non-ignored uncommitted work.
@@ -75,6 +83,7 @@ func ReadSnapshot() (Snapshot, error) {
 	s.Untracked = parsed.Untracked
 	s.Ignored = parsed.Ignored
 	s.Unmerged = parsed.Unmerged
+	s.Lines = parsed.Lines
 	return s, nil
 }
 
@@ -104,6 +113,7 @@ func ParsePorcelain(data string) (Snapshot, error) {
 			}
 			i = next
 		}
+		s.Lines = append(s.Lines, StatusLine{X: xy[0], Y: xy[1], Path: path})
 		code := string(xy)
 		switch {
 		case code == "??":

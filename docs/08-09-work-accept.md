@@ -19,7 +19,7 @@ local and remote branches. From bare `eg work` on a feature branch, picking `acc
 branch you are already on.
 
 A dirty tree uses the same `carry`, `stash`, `discard`, and `cancel` choice as
-[eg work sync](08-06-work-sync.md). `carry` restores the changes on the branch you started on,
+[eg work sync](08-06-work-sync.md), including `--untracked` on discard. `carry` restores the changes on the branch you started on,
 when that branch still exists, and keeps the staged and unstaged split. If that branch was
 deleted, the backup stays and is not applied to another branch. The stash entry stays in the
 list. Without a terminal, a dirty tree fails until `--dirty` is set. The

@@ -849,7 +849,10 @@ func refuseUnsupported() error {
 	}
 	sub, err := git.Output("submodule", "status")
 	if err != nil {
-		return fmt.Errorf("backup preparation cannot read submodule state: %w", err)
+		if !strings.Contains(sub, "no submodule mapping found") {
+			return fmt.Errorf("backup preparation cannot read submodule state: %w", err)
+		}
+		sub = ""
 	}
 	for _, line := range strings.Split(sub, "\n") {
 		if line == "" {

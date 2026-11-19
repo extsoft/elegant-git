@@ -42,7 +42,7 @@ func newPruneCommand() *cobra.Command {
 		Short: "Cleans up branches, stashes, and worktrees",
 		Long: `Deletes local branches merged into the default development branch or a protected branch, or whose upstream is gone; deletes branches on origin merged into those same branches; lists ordinary stashes without dropping them; and prunes worktrees whose directory is gone. Pass phase names to choose. Interactive mode asks which phases to run before checkout, lets you pick candidates, and confirms before each phase applies. Non-interactive mode with no phases runs local only and applies without asking. The stashes phase lists ordinary stashes and prints how to drop one with git stash drop. It does not ask, and it works without a terminal.
 
-When there are uncommitted changes, choose carry, stash, discard, or cancel before that checkout. carry restores them on the default development branch and keeps the staged and unstaged split. If prune deletes the branch you were on, the backup stays and is not applied there, and a later prune does not run again until eg repo doctor clears it. A phase that fails after checkout still restores a carried backup when HEAD is on the default branch and no rebase is in progress. stash leaves them in the stash instead, including when a later phase fails. The stash name is asked before any fetch. discard reverts modifications and deletions of committed files and leaves staged additions and rename targets as untracked files. An ignored file the checkout or rebase would write is refused before any stash or reset, and so is an untracked file for carry or discard, including a staged addition or rename target that carry or discard would leave behind. cancel stops before any of that. A non-interactive run with uncommitted changes fails unless --dirty is set. A clean tree does not need --dirty. An in-progress Git operation is refused before that choice. Cancelling a phase after preparation skips that phase and does not undo the checkout. Prune stays on the default branch.`,
+When there are uncommitted changes, choose carry, stash, discard, or cancel before that checkout. carry restores them on the default development branch and keeps the staged and unstaged split. If prune deletes the branch you were on, the backup stays and is not applied there, and a later prune does not run again until eg repo doctor clears it. A phase that fails after checkout still restores a carried backup when HEAD is on the default branch and no rebase is in progress. stash leaves them in the stash instead, including when a later phase fails. The stash name is asked before any fetch. discard restores modifications and deletions of committed files. Without --untracked=delete it leaves staged additions, rename targets, and other non-ignored untracked files in place. --untracked=delete removes those listed new-path files permanently and keeps no backup. An ignored file the checkout or rebase would write is refused before any stash or reset, and so is an untracked file for carry or for discard unless --untracked=delete removes that listed new-path file. cancel stops before any of that. A non-interactive run with uncommitted changes fails unless --dirty is set. A clean tree does not need --dirty. An in-progress Git operation is refused before that choice. Cancelling a phase after preparation skips that phase and does not undo the checkout. Prune stays on the default branch.`,
 		ValidArgs: append([]string(nil), prunePhaseNames...),
 		Args:      cobra.OnlyValidArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,11 +71,13 @@ func pruneRun(cmd *cobra.Command, args []string) error {
 	base := config.DefaultBranch()
 	plan := &prunePlan{base: base}
 	return work.PrepareHistory(work.History{
-		Cmd:             cmd,
-		ID:              pruneID,
-		Verb:            "repo prune",
-		Dest:            "the default branch " + base,
-		Occupants:       pruneOccupants,
+		Cmd:  cmd,
+		ID:   pruneID,
+		Verb: "repo prune",
+		Dest: "the default branch " + base,
+		Occupants: func(snap state.Snapshot, choice string) ([]string, error) {
+			return pruneOccupants(cmd, snap, choice)
+		},
 		Resolve:         plan.resolve,
 		Footprint:       func(string) ([]string, error) { return plan.writes() },
 		RestoreWhenSafe: true,
@@ -229,17 +231,8 @@ func (p *prunePlan) remember() error {
 	return pipe.RememberRestoreBranch(p.base)
 }
 
-func pruneOccupants(snap state.Snapshot, choice string) ([]string, error) {
-	out := append([]string{}, snap.Ignored...)
-	if choice != "carry" && choice != "discard" {
-		return out, nil
-	}
-	out = append(out, snap.Untracked...)
-	keep, err := work.DiscardKeeps()
-	if err != nil {
-		return nil, err
-	}
-	return append(out, keep...), nil
+func pruneOccupants(cmd *cobra.Command, snap state.Snapshot, choice string) ([]string, error) {
+	return work.PolicyOccupants(cmd, snap, choice)
 }
 
 func pruneWorkflow(msg string) error {

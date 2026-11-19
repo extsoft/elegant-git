@@ -25,7 +25,7 @@ Otherwise it fetches and rebases onto the freshest source. Commits whose changes
 in that source are left out. A delivered source, including one whose upstream is gone, is
 treated as the default development branch. Then it force-pushes with `--set-upstream` to the
 remote (from the upstream remote, or `origin`). HTTP URLs in the push output are opened when
-`open` is available. A dirty tree uses the same choice as [eg work sync](08-06-work-sync.md).
+`open` is available. A dirty tree uses the same choice as [eg work sync](08-06-work-sync.md), including `--untracked` on discard.
 `carry` restores the changes on this branch. A failed fetch or rebase says the remote was not
 updated. A failed push says the local rebase finished. The backup stays. Untracked files a
 replayed commit would overwrite are moved aside until the rebase finishes, as described in

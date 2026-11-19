@@ -33,7 +33,7 @@ func newSwitchCommand() *cobra.Command {
 		Short: "Switches to a branch, or creates one from a remote branch, tag, or revision.",
 		Long: `Switches to a branch, or creates one from a remote branch, tag, or revision.
 
-When there are uncommitted changes, choose carry, stash, discard, or cancel. carry moves tracked and non-ignored untracked files onto the branch you switch to and keeps the staged and unstaged split. stash leaves them in the stash instead. discard reverts modifications and deletions of committed files and leaves staged additions and rename targets as untracked files. cancel stops before any of that. A non-interactive run with uncommitted changes fails unless --dirty is set. Switching to the current branch changes nothing. A clean tree does not need --dirty.`,
+When there are uncommitted changes, choose carry, stash, discard, or cancel. carry moves tracked and non-ignored untracked files onto the branch you switch to and keeps the staged and unstaged split. stash leaves them in the stash instead. discard restores modifications and deletions of committed files. Without --untracked=delete it leaves staged additions, rename targets, and other non-ignored untracked files in place. --untracked=delete removes those listed new-path files permanently and keeps no backup. cancel stops before any of that. A non-interactive run with uncommitted changes fails unless --dirty is set. Switching to the current branch changes nothing. A clean tree does not need --dirty.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, switchID, func() error {
 				return switchRun(cmd, args)

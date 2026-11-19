@@ -33,6 +33,11 @@ no retention window and no fallback that stashes automatically. Command names, h
 aliases, and existing recovery records keep their compatibility obligations. `preserve` and
 `fail` were never shipped and are rejected.
 
+Untracked discard (2026-11-18): Discard of a tree whose only local changes are new-path
+files no longer refuses. `--dirty=discard` keeps those files unless `--untracked=delete`
+is also set. `--untracked=keep|delete` is additive. No previous flag, hook id, or
+recovery record is removed, and there is no shim that reproduces the old refusal.
+
 DEP-022 (2026-11-17): Elegant Git drops support for Git older than 2.40.0 immediately. The old
 backup note of Git 2.13 was not a full-product contract. D4 accepts this withdrawal of older Git
 support, so there is no grace period and no compatibility fallback. Help, version, static

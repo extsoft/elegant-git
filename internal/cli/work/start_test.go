@@ -40,14 +40,14 @@ func TestResolveStartPoint(t *testing.T) {
 func TestReadDirtyFlags(t *testing.T) {
 	cmd := &cobra.Command{}
 	addDirtyFlags(cmd)
-	choice, _, _, err := readDirtyFlags(cmd)
-	if err != nil || choice != "" {
-		t.Fatalf("choice %q err %v", choice, err)
+	flags, err := readDirtyFlags(cmd)
+	if err != nil || flags.choice != "" {
+		t.Fatalf("choice %q err %v", flags.choice, err)
 	}
 	if err := cmd.Flags().Set("dirty", "preserve"); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err := readDirtyFlags(cmd); !cliruntime.IsUsageError(err) {
+	if _, err := readDirtyFlags(cmd); !cliruntime.IsUsageError(err) {
 		t.Fatalf("preserve err %v", err)
 	}
 	if err := cmd.Flags().Set("dirty", "carry"); err != nil {
@@ -56,15 +56,49 @@ func TestReadDirtyFlags(t *testing.T) {
 	if err := cmd.Flags().Set("stash-name", "label"); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, err := readDirtyFlags(cmd); !cliruntime.IsUsageError(err) {
+	if _, err := readDirtyFlags(cmd); !cliruntime.IsUsageError(err) {
 		t.Fatalf("name with carry err %v", err)
 	}
 	if err := cmd.Flags().Set("dirty", "stash"); err != nil {
 		t.Fatal(err)
 	}
-	choice, name, set, err := readDirtyFlags(cmd)
-	if err != nil || choice != "stash" || name != "label" || !set {
-		t.Fatalf("choice %q name %q set %v err %v", choice, name, set, err)
+	flags, err = readDirtyFlags(cmd)
+	if err != nil || flags.choice != "stash" || flags.name != "label" || !flags.nameSet {
+		t.Fatalf("choice %q name %q set %v err %v", flags.choice, flags.name, flags.nameSet, err)
+	}
+	cmd = &cobra.Command{}
+	addDirtyFlags(cmd)
+	if err := cmd.Flags().Set("dirty", "carry"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("untracked", "delete"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readDirtyFlags(cmd); !cliruntime.IsUsageError(err) {
+		t.Fatalf("untracked with carry err %v", err)
+	}
+	cmd = &cobra.Command{}
+	addDirtyFlags(cmd)
+	if err := cmd.Flags().Set("untracked", "nope"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("dirty", "discard"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readDirtyFlags(cmd); !cliruntime.IsUsageError(err) {
+		t.Fatalf("bad untracked err %v", err)
+	}
+	cmd = &cobra.Command{}
+	addDirtyFlags(cmd)
+	if err := cmd.Flags().Set("dirty", "discard"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("untracked", "keep"); err != nil {
+		t.Fatal(err)
+	}
+	flags, err = readDirtyFlags(cmd)
+	if err != nil || flags.choice != "discard" || flags.untracked != "keep" || !flags.untrackedSet {
+		t.Fatalf("%+v err %v", flags, err)
 	}
 }
 

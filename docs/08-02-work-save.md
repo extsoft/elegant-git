@@ -34,8 +34,12 @@ Picking the last commit amends it (`git commit --amend`). That path still runs
 older unique commit creates a fixup for that commit and rebases with autosquash so the change
 lands there. The commit consumes the index you staged. Edits left unstaged or untracked are
 not part of that commit. When those leftovers are already visible, Elegant Git asks the same
-`carry`, `stash`, `discard`, or `cancel` question before creating the fixup. If staging
-changes what is left, it asks again before the rebase. `carry` stashes only those leftovers
+`carry`, `stash`, `discard`, or `cancel` question before creating the fixup. `--untracked`
+applies to those leftovers, not to the staged commit inputs. If the leftover set changes
+after the fixup commit, an earlier `--untracked=delete` is not reused; the command names
+the commit and deletes nothing. A staged deletion does that when the worktree file is
+still there, because the commit turns it into a new leftover. If staging changes what
+is left, it asks again before the rebase. `carry` stashes only those leftovers
 and restores them after the autosquash. Git's own `rebase.autostash` is not used. `cancel`
 before the fixup commit changes nothing. If you refuse after the fixup commit exists, the
 command names that commit and leaves it in place. A failed autosquash does the same: it does

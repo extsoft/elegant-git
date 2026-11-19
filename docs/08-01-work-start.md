@@ -68,9 +68,18 @@ branch, and coming back later does not apply it either. A finished stash does no
 later commands. If the handoff does not finish, the recovery record stays and the command
 does not claim the stash was handed off.
 
-`discard` reverts modifications and deletions of committed files and leaves staged additions and rename targets as untracked files. Other untracked files stay. The command refuses when one
-of them, or an ignored file, would be overwritten, and it refuses when the only changes
-are untracked. That refusal says nothing untracked is deleted.
+`discard` restores modifications and deletions of committed files. It shows the
+staged, unstaged, and untracked paths first, with names quoted so spaces and control
+characters stay unambiguous. New-path files — ordinary untracked files, staged
+additions, and rename targets — stay in place unless you pass `--untracked=delete`
+with `--dirty=discard`. Without a terminal, omitting `--untracked` keeps them. In a
+terminal, omitting it asks keep or delete only when those files exist. Delete removes
+that listed set permanently and keeps no backup. A path that would be overwritten is
+still refused before anything is changed, except a listed new-path file that delete is
+removing. A path that escapes the repository, git metadata, a submodule, a nested
+repository, a symlink ancestor, a directory, or a special file refuses the whole
+delete before anything is changed.
+`--untracked` with any other `--dirty` value is a usage error.
 
 In non-interactive mode a dirty tree fails until you pass `--dirty`. That failure is
 immediate: there is no window where a dirty `work start` still stashes on its own. This

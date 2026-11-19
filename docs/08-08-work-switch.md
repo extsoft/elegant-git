@@ -50,7 +50,7 @@ any stash, even when nothing else is uncommitted. `stash` still saves that untra
 path and checks out the branch. If the destination changed the same tracked lines, carry
 does not predict the conflict. Apply can stop with part of the backup already on the
 branch, and the error names the stash commit. `stash` leaves an ordinary stash and a
-clean checkout, and does not apply that stash when you come back. `discard` reverts modifications and deletions of committed files and leaves staged additions and rename targets as untracked files. `cancel` stops before any of that. Ignored files are not moved or deleted.
+clean checkout, and does not apply that stash when you come back. `discard` restores committed-file edits and keeps new-path files unless `--untracked=delete` is set with `--dirty=discard`, as described for [eg work start](08-01-work-start.md). `cancel` stops before any of that. Ignored files are not moved or deleted.
 If checkout fails, the changes go back when the branch you left is still a safe place for
 them; otherwise the backup stays and the command names it. A repository with no commits
 yet cannot carry or stash uncommitted changes. Switching to the branch you are already

@@ -27,7 +27,7 @@ Elegant Git
    or `xclip` is available, printing them otherwise
 
 A dirty tree uses the same `carry`, `stash`, `discard`, and `cancel` choice as
-[eg work sync](08-06-work-sync.md). `carry` restores the changes on the branch you started on,
+[eg work sync](08-06-work-sync.md), including `--untracked` on discard. `carry` restores the changes on the branch you started on,
 when that branch still exists. If it is gone, the backup stays. Without a terminal, a dirty
 tree fails until `--dirty` is set. An in-progress Git operation is refused first. The tag
 message is written to a temporary file outside the worktree, so a file named `tag-message` in

@@ -28,7 +28,8 @@ A clean tree does not ask. For sync, polish, push, accept, and release new, an i
 rebase is continued first, and a merge, cherry-pick, revert, or bisect is refused, before
 that question. `repo prune` refuses any in-progress Git operation before the question.
 Conflict resolutions are not stashed or reset. `carry` and `stash` keep tracked and non-ignored untracked files and
-the staged and unstaged split. `carry` restores that backup on the branch the command is
+the staged and unstaged split. `discard` does not create a stash. With `--untracked=delete` it removes only the
+listed new-path files and keeps no backup; otherwise those files stay. `carry` restores that backup on the branch the command is
 allowed to return to: the branch you stayed on for sync, polish, and push, the branch
 you started on for accept and release new, or the default development branch for
 `repo prune`. If prune deletes the branch the changes came from, the backup stays and is

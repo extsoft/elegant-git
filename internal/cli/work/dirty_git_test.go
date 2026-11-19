@@ -6,9 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
+	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/pipe"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/extsoft/elegant-git/internal/recovery"
@@ -109,13 +111,17 @@ func TestDiscardScope(t *testing.T) {
 		r.write("free", "u\n")
 		r.enter()
 		buf := captureText(t)
-		err := runSwitchOpt(prompt.NewNonInteractive(), "discard", "", "feat")
-		assertWorkflow(t, err)
-		if !strings.Contains(buf.String(), "carry") || !strings.Contains(buf.String(), "stash") || !strings.Contains(buf.String(), "cancel") {
+		if err := runSwitchOpt(prompt.NewNonInteractive(), "discard", "", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(buf.String(), strconv.Quote("free")) {
 			t.Fatalf("out=%q", buf.String())
 		}
-		if r.headRef() != "refs/heads/main" || r.read("free") != "u\n" || r.stashList() != "" {
-			t.Fatal("discarded untracked work")
+		if r.headRef() != "refs/heads/feat" || r.read("free") != "u\n" || r.stashList() != "" {
+			t.Fatal("untracked keep failed")
+		}
+		if refs := r.git("for-each-ref", recovery.RefPrefix); refs != "" {
+			t.Fatal(refs)
 		}
 	})
 	t.Run("collision", func(t *testing.T) {
@@ -803,6 +809,286 @@ func TestDetachedCarryAndStash(t *testing.T) {
 			t.Fatal(refs)
 		}
 	})
+}
+
+func TestDiscardKeepAndDelete(t *testing.T) {
+	t.Run("preview quotes both layers", func(t *testing.T) {
+		r := dirtyPair(t)
+		r.write("f", "staged\n")
+		r.git("add", "f")
+		r.write("f", "unstaged\n")
+		r.write("odd name", "x\n")
+		r.enter()
+		buf := captureText(t)
+		if err := runSwitchOpt(prompt.NewNonInteractive(), "discard", "", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		out := buf.String()
+		for _, want := range []string{"Before feat:", "Staged:", "Unstaged:", "Untracked:", "modified", strconv.Quote("f"), strconv.Quote("odd name")} {
+			if !strings.Contains(out, want) {
+				t.Fatalf("missing %q in %q", want, out)
+			}
+		}
+		if r.headRef() != "refs/heads/feat" || r.read("f") != "base\n" || r.read("odd name") != "x\n" || r.stashList() != "" {
+			t.Fatalf("head %s f %q odd %q stash %q", r.headRef(), r.read("f"), r.read("odd name"), r.stashList())
+		}
+	})
+	t.Run("delete untracked", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("checkout", "-q", "-b", "feat")
+		r.git("checkout", "-q", "main")
+		r.write("free", "u\n")
+		r.enter()
+		if err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		if r.headRef() != "refs/heads/feat" || r.stashList() != "" {
+			t.Fatalf("head %s stash %q", r.headRef(), r.stashList())
+		}
+		if _, err := os.Stat(filepath.Join(r.dir, "free")); !os.IsNotExist(err) {
+			t.Fatal("untracked file remains")
+		}
+		if refs := r.git("for-each-ref", recovery.RefPrefix); refs != "" {
+			t.Fatal(refs)
+		}
+	})
+	t.Run("delete addition and restore head", func(t *testing.T) {
+		r := dirtyPair(t)
+		r.write("new.txt", "new\n")
+		r.git("add", "new.txt")
+		r.git("mv", "f", "g.txt")
+		r.enter()
+		if err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		if r.headRef() != "refs/heads/feat" || r.read("f") != "base\n" {
+			t.Fatalf("head %s f %q", r.headRef(), r.read("f"))
+		}
+		if _, err := os.Stat(filepath.Join(r.dir, "new.txt")); !os.IsNotExist(err) {
+			t.Fatal("addition remains")
+		}
+		if _, err := os.Stat(filepath.Join(r.dir, "g.txt")); !os.IsNotExist(err) {
+			t.Fatal("rename target remains")
+		}
+		if r.gitAllow("ls-files", "--error-unmatch", "new.txt") == nil || r.stashList() != "" {
+			t.Fatal("index or stash changed")
+		}
+	})
+	t.Run("delete colliding untracked", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("checkout", "-q", "-b", "feat")
+		r.write("free", "dest\n")
+		r.git("add", "free")
+		r.git("commit", "-q", "-m", "free")
+		r.git("checkout", "-q", "main")
+		r.write("f", "dirty\n")
+		r.write("free", "local\n")
+		r.enter()
+		if err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		if r.headRef() != "refs/heads/feat" || r.read("f") != "base\n" || r.read("free") != "dest\n" || r.stashList() != "" {
+			t.Fatalf("head %s f %q free %q stash %q", r.headRef(), r.read("f"), r.read("free"), r.stashList())
+		}
+	})
+	t.Run("invalid untracked before mutation", func(t *testing.T) {
+		r := dirtyPair(t)
+		r.write("free", "u\n")
+		r.enter()
+		err := runSwitchFlags(prompt.NewNonInteractive(), "carry", "delete", "feat")
+		if !cliruntime.IsUsageError(err) {
+			t.Fatalf("err=%v", err)
+		}
+		if r.headRef() != "refs/heads/main" || r.read("f") != "dirty\n" || r.read("free") != "u\n" || r.stashList() != "" {
+			t.Fatal("mutated")
+		}
+	})
+	t.Run("symlink link only", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("checkout", "-q", "-b", "feat")
+		r.git("checkout", "-q", "main")
+		outside := t.TempDir()
+		if err := os.WriteFile(filepath.Join(outside, "target"), []byte("safe\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(outside, "target"), filepath.Join(r.dir, "link")); err != nil {
+			t.Fatal(err)
+		}
+		r.enter()
+		if err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Lstat(filepath.Join(r.dir, "link")); !os.IsNotExist(err) {
+			t.Fatal("symlink remains")
+		}
+		if got := string(mustRead(t, filepath.Join(outside, "target"))); got != "safe\n" {
+			t.Fatal(got)
+		}
+	})
+	t.Run("nested delete refused", func(t *testing.T) {
+		r := dirtyPair(t)
+		nested := filepath.Join(r.dir, "nested")
+		if err := os.MkdirAll(nested, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		gitDir(t, nested, "init", "-q", "-b", "main")
+		if err := os.WriteFile(filepath.Join(nested, "inside"), []byte("keep\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		r.write("free", "u\n")
+		r.enter()
+		buf := captureText(t)
+		err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat")
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "nested repository") || !strings.Contains(buf.String(), "Nothing was changed") || !strings.Contains(buf.String(), "refuses the whole delete") {
+			t.Fatalf("out=%q", buf.String())
+		}
+		if r.headRef() != "refs/heads/main" || r.read("f") != "dirty\n" || r.read("free") != "u\n" || r.stashList() != "" {
+			t.Fatal("mutated")
+		}
+		if got := string(mustRead(t, filepath.Join(nested, "inside"))); got != "keep\n" {
+			t.Fatal(got)
+		}
+	})
+	t.Run("partial removal stops", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("checkout", "-q", "-b", "feat")
+		r.git("checkout", "-q", "main")
+		r.write("a", "a\n")
+		r.write("b", "b\n")
+		r.enter()
+		prev := removeWorktreeFile
+		removeWorktreeFile = func(root, rel string) error {
+			if rel == "b" {
+				return os.ErrPermission
+			}
+			return removeWithRoot(root, rel)
+		}
+		t.Cleanup(func() { removeWorktreeFile = prev })
+		buf := captureText(t)
+		err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat")
+		assertWorkflow(t, err)
+		out := buf.String()
+		if !strings.Contains(out, "Still present") || !strings.Contains(out, "No discard backup") || !strings.Contains(out, strconv.Quote("b")) {
+			t.Fatalf("out=%q", out)
+		}
+		if r.headRef() != "refs/heads/main" || r.read("b") != "b\n" {
+			t.Fatalf("head %s b %q", r.headRef(), r.read("b"))
+		}
+	})
+	t.Run("change during choice", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("checkout", "-q", "-b", "feat")
+		r.git("checkout", "-q", "main")
+		r.write("free", "u\n")
+		r.enter()
+		p := &changeOnSecondPick{dir: r.dir, swPrompter: swPrompter{picks: []string{"discard", "delete"}}}
+		buf := captureText(t)
+		err := runSwitch(p, "feat")
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "Nothing was stashed, reset, or deleted") {
+			t.Fatalf("out=%q", buf.String())
+		}
+		if r.headRef() != "refs/heads/main" || r.read("free") != "changed\n" || r.stashList() != "" {
+			t.Fatalf("head %s free %q", r.headRef(), r.read("free"))
+		}
+	})
+	t.Run("ignored stays", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("checkout", "-q", "-b", "feat")
+		r.git("checkout", "-q", "main")
+		r.write(".gitignore", "skip\n")
+		r.git("add", ".gitignore")
+		r.git("commit", "-q", "-m", "ignore")
+		r.write("skip", "ignored\n")
+		r.write("free", "u\n")
+		r.enter()
+		if err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(r.dir, "free")); !os.IsNotExist(err) {
+			t.Fatal("free remains")
+		}
+		if r.read("skip") != "ignored\n" {
+			t.Fatal(r.read("skip"))
+		}
+	})
+	t.Run("keeps the working directory", func(t *testing.T) {
+		r := dirtyPair(t)
+		if err := os.MkdirAll(filepath.Join(r.dir, "newdir"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		r.write("newdir/note", "u\n")
+		r.enter()
+		t.Chdir(filepath.Join(r.dir, "newdir"))
+		if err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(r.dir, "newdir")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(r.dir, "newdir/note")); !os.IsNotExist(err) {
+			t.Fatal("note remains")
+		}
+		if r.headRef() != "refs/heads/feat" || r.read("f") != "base\n" {
+			t.Fatalf("head %s f %q", r.headRef(), r.read("f"))
+		}
+	})
+	t.Run("restores a head path from a subdirectory", func(t *testing.T) {
+		r := newSwRepo(t)
+		r.git("checkout", "-q", "-b", "feat")
+		r.git("checkout", "-q", "main")
+		r.git("rm", "--cached", "-q", "f")
+		r.write("f", "edited\n")
+		if err := os.MkdirAll(filepath.Join(r.dir, "newdir"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		r.write("newdir/note", "u\n")
+		r.enter()
+		t.Chdir(filepath.Join(r.dir, "newdir"))
+		if err := runSwitchFlags(prompt.NewNonInteractive(), "discard", "delete", "feat"); err != nil {
+			t.Fatal(err)
+		}
+		if r.read("f") != "base\n" {
+			t.Fatal(r.read("f"))
+		}
+		if _, err := os.Stat(filepath.Join(r.dir, "newdir")); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(r.dir, "newdir/note")); !os.IsNotExist(err) {
+			t.Fatal("note remains")
+		}
+	})
+}
+
+func runSwitchFlags(p prompt.Prompter, dirty, untracked string, args ...string) error {
+	cmd := newSwitchCommand()
+	cmd.SetContext(prompt.WithPrompter(context.Background(), p))
+	if dirty != "" {
+		if err := cmd.Flags().Set("dirty", dirty); err != nil {
+			return err
+		}
+	}
+	if untracked != "" {
+		if err := cmd.Flags().Set("untracked", untracked); err != nil {
+			return err
+		}
+	}
+	return switchRun(cmd, args)
+}
+
+type changeOnSecondPick struct {
+	swPrompter
+	dir string
+}
+
+func (p *changeOnSecondPick) Pick(label string, choices []prompt.Choice, def string) (string, error) {
+	if strings.Contains(label, "new-path") {
+		if err := os.WriteFile(filepath.Join(p.dir, "free"), []byte("changed\n"), 0o644); err != nil {
+			return "", err
+		}
+	}
+	return p.swPrompter.Pick(label, choices, def)
 }
 
 func mustRead(t *testing.T, path string) []byte {

@@ -127,6 +127,196 @@ func TestSaveAutosquashStashLeavesLeftovers(t *testing.T) {
 	}
 }
 
+func TestSaveDiscardKeepLeavesLeftover(t *testing.T) {
+	r := newGitRepo(t)
+	r.branch("feature", "main")
+	older := r.commit("older", "g", "older\n")
+	r.commit("tip", "h", "tip\n")
+	r.write("g", "fixed\n")
+	r.git("add", "g")
+	r.write("extra", "left\n")
+	r.enter()
+	t.Setenv("GIT_EDITOR", "true")
+	t.Setenv("GIT_SEQUENCE_EDITOR", "true")
+	cmd := newSaveCommand()
+	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	if err := cmd.Flags().Set("dirty", "discard"); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := applyFixup(cmd, older)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved == "" || r.readFile("extra") != "left\n" || r.readFile("g") != "fixed\n" || r.git("stash", "list") != "" {
+		t.Fatalf("saved %s extra %q g %q stash %q", saved, r.readFile("extra"), r.readFile("g"), r.git("stash", "list"))
+	}
+}
+
+func TestSaveDiscardDeleteRemovesLeftover(t *testing.T) {
+	r := newGitRepo(t)
+	r.branch("feature", "main")
+	older := r.commit("older", "g", "older\n")
+	r.commit("tip", "h", "tip\n")
+	r.write("g", "fixed\n")
+	r.git("add", "g")
+	r.write("extra", "left\n")
+	r.enter()
+	t.Setenv("GIT_EDITOR", "true")
+	t.Setenv("GIT_SEQUENCE_EDITOR", "true")
+	cmd := newSaveCommand()
+	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	if err := cmd.Flags().Set("dirty", "discard"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("untracked", "delete"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := applyFixup(cmd, older); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(r.dir, "extra")); !os.IsNotExist(err) {
+		t.Fatal("leftover remains")
+	}
+	if r.readFile("g") != "fixed\n" || r.git("stash", "list") != "" {
+		t.Fatalf("g %q stash %q", r.readFile("g"), r.git("stash", "list"))
+	}
+}
+
+func TestSaveDeleteSkipsStagedAddition(t *testing.T) {
+	r := newGitRepo(t)
+	r.branch("feature", "main")
+	older := r.commit("older", "g", "older\n")
+	r.commit("tip", "h", "tip\n")
+	r.write("staged.txt", "staged\n")
+	r.git("add", "staged.txt")
+	r.write("junk.txt", "junk\n")
+	r.enter()
+	t.Setenv("GIT_EDITOR", "true")
+	t.Setenv("GIT_SEQUENCE_EDITOR", "true")
+	cmd := newSaveCommand()
+	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	if err := cmd.Flags().Set("dirty", "discard"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("untracked", "delete"); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := applyFixup(cmd, older)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved == "" || r.readFile("staged.txt") != "staged\n" || r.git("stash", "list") != "" {
+		t.Fatalf("saved %s staged %q stash %q", saved, r.readFile("staged.txt"), r.git("stash", "list"))
+	}
+	if _, err := os.Stat(filepath.Join(r.dir, "junk.txt")); !os.IsNotExist(err) {
+		t.Fatal("junk remains")
+	}
+}
+
+func TestSaveDeleteAllowsStagedGitlink(t *testing.T) {
+	r := newGitRepo(t)
+	r.branch("feature", "main")
+	older := r.commit("older", "g", "older\n")
+	r.commit("tip", "h", "tip\n")
+	inner := filepath.Join(r.dir, "inner")
+	if err := os.MkdirAll(inner, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	init := exec.Command(git.Executable(), "init", "-q", "-b", "main")
+	init.Dir = inner
+	if out, err := init.CombinedOutput(); err != nil {
+		t.Fatalf("init: %v\n%s", err, out)
+	}
+	if err := os.WriteFile(filepath.Join(inner, "a"), []byte("a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	add := exec.Command(git.Executable(), "add", "a")
+	add.Dir = inner
+	if out, err := add.CombinedOutput(); err != nil {
+		t.Fatalf("add: %v\n%s", err, out)
+	}
+	commit := exec.Command(git.Executable(), "commit", "-q", "-m", "inner")
+	commit.Dir = inner
+	if out, err := commit.CombinedOutput(); err != nil {
+		t.Fatalf("commit: %v\n%s", err, out)
+	}
+	r.git("add", "inner")
+	r.write("left.txt", "left\n")
+	r.enter()
+	t.Setenv("GIT_EDITOR", "true")
+	t.Setenv("GIT_SEQUENCE_EDITOR", "true")
+	cmd := newSaveCommand()
+	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	if err := cmd.Flags().Set("dirty", "discard"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("untracked", "delete"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := applyFixup(cmd, older); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(r.dir, "left.txt")); !os.IsNotExist(err) {
+		t.Fatal("leftover remains")
+	}
+	if _, err := os.Stat(filepath.Join(inner, "a")); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(r.git("ls-files", "-s", "inner"), "160000") {
+		t.Fatal(r.git("ls-files", "-s", "inner"))
+	}
+}
+
+func TestSaveDeleteStopsWhenStagedDeletionBecomesLeftover(t *testing.T) {
+	r := newGitRepo(t)
+	r.branch("feature", "main")
+	older := r.commit("older", "g", "older\n")
+	r.commit("tip", "c.txt", "tracked\n")
+	r.git("rm", "--cached", "-q", "c.txt")
+	r.write("c.txt", "kept\n")
+	r.write("left.txt", "left\n")
+	r.enter()
+	t.Setenv("GIT_EDITOR", "true")
+	t.Setenv("GIT_SEQUENCE_EDITOR", "true")
+	cmd := newSaveCommand()
+	cmd.SetContext(prompt.WithPrompter(context.Background(), prompt.NewNonInteractive()))
+	if err := cmd.Flags().Set("dirty", "discard"); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Flags().Set("untracked", "delete"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := applyFixup(cmd, older)
+	if err == nil || !strings.Contains(err.Error(), "leftovers changed") {
+		t.Fatal(err)
+	}
+	if r.readFile("left.txt") != "left\n" || r.readFile("c.txt") != "kept\n" {
+		t.Fatalf("left %q c %q", r.readFile("left.txt"), r.readFile("c.txt"))
+	}
+	if !strings.Contains(r.git("log", "--format=%s"), "fixup!") {
+		t.Fatal(r.git("log", "--format=%s"))
+	}
+}
+
+func TestSyncInteractiveDeleteRemovesCollision(t *testing.T) {
+	r := newGitRepo(t)
+	r.branch("feature", "main")
+	r.checkout("main")
+	r.commit("note", "note", "from-main\n")
+	r.checkout("feature")
+	r.write("note", "mine\n")
+	r.enter()
+	r.setSource("feature", "main")
+	cmd := newSyncCommand()
+	cmd.SetContext(prompt.WithPrompter(context.Background(), &swPrompter{picks: []string{"discard", "delete"}}))
+	if err := syncRun(cmd, []string{"main"}); err != nil {
+		t.Fatal(err)
+	}
+	if r.readFile("note") != "from-main\n" || !DiscardRemoves(cmd) {
+		t.Fatalf("note %q delete %v", r.readFile("note"), DiscardRemoves(cmd))
+	}
+}
+
 func TestSavedRefusalKeepsTheExitAndNamesTheCommit(t *testing.T) {
 	buf := captureText(t)
 	err := annotate(workflowText("cannot be carried"), "saved abc123; autosquash did not finish, and that commit was left in place")

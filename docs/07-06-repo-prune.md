@@ -41,11 +41,11 @@ When the tree has tracked edits or non-ignored untracked files, the next questio
 [work start](08-01-work-start.md). `carry` restores those changes on the default development
 branch, with the staged and unstaged split kept. If this command deletes the branch you were on,
 that backup stays in the stash and is not applied to the default branch. `stash` leaves an
-ordinary stash and does not apply it. `discard` reverts modifications and deletions of committed
-files and leaves staged additions and rename targets as untracked files. An ignored file the
-checkout or rebase would write is refused first, and so is an untracked file for `carry` or
-`discard`, including a staged addition or rename target that carry or discard would leave
-behind. The stash name is asked before any fetch. A phase that fails after checkout restores
+ordinary stash and does not apply it. `discard` restores committed-file edits and keeps
+new-path files unless `--untracked=delete` is set with `--dirty=discard`. Delete removes
+only that listed set and keeps no backup. An ignored file the checkout or rebase would
+write is refused first, and so is an untracked file for `carry` or for discard unless
+delete is removing that listed new-path file. The stash name is asked before any fetch. A phase that fails after checkout restores
 a carried backup when HEAD is on the default branch and no rebase is in progress, then
 reports that phase error. A rebase still in progress, a deleted source branch, or a
 destination that is not the default branch leaves the backup in place. With `stash`, a

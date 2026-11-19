@@ -729,6 +729,26 @@ func TestSwitchM26UnbornAndBare(t *testing.T) {
 			t.Fatal("branch created or file lost")
 		}
 	})
+	t.Run("dirty interactive", func(t *testing.T) {
+		src := newSwRepo(t)
+		src.git("checkout", "-q", "-b", "feat")
+		bare := t.TempDir()
+		src.git("clone", "--bare", "-q", src.dir, bare)
+		r := newUnborn(t)
+		r.git("remote", "add", "origin", bare)
+		r.git("fetch", "-q", "origin")
+		r.write("dirty", "x\n")
+		r.enter()
+		buf := captureText(t)
+		err := runSwitch(&swPrompter{picks: []string{"carry"}}, "origin/feat")
+		assertWorkflow(t, err)
+		if !strings.Contains(buf.String(), "no commits") {
+			t.Fatalf("out=%q err=%v", buf.String(), err)
+		}
+		if r.read("dirty") != "x\n" || r.gitAllow("rev-parse", "--verify", "--quiet", "refs/heads/feat") == nil {
+			t.Fatal("branch created or file lost")
+		}
+	})
 	t.Run("bare", func(t *testing.T) {
 		bare := t.TempDir()
 		cmd := exec.Command(git.Executable(), "init", "--bare", "-q", "-b", "main", bare)

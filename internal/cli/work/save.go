@@ -46,7 +46,7 @@ func newSaveCommand() *cobra.Command {
 
 Optional target is new (a new commit), HEAD, or a unique commit hash (short or full). If omitted, interactive mode asks when the branch has unique commits; non-interactive mode creates a new commit. The last unique commit is amended; an older one is applied as a fixup and autosquashed.
 
-The commit consumes the index you stage with git add --interactive. That staging session is Git's, including when this command is non-interactive. --dirty does not choose those commit inputs and does not discard them. It applies only to edits left after an older-target commit, and to a nested work start or work push. carry stashes those leftovers and restores them after the autosquash. stash leaves them in the stash. discard reverts modifications and deletions of committed leftovers and leaves staged additions and rename targets as untracked files. cancel before the fixup commit changes nothing. A refusal after the commit reports the commit and leaves it in place. A non-interactive run with leftovers fails unless --dirty is set. Nested start and push reuse that choice. Stash on a protected branch stashes those inputs, names the stash, and stops with a workflow error. Save does not commit them. Discard there is refused.`,
+The commit consumes the index you stage with git add --interactive. That staging session is Git's, including when this command is non-interactive. --dirty does not choose those commit inputs and does not discard them. It applies only to edits left after an older-target commit, and to a nested work start or work push. carry stashes those leftovers and restores them after the autosquash. stash leaves them in the stash. discard restores modifications and deletions of committed leftovers. Without --untracked=delete it leaves staged additions, rename targets, and other non-ignored untracked files in place. --untracked=delete removes those listed new-path files permanently and keeps no backup. It does not delete the changes chosen for the commit. cancel before the fixup commit changes nothing. A refusal after the commit reports the commit and leaves it in place. A non-interactive run with leftovers fails unless --dirty is set. Nested start and push reuse that choice. Stash on a protected branch stashes those inputs, names the stash, and stops with a workflow error. Save does not commit them. Discard there is refused.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cliruntime.RunWithWorkflows(cmd, saveID, func() error {
 				return saveRun(cmd, args, spec)
@@ -79,7 +79,7 @@ func saveTargetComplete(_ context.Context) ([]argspec.Choice, error) {
 }
 
 func saveRun(cmd *cobra.Command, args []string, spec argspec.Spec) error {
-	if _, _, _, err := readDirtyFlags(cmd); err != nil {
+	if _, err := readDirtyFlags(cmd); err != nil {
 		return err
 	}
 	branch := cliruntime.CurrentBranch()
@@ -382,10 +382,11 @@ func applyFixup(cmd *cobra.Command, target string) (string, error) {
 	if before.Operation != "" || len(before.Unmerged) > 0 {
 		return "", workflowText("Conflict resolutions are not stashed or discarded. Finish or abort the current operation first.")
 	}
-	explicit, _, _, err := readDirtyFlags(cmd)
+	flags, err := readDirtyFlags(cmd)
 	if err != nil {
 		return "", err
 	}
+	explicit := flags.choice
 	choice := ""
 	if hasLeftovers(before) {
 		choice, err = chooseDirty(navRequest{cmd: cmd, ctx: cmd.Context(), verb: "work save", dest: "the autosquash"}, explicit)
@@ -395,7 +396,14 @@ func applyFixup(cmd *cobra.Command, target string) (string, error) {
 		if choice == "cancel" {
 			return "", cancelled("work save")
 		}
-		if err := refusePredictableLeftovers(choice, before); err != nil {
+		if err := refusePredictableLeftovers(cmd, choice); err != nil {
+			return "", err
+		}
+	}
+	deleteKey := ""
+	if choice == "discard" && flags.untracked == "delete" {
+		deleteKey, err = newPathKey()
+		if err != nil {
 			return "", err
 		}
 	}
@@ -406,7 +414,7 @@ func applyFixup(cmd *cobra.Command, target string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := autosquash(cmd, parent, saved, choice, explicit); err != nil {
+	if err := autosquash(cmd, parent, saved, choice, explicit, deleteKey); err != nil {
 		return "", err
 	}
 	return saved, nil
@@ -416,10 +424,18 @@ func hasLeftovers(snap state.Snapshot) bool {
 	return len(snap.Unstaged) > 0 || len(snap.Untracked) > 0
 }
 
-func refusePredictableLeftovers(choice string, snap state.Snapshot) error {
+func refusePredictableLeftovers(cmd *cobra.Command, choice string) error {
 	if choice == "discard" {
-		if len(snap.Unstaged) == 0 && len(snap.Unmerged) == 0 {
-			return workflowText(untrackedDiscardMessage)
+		flags, err := readDirtyFlags(cmd)
+		if err != nil {
+			return err
+		}
+		if flags.untracked == "delete" {
+			plan, err := leftoverPlan()
+			if err != nil {
+				return err
+			}
+			return plan.blockedDelete()
 		}
 		return nil
 	}
@@ -429,8 +445,17 @@ func refusePredictableLeftovers(choice string, snap state.Snapshot) error {
 	return refusePreserve("", true)
 }
 
-func autosquash(cmd *cobra.Command, parent, saved, choice, explicit string) error {
+func autosquash(cmd *cobra.Command, parent, saved, choice, explicit, deleteKey string) error {
 	left := fmt.Sprintf("saved %s; autosquash did not run, and that commit was left in place", saved)
+	if deleteKey != "" {
+		now, err := newPathKey()
+		if err != nil {
+			return annotate(err, left)
+		}
+		if now != deleteKey {
+			return fmt.Errorf("saved %s; leftovers changed, so nothing was deleted and no discard backup exists. Run again to preview them. That commit was left in place", saved)
+		}
+	}
 	after, err := state.ReadSnapshot()
 	if err != nil {
 		return annotate(err, left)

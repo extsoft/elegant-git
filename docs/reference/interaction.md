@@ -39,7 +39,12 @@ not a terminal — a pipe, a heredoc, a CI log — the command is always non-int
 untracked files.
 The question and `--dirty` use the same four words: `carry`, `stash`, `discard`, and
 `cancel`. The picker starts on `carry`. `--dirty` answers that question and no other one.
-`cancel` stops before files are stashed or reset. Without a terminal, omitting `--dirty`
+`cancel` stops before files are stashed or reset. `discard` restores committed-file edits.
+New-path files stay unless `--untracked=delete` is set together with `--dirty=discard`.
+Without a terminal, omitting `--untracked` keeps them. In a terminal it asks keep or
+delete only when those files exist. Delete removes the listed files permanently and keeps
+no backup. `--untracked` with any other dirty choice is a usage error before any change.
+Without a terminal, omitting `--dirty`
 fails while the tree is dirty and does nothing to it. A clean command still runs with no
 flag. `stash` then asks for a one-line name, suggested as
 `WIP on <branch> — <local date and time>`. Enter accepts it. `--stash-name` is that
