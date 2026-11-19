@@ -61,7 +61,7 @@ The commit consumes the index you stage with git add --interactive. That staging
 
 func saveSpec(target *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("target", 0, false, "How to save", target, nil, saveTargetComplete, false),
+		argspec.GitBacked(argspec.PositionalInputWithComplete("target", 0, false, "How to save", target, nil, saveTargetComplete, false)),
 	}}
 }
 

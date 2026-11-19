@@ -15,11 +15,52 @@ import (
 	"github.com/extsoft/elegant-git/internal/state"
 )
 
+func mergeTreeHelpOK(help string) bool {
+	return strings.Contains(help, "--write-tree") && strings.Contains(help, "merge-base")
+}
+
 func requireMergeTree(t *testing.T) {
 	t.Helper()
 	out, _ := exec.Command(git.Executable(), "merge-tree", "-h").CombinedOutput()
-	if !strings.Contains(string(out), "--write-tree") {
-		t.Skip("git merge-tree --write-tree requires Git 2.40 or newer")
+	if !mergeTreeHelpOK(string(out)) {
+		t.Fatalf("required Git 2.40 interface merge-tree --write-tree --merge-base is missing from %s", git.Executable())
+	}
+}
+
+func TestMergeTreeHelpRejectsWriteTreeAlone(t *testing.T) {
+	if mergeTreeHelpOK("usage: --write-tree\n") {
+		t.Fatal("--write-tree alone is not the required interface")
+	}
+	if !mergeTreeHelpOK("--write-tree\n--merge-base <commit>\n") {
+		t.Fatal("expected both options")
+	}
+	if !mergeTreeHelpOK("--write-tree\n--[no-]merge-base <tree-ish>\n") {
+		t.Fatal("expected the bracketed help form")
+	}
+}
+
+func TestMergeTreeExplicitBase(t *testing.T) {
+	r := newGitRepo(t)
+	base := r.git("rev-parse", "HEAD")
+	r.git("checkout", "-q", "-b", "left")
+	r.write("left", "L\n")
+	r.git("add", "left")
+	r.git("commit", "-q", "-m", "L")
+	left := r.git("rev-parse", "HEAD")
+	r.git("checkout", "-q", "main")
+	r.git("checkout", "-q", "-b", "right")
+	r.write("right", "R\n")
+	r.git("add", "right")
+	r.git("commit", "-q", "-m", "R")
+	right := r.git("rev-parse", "HEAD")
+	out := r.git("merge-tree", "--write-tree", "--merge-base="+base, left, right)
+	tree := strings.TrimSpace(strings.Split(out, "\n")[0])
+	if r.git("cat-file", "-t", tree) != "tree" {
+		t.Fatalf("merge-tree output %q", out)
+	}
+	files := r.git("ls-tree", "-r", "--name-only", tree)
+	if !strings.Contains(files, "left") || !strings.Contains(files, "right") {
+		t.Fatalf("tree files %q", files)
 	}
 }
 

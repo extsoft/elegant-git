@@ -161,6 +161,8 @@ func (m *MemoryRunner) simulate(args []string) (string, error) {
 		return "", nil
 	}
 	switch m.key(args) {
+	case "version":
+		return "git version " + MinVersion, nil
 	case "rev-parse --show-toplevel":
 		return "/repo", nil
 	case "rev-parse --abbrev-ref HEAD":

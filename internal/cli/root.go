@@ -252,11 +252,17 @@ func init() {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		recordDeprecatedSurface(cmd)
 		git.Use(git.RealRunner{})
-		if err := guardPendingRecovery(cmd); err != nil {
+		allowEffects, err := gitEffectsAllowed(cmd)
+		if err != nil {
 			return err
 		}
+		if allowEffects {
+			if err := guardPendingRecovery(cmd); err != nil {
+				return err
+			}
+		}
 		nested := invocationNested()
-		if !skipAuto(cmd) {
+		if allowEffects && !skipAuto(cmd) {
 			migrate.Auto()
 		}
 		if err := guardInvocationDepth(); err != nil {
@@ -281,7 +287,7 @@ func init() {
 		})
 		ctx = prompt.WithPrompter(ctx, cliruntime.PrompterForMode(mode, stdin, os.Stdout))
 		cmd.SetContext(ctx)
-		if shouldAutoConfigure(cmd, nested) {
+		if allowEffects && shouldAutoConfigure(cmd, nested) {
 			if err := selfcmd.AutoConfigure(cmd); err != nil {
 				return err
 			}
@@ -397,6 +403,40 @@ func invocationNested() bool {
 		return false
 	}
 	return d > 0
+}
+
+func gitEffectsAllowed(cmd *cobra.Command) (bool, error) {
+	if gitInformational(cmd) {
+		return false, nil
+	}
+	err := git.Check()
+	if err != nil && diagnosticDoctor(commandID(cmd)) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func diagnosticDoctor(id string) bool {
+	return id == "self.doctor" || id == "git.doctor"
+}
+
+func gitInformational(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	if flagTrue(cmd, "help") || flagTrue(cmd.Root(), "version") {
+		return true
+	}
+	for c := cmd; c != nil; c = c.Parent() {
+		switch c.Name() {
+		case "help", "version", "completion", cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+			return true
+		}
+	}
+	return false
 }
 
 func skipAuto(cmd *cobra.Command) bool {

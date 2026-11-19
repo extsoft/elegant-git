@@ -32,3 +32,9 @@ invocation without `--dirty=carry|stash|discard|cancel` fails before preparation
 no retention window and no fallback that stashes automatically. Command names, hooks,
 aliases, and existing recovery records keep their compatibility obligations. `preserve` and
 `fail` were never shipped and are rejected.
+
+DEP-022 (2026-11-17): Elegant Git drops support for Git older than 2.40.0 immediately. The old
+backup note of Git 2.13 was not a full-product contract. D4 accepts this withdrawal of older Git
+support, so there is no grace period and no compatibility fallback. Help, version, static
+completion, and read-only `eg self doctor` stay available. Existing command aliases and their
+removal dates are unchanged. Git 2.40.0 is not a security recommendation.

@@ -87,6 +87,7 @@ func TestSyncCommandValidArgsFunction(t *testing.T) {
 	m.Outputs["rev-parse --verify --quiet origin/main"] = "abc"
 	m.Outputs["for-each-ref --format=%(refname:short)\t%(upstream:short) refs/heads"] = "main"
 	m.Outputs["for-each-ref --format=%(refname:short) refs/remotes"] = "origin/main"
+	m.Outputs["version"] = "git version 2.40.0"
 	git.Use(m)
 	t.Cleanup(func() { git.Use(git.RealRunner{}) })
 

@@ -18,7 +18,7 @@ needs a choice, it opens a picker of the commands that fit and runs the one you 
 Once Elegant Git is [installed](02-00-installation.md), the first interactive `eg` command
 configures Git if it has not been configured yet. `eg self configure` does
 the same at any time. The [configuration](reference/configuration.md) page lists the logic.
-.
+If Git is missing or older than 2.40.0, the command stops before it writes configuration.
 
 ## Repository onboarding
 

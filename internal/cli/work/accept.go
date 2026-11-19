@@ -50,7 +50,7 @@ A rebase already in progress on the helper branch __eg is continued first and, w
 
 func acceptSpec(branch *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("branch", 0, true, "Branch to accept", branch, nil, sources.BranchNamesUnion, true),
+		argspec.GitBacked(argspec.PositionalInputWithComplete("branch", 0, true, "Branch to accept", branch, nil, sources.BranchNamesUnion, true)),
 	}}
 }
 

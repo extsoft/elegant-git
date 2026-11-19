@@ -8,6 +8,8 @@ permalink: /installation/install-script/
 
 # Using install script
 
+You should have [Git](02-00-installation.md#git-prerequisite) 2.40.0 or newer installed.
+
 The installer downloads the latest release for your OS and architecture, verifies its `.sha256`
 checksum, and copies the executable into the first directory that already exists and is writable —
 `~/.local/bin`, then `~/bin`, then the system ones. So, on most machines the one-liner is all you

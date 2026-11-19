@@ -8,6 +8,8 @@ permalink: /installation/go-install/
 
 # Using go install
 
+You should have [Git](02-00-installation.md#git-prerequisite) 2.40.0 or newer installed.
+
 With a Go toolchain available, you can build from source instead of downloading a release:
 
 ```bash

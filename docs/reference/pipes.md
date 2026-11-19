@@ -61,8 +61,11 @@ non-ignored untracked files, a private ref `refs/elegant-git/recovery/<id>`, and
 `<git-common-dir>/elegant-git/recovery.json`. The id in the stash subject is the identity.
 `stash@{n}` is not.
 
-Preparation needs Git 2.13 or newer on Linux, macOS, or Windows. Older Git, or another operating
-system, refuses before it stashes or writes the journal. A command-state file set with
+Preparation needs Git 2.40.0 or newer on Linux, macOS, or Windows, the same floor as every other
+Git-backed command. Older Git, a missing Git, or another operating system refuses before it
+stashes or writes the journal. A backup that is already pending is left in place. Upgrade Git,
+then run the command again. Elegant Git does not delete the stash, the private ref, or the
+journal to get past a version refusal. A command-state file set with
 `ELEGANT_GIT_CMD_STATE_FILE` must stay inside that worktree's `<git-dir>/elegant-git` directory.
 A path outside it, a symlink that leaves it, or another worktree's file is refused.
 

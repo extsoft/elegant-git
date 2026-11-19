@@ -7,6 +7,7 @@ import (
 
 	"github.com/extsoft/elegant-git/internal/cli/argspec"
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
+	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/spf13/cobra"
 )
 
@@ -25,8 +26,7 @@ func Attach(cmd *cobra.Command, spec argspec.Spec) {
 			if !ok || in.Complete == nil {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
-			choices, err := in.Complete(ctx)
-			return formatCompletion(choices, err, toComplete)
+			return completeInput(ctx, in, toComplete)
 		}
 	}
 	for _, in := range spec.Inputs {
@@ -35,13 +35,13 @@ func Attach(cmd *cobra.Command, spec argspec.Spec) {
 		}
 		flagName := in.FlagName
 		complete := in.Complete
+		gitBacked := in.GitBacked
 		_ = cmd.RegisterFlagCompletionFunc(flagName, func(c *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			ctx := c.Context()
 			if ctx == nil {
 				ctx = context.Background()
 			}
-			choices, err := complete(ctx)
-			return formatCompletion(choices, err, toComplete)
+			return completeInput(ctx, argspec.Input{GitBacked: gitBacked, Complete: complete}, toComplete)
 		})
 	}
 }
@@ -75,6 +75,19 @@ func positionalByIndex(spec argspec.Spec) map[int]argspec.Input {
 		}
 	}
 	return out
+}
+
+func completeInput(ctx context.Context, in argspec.Input, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if in.GitBacked {
+		if err := git.Check(); err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+	}
+	if in.Complete == nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	choices, err := in.Complete(ctx)
+	return formatCompletion(choices, err, toComplete)
 }
 
 func formatCompletion(choices []argspec.Choice, err error, toComplete string) ([]string, cobra.ShellCompDirective) {

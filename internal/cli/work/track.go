@@ -48,7 +48,7 @@ func newTrackCommand() *cobra.Command {
 func trackSpec() argspec.Spec {
 	var pattern string
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("name", 0, true, "Remote branch name or pattern", &pattern, nil, sources.RemoteBranches, false),
+		argspec.GitBacked(argspec.PositionalInputWithComplete("name", 0, true, "Remote branch name or pattern", &pattern, nil, sources.RemoteBranches, false)),
 	}}
 }
 

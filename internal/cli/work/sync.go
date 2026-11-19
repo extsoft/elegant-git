@@ -15,7 +15,7 @@ import (
 var syncID = cmdid.ID{Command: "work", Action: "sync"}
 
 func syncSpec(branch *string) argspec.Spec {
-	in := argspec.PositionalInputWithComplete("branch-name", 0, false, "Branch name", branch, nil, syncBranchComplete, false)
+	in := argspec.GitBacked(argspec.PositionalInputWithComplete("branch-name", 0, false, "Branch name", branch, nil, syncBranchComplete, false))
 	in.PromptOptional = true
 	return argspec.Spec{Inputs: []argspec.Input{in}}
 }

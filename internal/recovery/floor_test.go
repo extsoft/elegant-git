@@ -1,25 +1,47 @@
 package recovery
 
-import "testing"
+import (
+	"strings"
+	"testing"
 
-func TestParseGitVersionAcceptsBuildLabel(t *testing.T) {
-	got, err := ParseGitVersion("git version 2.54.0 (Apple Git-157)")
-	if err != nil {
-		t.Fatal(err)
+	"github.com/extsoft/elegant-git/internal/git"
+)
+
+func TestCheckFloorUsesSharedPolicy(t *testing.T) {
+	m := git.NewMemoryRunner()
+	git.Use(m)
+	t.Cleanup(func() { git.Use(git.RealRunner{}) })
+
+	m.Outputs["version"] = "git version 2.39.0"
+	if err := CheckFloor(); err == nil || !strings.Contains(err.Error(), MinGitVersion) {
+		t.Fatalf("below floor: %v", err)
 	}
-	if got.major != 2 || got.minor != 54 || got.patch != 0 {
-		t.Fatalf("%+v", got)
+	m.Outputs["version"] = "git version 2.13.0"
+	if err := CheckFloor(); err == nil {
+		t.Fatal("2.13 is not the product floor")
+	}
+	m.Outputs["version"] = "git version 2.40.0-rc1"
+	if err := CheckFloor(); err == nil || !strings.Contains(err.Error(), "not a stable release") {
+		t.Fatalf("prerelease: %v", err)
+	}
+	for _, ver := range []string{
+		"git version 2.40.0",
+		"git version 2.54.0 (Apple Git-157)",
+		"git version 2.40.0.windows.1",
+		"git version 3.1.0",
+	} {
+		m.Outputs["version"] = ver
+		if err := CheckFloor(); err != nil {
+			t.Fatalf("%s: %v", ver, err)
+		}
+	}
+	delete(m.Outputs, "version")
+	m.FailOn["version"] = errString("missing")
+	if err := CheckFloor(); err == nil || !strings.Contains(err.Error(), "git version failed") {
+		t.Fatalf("missing: %v", err)
 	}
 }
 
-func TestVersionFloorRejectsGit212(t *testing.T) {
-	if err := versionAtLeast("git version 2.12.9", MinGitVersion); err == nil {
-		t.Fatal("expected refusal")
-	}
-}
+type errString string
 
-func TestVersionFloorAccepts213(t *testing.T) {
-	if err := versionAtLeast("git version 2.13.0", MinGitVersion); err != nil {
-		t.Fatal(err)
-	}
-}
+func (e errString) Error() string { return string(e) }

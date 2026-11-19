@@ -8,6 +8,8 @@ permalink: /installation/homebrew/
 
 # Using Homebrew
 
+You should have [Git](02-00-installation.md#git-prerequisite) 2.40.0 or newer installed.
+
 On macOS or Linux with [Homebrew](https://brew.sh/):
 
 ```bash

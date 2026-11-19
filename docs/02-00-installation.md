@@ -12,6 +12,11 @@ permalink: /installation/
 Pick one way to install Elegant Git so the `eg` command is on your `PATH`, then continue with
 [getting started](03-getting-started.md).
 
+## Git prerequisite
+
+Git-backed commands need Git 2.40.0 or newer. `eg` automatically checs version and stop when
+version is incompatible.
+
 ## Using install script
 
 ```bash

@@ -42,7 +42,7 @@ When there are uncommitted changes, choose carry, stash, discard, or cancel. car
 func startSpec(name, fromRef *string) argspec.Spec {
 	return argspec.Spec{Inputs: []argspec.Input{
 		argspec.PositionalInput("name", 0, true, "Branch name", name, nil),
-		argspec.PositionalInputWithComplete("from-ref", 1, false, "Start from ref", fromRef, config.DefaultBranch, sources.Refs, true),
+		argspec.GitBacked(argspec.PositionalInputWithComplete("from-ref", 1, false, "Start from ref", fromRef, config.DefaultBranch, sources.Refs, true)),
 	}}
 }
 

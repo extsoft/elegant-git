@@ -5,6 +5,7 @@ import (
 
 	cliruntime "github.com/extsoft/elegant-git/internal/cli/runtime"
 	"github.com/extsoft/elegant-git/internal/doctor"
+	"github.com/extsoft/elegant-git/internal/git"
 	"github.com/extsoft/elegant-git/internal/prompt"
 	"github.com/extsoft/elegant-git/internal/text"
 	"github.com/spf13/cobra"
@@ -14,7 +15,7 @@ func newDoctorCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose and repair your Git installation",
-		Long:  "Checks the Git installation and offers repairs. Interactive mode confirms each repair; non-interactive mode only reports.",
+		Long:  "Checks the Git installation and offers repairs when Git is supported. When Git is missing or older than the supported version, prints that and does not repair anything. Interactive mode confirms each repair; non-interactive mode only reports.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return doctorRun(cmd)
 		},
@@ -25,6 +26,10 @@ func newDoctorCommand() *cobra.Command {
 
 func doctorRun(cmd *cobra.Command) error {
 	w := cmd.OutOrStdout()
+	if err := git.Check(); err != nil {
+		fmt.Fprintln(w, err.Error())
+		return cliruntime.ExitStatus{Code: 1}
+	}
 	p := prompt.FromContext(cmd.Context())
 	findings := doctor.GitInstall()
 	if len(findings) == 0 {

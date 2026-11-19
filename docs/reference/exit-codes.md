@@ -14,7 +14,7 @@ and raises them as
 | Code | Meaning |
 | --- | --- |
 | `0` | A successful execution. |
-| `1` | Any other failure, including a required argument left unset. |
+| `1` | Any other failure, including a required argument left unset or a Git older than 2.40.0. |
 | `42` | A protected branch constraint. |
 | `43` | A workflow error. |
 | `46` | An unknown command. |

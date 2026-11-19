@@ -362,6 +362,7 @@ func TestSwitchM21CompletionNoFetch(t *testing.T) {
 	m.Outputs["for-each-ref --format=%(refname:short)\t%(upstream:short) refs/heads"] = "feat\torigin/feat\nmain\torigin/main"
 	m.Outputs["for-each-ref --format=%(refname:short) refs/remotes"] = "origin/main\norigin/HEAD"
 	m.Outputs["for-each-ref --format=%(refname:short) refs/tags"] = "v1"
+	m.Outputs["version"] = "git version 2.40.0"
 	git.Use(m)
 	t.Cleanup(func() { git.Use(git.RealRunner{}) })
 

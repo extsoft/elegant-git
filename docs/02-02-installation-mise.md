@@ -8,6 +8,8 @@ permalink: /installation/mise/
 
 # Using mise
 
+You should have [Git](02-00-installation.md#git-prerequisite) 2.40.0 or newer installed.
+
 If you already manage your tools with [mise](https://mise.jdx.dev/), let it own the installation
 and the updates:
 

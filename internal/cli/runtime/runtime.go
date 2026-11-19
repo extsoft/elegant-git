@@ -39,6 +39,9 @@ func Bind(parent, sub *cobra.Command) {
 
 // RunBound copies the parent's context and output streams onto sub, then runs sub.
 func RunBound(parent, sub *cobra.Command, args []string) error {
+	if err := git.Check(); err != nil {
+		return err
+	}
 	Bind(parent, sub)
 	if sub.RunE != nil {
 		return sub.RunE(sub, args)

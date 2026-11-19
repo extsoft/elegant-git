@@ -49,7 +49,7 @@ When there are uncommitted changes, choose carry, stash, discard, or cancel. car
 func switchSpec() argspec.Spec {
 	var ref, local string
 	return argspec.Spec{Inputs: []argspec.Input{
-		argspec.PositionalInputWithComplete("ref", 0, true, "Branch, remote branch, tag, or revision", &ref, nil, sources.RefsListed, false),
+		argspec.GitBacked(argspec.PositionalInputWithComplete("ref", 0, true, "Branch, remote branch, tag, or revision", &ref, nil, sources.RefsListed, false)),
 		argspec.PositionalInput("local-branch", 1, false, "Local branch name", &local, nil),
 	}}
 }

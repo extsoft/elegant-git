@@ -18,6 +18,16 @@ eg self doctor
 
 There are no arguments.
 
+## When Git is missing or too old
+
+If Git is not on `PATH`, or it is older than 2.40.0, or `git version` cannot be read, the command
+prints the required version, what it found, and the executable it selected. It tells you to put a
+maintained Git first on `PATH`. It exits with status 1. It does not offer a repair, and it does
+not print unrelated findings. Git 2.40.0 is the oldest version that can run Git-backed commands.
+It is not a security recommendation.
+
+With a supported Git, diagnosis continues as below.
+
 ## What it looks for
 
 Every finding is printed as a problem and a proposed repair.

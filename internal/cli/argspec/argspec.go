@@ -48,6 +48,8 @@ type Input struct {
 	OmitInteractive bool
 	// PromptOptional asks for this optional positional in interactive mode even when the spec has no required positionals.
 	PromptOptional bool
+	// GitBacked means Complete reads Git and must not run when Git is unsupported.
+	GitBacked bool
 }
 
 // Spec is the full argument specification for a command.
@@ -318,6 +320,12 @@ func PositionalInputWithComplete(name string, index int, required bool, label st
 	in := PositionalInput(name, index, required, label, ptr, suggest)
 	in.Complete = complete
 	in.ValidateCLI = validateCLI
+	return in
+}
+
+// GitBacked marks a completion source that reads Git.
+func GitBacked(in Input) Input {
+	in.GitBacked = true
 	return in
 }
 
